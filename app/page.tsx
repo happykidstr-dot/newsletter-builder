@@ -1848,15 +1848,10 @@ ${text}`;
 
           <div style={{width:1,height:24,background:'#e2e8f0',margin:'0 4px'}}/>
           
-          {isSignedIn ? (
-            <UserButton appearance={{ elements: { userButtonAvatarBox: { width: 36, height: 36 } } }} />
-          ) : (
-            <SignInButton mode="modal">
-              <button style={{padding:'8px 16px',borderRadius:8,border:'none',background:'#0f172a',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',transition:'background .2s'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='#1e293b'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background='#0f172a'}>
-                Giriş Yap
-              </button>
-            </SignInButton>
-          )}
+          {/* Auth button — Clerk keys required for full login functionality */}
+          <button style={{padding:'8px 16px',borderRadius:8,border:'1px solid #e2e8f0',background:'#fff',color:'#475569',fontWeight:700,fontSize:13,cursor:'default',opacity:0.6}} title="Giriş yapmak için Clerk API anahtarları gerekli">
+            👤 Hesap
+          </button>
         </div>
       </div>
 
