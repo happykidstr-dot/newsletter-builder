@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,18 +23,20 @@ export async function GET(req: NextRequest) {
 
     if (campaignId && encodedEmail) {
       const email = Buffer.from(encodedEmail, 'base64').toString('ascii');
-      
-      // Log to database asynchronously without blocking the redirect
-      supabase.from('campaign_analytics').insert({
-        id: Math.random().toString(36).slice(2, 11),
-        campaign_id: campaignId,
-        event_type: 'click',
-        email: email,
-        url: targetUrl,
-        created_at: new Date().toISOString()
-      }).then(({ error }) => {
-        if (error) console.error('Click tracking insert error:', error);
-      });
+      const supabase = getSupabase();
+      if (supabase) {
+        // Log to database asynchronously without blocking the redirect
+        supabase.from('campaign_analytics').insert({
+          id: Math.random().toString(36).slice(2, 11),
+          campaign_id: campaignId,
+          event_type: 'click',
+          email: email,
+          url: targetUrl,
+          created_at: new Date().toISOString()
+        }).then(({ error }) => {
+          if (error) console.error('Click tracking insert error:', error);
+        });
+      }
     }
 
     // Redirect the user to the actual destination URL

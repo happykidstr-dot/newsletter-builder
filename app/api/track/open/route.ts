@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 // 1x1 transparent GIF pixel
 const PIXEL = Buffer.from(
@@ -19,17 +22,19 @@ export async function GET(req: NextRequest) {
 
     if (campaignId && encodedEmail) {
       const email = Buffer.from(encodedEmail, 'base64').toString('ascii');
-      
-      // Log to database asynchronously without blocking the response
-      supabase.from('campaign_analytics').insert({
-        id: Math.random().toString(36).slice(2, 11),
-        campaign_id: campaignId,
-        event_type: 'open',
-        email: email,
-        created_at: new Date().toISOString()
-      }).then(({ error }) => {
-        if (error) console.error('Tracking insert error:', error);
-      });
+      const supabase = getSupabase();
+      if (supabase) {
+        // Log to database asynchronously without blocking the response
+        supabase.from('campaign_analytics').insert({
+          id: Math.random().toString(36).slice(2, 11),
+          campaign_id: campaignId,
+          event_type: 'open',
+          email: email,
+          created_at: new Date().toISOString()
+        }).then(({ error }) => {
+          if (error) console.error('Tracking insert error:', error);
+        });
+      }
     }
 
     // Always return the 1x1 pixel with correct headers to prevent caching
