@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useCallback } from 'react';
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
+import { useAuth, SignInButton, UserButton } from '@clerk/nextjs';
 import dynamic from 'next/dynamic';
 import { useAccessibility } from '@/hooks/useAccessibility';
 import { AccessibilityToolbar } from '@/components/AccessibilityToolbar';
@@ -1754,6 +1754,7 @@ ${text}`;
 
   // ── Styles ──
   const panelHdr: React.CSSProperties = { fontSize:10,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',color:'#9ca3af',padding:'12px 14px 8px',borderBottom:'1px solid #e5e7eb',background:'#f9fafb' };
+  const { isSignedIn } = useAuth();
 
   return (
     <>
@@ -1844,16 +1845,15 @@ ${text}`;
 
           <div style={{width:1,height:24,background:'#e2e8f0',margin:'0 4px'}}/>
           
-          <SignedIn>
+          {isSignedIn ? (
             <UserButton appearance={{ elements: { userButtonAvatarBox: { width: 36, height: 36 } } }} />
-          </SignedIn>
-          <SignedOut>
+          ) : (
             <SignInButton mode="modal">
               <button style={{padding:'8px 16px',borderRadius:8,border:'none',background:'#0f172a',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',transition:'background .2s'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='#1e293b'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background='#0f172a'}>
                 Giriş Yap
               </button>
             </SignInButton>
-          </SignedOut>
+          )}
         </div>
       </div>
 
