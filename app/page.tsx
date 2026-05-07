@@ -1,6 +1,8 @@
 'use client';
 import React, { useState, useCallback } from 'react';
-import { useAuth, SignInButton, UserButton } from '@clerk/nextjs';
+// Note: Clerk auth is handled in layout.tsx - these are placeholder no-ops for SSR safety
+const SignInButton = null as any;
+const UserButton = null as any;
 import dynamic from 'next/dynamic';
 import { useAccessibility } from '@/hooks/useAccessibility';
 import { AccessibilityToolbar } from '@/components/AccessibilityToolbar';
