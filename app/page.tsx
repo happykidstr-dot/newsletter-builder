@@ -1756,7 +1756,8 @@ ${text}`;
 
   // ── Styles ──
   const panelHdr: React.CSSProperties = { fontSize:10,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',color:'#9ca3af',padding:'12px 14px 8px',borderBottom:'1px solid #e5e7eb',background:'#f9fafb' };
-  const { isSignedIn } = useAuth();
+  // Auth state: set to false when Clerk is not configured (no NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)
+  const isSignedIn = false;
 
   return (
     <>
