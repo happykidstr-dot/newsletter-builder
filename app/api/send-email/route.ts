@@ -44,12 +44,12 @@ export async function POST(req: NextRequest) {
       
       // 1. Replace all links with our click tracking endpoint
       // We use a regex to find <a href="..."> and replace the href
-      personalizedHtml = personalizedHtml.replace(/<a([^>]+)href="([^"]+)"([^>]*)>/gi, (match, before, url, after) => {
+      personalizedHtml = personalizedHtml.replace(/(<a[^>]+)href="([^"]+)"([^>]*>)/gi, (match: string, before: string, url: string, after: string) => {
         // Skip mailto: or anchor links
         if (url.startsWith('mailto:') || url.startsWith('#')) return match;
         const encodedUrl = encodeURIComponent(url);
         const trackUrl = `${appUrl}/api/track/click?c=${campaignId}&e=${trackingId}&u=${encodedUrl}`;
-        return `<a${before}href="${trackUrl}"${after}>`;
+        return `${before}href="${trackUrl}"${after}`;
       });
 
       // 2. Append a 1x1 invisible tracking pixel at the end of the body
