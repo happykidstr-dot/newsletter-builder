@@ -1,0 +1,58 @@
+{
+  "title": "Yerel Fotoğraf Entegrasyonu Testi",
+  "subtitle": "Klasördeki Resimleri Doğrudan Çeken Bülten",
+  "design": "modern",
+  "headerImgUrl": "bulten_resimler/kapak.jpg",
+  "blocks": [
+    {
+      "id": "b1",
+      "type": "title",
+      "data": {
+        "text": "Sihirli Yerel Klasör Entegrasyonumuz Başladı!",
+        "size": "h1"
+      }
+    },
+    {
+      "id": "b2",
+      "type": "paragraph",
+      "data": {
+        "text": "Siz istediniz, biz yaptık. Masaüstünüzde 'bulten_resimler' adında bir klasör oluşturduk ve içine rastgele 3 tane fotoğraf attık. \n\nNotebookLM'den gelen bu JSON kodu, internet linkleri yerine SADECE kendi bilgisayarınızdaki fotoğrafların isimlerine sahip."
+      }
+    },
+    {
+      "id": "b3",
+      "type": "textphoto",
+      "data": {
+        "text": "Sağ tarafta gördüğünüz fotoğraf, internetten değil doğrudan 'bulten_resimler/icerik1.jpg' dosyasından arka planda Base64'e çevrilerek anında buraya gömüldü.",
+        "url": "bulten_resimler/icerik1.jpg",
+        "imagePos": "right"
+      }
+    },
+    {
+      "id": "b4",
+      "type": "separator",
+      "data": {
+        "style": "dashed"
+      }
+    },
+    {
+      "id": "b5",
+      "type": "author",
+      "data": {
+        "name": "Project Factory Asistanı",
+        "title": "Otomasyon Uzmanı",
+        "bio": "Gördüğünüz bu profil resmim de lokal klasördeki 'avatar.jpg' dosyasından geliyor. Fişsiz ve internetsiz bile gürül gürül çalışıyor!",
+        "avatar": "bulten_resimler/avatar.jpg"
+      }
+    },
+    {
+      "id": "b6",
+      "type": "button",
+      "data": {
+        "text": "Daha Fazla Oku",
+        "url": "#",
+        "align": "center"
+      }
+    }
+  ]
+}

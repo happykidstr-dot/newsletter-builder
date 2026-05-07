@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+.next/
+out/
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# debug
+npm-debug.log*
+
+# misc
+.DS_Store
+*.tsbuildinfo
+
+# data
+data/notebook-payload.json
+
+# Local Netlify folder
+.netlify

@@ -1,0 +1,87 @@
+{
+  "title": "ALİ BEY İÇİN KİŞİSEL BÜLTEN (TÜM GÖRSELLER V2)",
+  "subtitle": "Klasördeki Her Şeyi Koda Döktük",
+  "design": "modern",
+  "headerImgUrl": "bulten_resimler/kapak.jpg",
+  "blocks": [
+    {
+      "id": "foto1",
+      "type": "title",
+      "data": {
+        "text": "Klasörünüzdeki Tüm Dosyalar İçeride!",
+        "size": "h1"
+      }
+    },
+    {
+      "id": "foto2",
+      "type": "paragraph",
+      "data": {
+        "text": "Klasörünüze yeni eklediğiniz 'yeni5.png' (grafikli olan) dâhil, toplamdaki sekiz farklı görseli de bültene dizen JSON dosyasını yeniden derledim."
+      }
+    },
+    {
+      "id": "foto3",
+      "type": "textphoto",
+      "data": {
+        "text": "Toplantı masası (icerik1.jpg) görseliniz. Gördüğünüz gibi metin bloklarıyla harika bir uyum içinde çalışıyor.",
+        "url": "bulten_resimler/icerik1.jpg",
+        "imagePos": "left"
+      }
+    },
+    {
+      "id": "foto4",
+      "type": "photogrid",
+      "data": {
+        "cols": "3",
+        "url1": "bulten_resimler/yeni1.jpg",
+        "cap1": "Yeni Resim 1",
+        "url2": "bulten_resimler/yeni2.jpg",
+        "cap2": "Yeni Resim 2",
+        "url3": "bulten_resimler/yeni3.jpg",
+        "cap3": "Yeni Resim 3"
+      }
+    },
+    {
+      "id": "foto5",
+      "type": "separator",
+      "data": {
+        "style": "dashed"
+      }
+    },
+    {
+      "id": "foto6",
+      "type": "textphoto",
+      "data": {
+        "text": "Bu da klasördeki dördüncü eklentiniz (yeni4.jpg). Market vb. detaylarını içeren yüksek çözünürlüklü görsel.",
+        "url": "bulten_resimler/yeni4.jpg",
+        "imagePos": "right"
+      }
+    },
+    {
+      "id": "foto7",
+      "type": "title",
+      "data": {
+        "text": "Özel Poster / İnfografik Eklentiniz",
+        "size": "h2"
+      }
+    },
+    {
+      "id": "foto8",
+      "type": "photos",
+      "data": {
+        "url": "bulten_resimler/yeni5.png",
+        "caption": "Kendi eklediğiniz özel infografik posteriniz (yeni5.png). (.png formatı da başarıyla base64'e dönüştü!)"
+      }
+    },
+    {
+      "id": "foto9",
+      "type": "author",
+      "data": {
+        "name": "Ali Bey",
+        "title": "Proje ve Bülten Sorumlusu",
+        "bio": "Bu resim de sizin eklediğiniz 'avatar.jpg' dosyasından otomatik çekiliyor.",
+        "avatar": "bulten_resimler/avatar.jpg"
+      }
+    }
+  ]
+}

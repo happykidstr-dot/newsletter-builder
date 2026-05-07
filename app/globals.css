@@ -1,0 +1,119 @@
+/* ── Global Styles for Newsletter Builder ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Accessibility styles ── */
+.a11y-skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  z-index: 99999;
+  background: #f59e0b;
+  color: #000;
+  padding: 10px 20px;
+  border-radius: 0 0 8px 8px;
+  font-weight: 800;
+  font-size: 14px;
+  text-decoration: none;
+  transition: top 0.2s;
+}
+.a11y-skip-link:focus {
+  top: 0;
+}
+
+.a11y-panel-scroll {
+  max-height: 420px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245,158,11,0.3) transparent;
+}
+.a11y-panel-scroll::-webkit-scrollbar { width: 5px; }
+.a11y-panel-scroll::-webkit-scrollbar-track { background: transparent; }
+.a11y-panel-scroll::-webkit-scrollbar-thumb { background: rgba(245,158,11,0.3); border-radius: 4px; }
+
+.reading-guide-line {
+  position: fixed;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: rgba(245, 158, 11, 0.6);
+  pointer-events: none;
+  z-index: 99995;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+}
+
+.theme-sepia-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(112, 66, 20, 0.06);
+  pointer-events: none;
+  z-index: 99990;
+}
+.theme-bluelight-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 180, 0, 0.08);
+  pointer-events: none;
+  z-index: 99990;
+}
+
+.a11y-shortcuts-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 99997;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.a11y-shortcuts-panel {
+  background: #1e1b4b;
+  border: 2px solid rgba(167, 139, 250, 0.4);
+  border-radius: 16px;
+  padding: 24px;
+  width: 380px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+}
+.a11y-shortcut-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.a11y-shortcut-key {
+  background: rgba(167, 139, 250, 0.15);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  color: #c4b5fd;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+/* ── Scrollbar styling ── */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }
+
+/* ── Print styles ── */
+@media print {
+  body { background: #fff !important; }
+  .wk-a11y-fab { display: none !important; }
+}
