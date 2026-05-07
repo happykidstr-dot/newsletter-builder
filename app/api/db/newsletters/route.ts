@@ -6,9 +6,9 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Lütfen giriş yapın.' }, { status: 401 });
-    if (!supabaseUrl) return NextResponse.json([], { status: 200 }); // Return empty if not configured
+    if (!supabaseUrl) return NextResponse.json([], { status: 200 });
 
     const response = await fetch(`${supabaseUrl}/rest/v1/newsletters?user_id=eq.${userId}&order=created_at.desc`, {
       headers: {
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Lütfen giriş yapın.' }, { status: 401 });
     if (!supabaseUrl) return NextResponse.json({ error: 'Supabase URL yapılandırılmadı.' }, { status: 500 });
 
@@ -45,7 +45,6 @@ export async function POST(req: NextRequest) {
       created_at: new Date().toISOString()
     };
 
-    // Upsert using REST API
     const response = await fetch(`${supabaseUrl}/rest/v1/newsletters`, {
       method: 'POST',
       headers: {
@@ -66,7 +65,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Lütfen giriş yapın.' }, { status: 401 });
     if (!supabaseUrl) return NextResponse.json({ error: 'Supabase URL yapılandırılmadı.' }, { status: 500 });
 
