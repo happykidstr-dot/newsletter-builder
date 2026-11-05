@@ -31,7 +31,7 @@ test('published links are unique per newsletter snapshot',()=>{
 });
 test('published HTML is sanitized and sandboxed',()=>{
   assert.equal(pkg.dependencies['@netlify/blobs'],'11.1.7');
-  assert.equal(pkg.dependencies['sanitize-html'],'2.17.7');
+  assert.equal(pkg.dependencies['sanitize-html'],'2.18.1');
   assert.match(render,/sanitizeHtml\(withoutShare/);
   assert.match(render,/disallowedTagsMode:'discard'/);
   assert.match(render,/sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox/);
