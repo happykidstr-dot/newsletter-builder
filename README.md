@@ -128,3 +128,16 @@ Editörün üst bölümünde **Düzenle**, **Yayınla / Güncelle** ve **Paylaş
 Yayımlanmış okuyucu sayfasındaki **Düzenle / Edit** bağlantısı da editöre döner. Güvenlik nedeniyle herkes bağlantıyı görebilir ancak yalnızca orijinal yayınlama anahtarı bu tarayıcıda kayıtlı olan kullanıcı **aynı yayını güncelleyebilir**. Edit anahtarı sosyal medya bağlantısında ya da herkese açık sayfada bulunmaz. Farklı tarayıcı veya cihazda giriş yapıldığında bu yerel anahtar otomatik taşınmaz.
 
 **Veri korunması:** Kayıtlı bültenler bu tarayıcının yerel depolama alanında saklanır. Bulut bülten kaydı yapılandırılmışsa bunlar listeye ayrıca eklenebilir, fakat gizli edit anahtarı buluta yüklenmez. Tarayıcı verileri silinirse yalnızca yerel saklanan kayıtlar ve düzenleme anahtarı kaybolabilir. Eski sistemde düzenleme anahtarı olmadan yayımlanmış bültenler güvenli olarak aynı URL'de değiştirilemez; bunları tekrar yayımlamak yeni bir bağlantı oluşturur.
+
+
+## 📸 Büyük bültenleri sosyal medyada paylaşma
+
+**Paylaş** ve **Yayınla** düğmeleri bültenin bağlantısını paylaşır; yüzlerce fotoğrafın bulunduğu bülteni bir sosyal medya gönderisine dosya olarak yüklemek gerekmez.
+
+- PNG/JPEG/WebP/GIF biçimindeki gömülü fotoğraflar, yalnızca **yayınlanan kopya için**, gerekiyorsa yüksek kaliteli WebP biçiminde küçültülür ve ayrı bir Netlify Blobs medya deposuna yüklenir.
+- Her fotoğraf kendi `/media/<id>` adresinden görüntülenir. Bültenin `/b/<id>` HTML sayfası yalnızca bağlantıları içerir; fotoğrafların toplam boyutu artık tek yayınlama isteğine eklenmez.
+- **Görseller yükleniyor (n/N)** ilerleme göstergesi vardır. Fotoğrafların indirilmesini tarayıcı yönetir. Düzenlediğiniz özgün görsellerin boyutları ve içeriği değiştirilmez.
+- Aynı fotoğrafı yeniden yayınladığınızda tarayıcı daha önce yüklenen medya URL'sini yeniden kullanabilir; yayınlanmış kopyanın düzenlenebilir kaydı küçük medya URL'leriyle saklanır.
+- İndirme/yazdırma işlemleri bundan bağımsızdır ve OpenAI token tüketilmez.
+
+**Teknik sınırlar:** Sosyal medya platformları kısa bülten bağlantısını paylaşır; buna ilişkin bir bülten dosyası boyut limiti yoktur. Ancak Netlify Functions'ın istek boyutu, tek fotoğraf yüklemeleri için yaklaşık 2,5 MB'lik aktarım sınırı ve kötüye kullanımı önlemek için yükleme kotası bulunur. Büyük fotoğraflar tarayıcıda otomatik olarak uygun aktarım boyutuna küçültülür. Desteklenmeyen görsel dosyaları veya sistem kapasitesini aşan yayınlar sınırsız garanti edilmez.
