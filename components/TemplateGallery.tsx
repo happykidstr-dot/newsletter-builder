@@ -145,7 +145,7 @@ export function TemplateGallery({ open, onClose, onApplyDesign, onCreateFromTemp
 
   return <div className={styles.backdrop} onMouseDown={e => {if(e.target === e.currentTarget) onClose();}}>
     <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="template-gallery-heading"
-      aria-describedby="template-gallery-summary" onKeyDown={handleKeyDown} className={styles.modal}>
+      aria-describedby="template-gallery-summary" onKeyDown={handleKeyDown} className={styles.modal} data-testid="template-gallery-modal">
       <div className={styles.modalHeader}>
         <div className={styles.headerText}>
           <span className={styles.eyebrow}>PROJECT FACTORY / DESIGN STUDIO</span>
@@ -167,8 +167,8 @@ export function TemplateGallery({ open, onClose, onApplyDesign, onCreateFromTemp
           </label>
         </div>
         <div className={styles.galleryScroll}>
-          {matches.length ? <div className={styles.galleryGrid}>
-            {matches.map(template=><button key={template.id} type="button" className={styles.card}
+          {matches.length ? <div className={styles.galleryGrid} data-testid="template-gallery-grid">
+            {matches.map(template=><button key={template.id} type="button" className={styles.card} data-testid="template-gallery-card"
               onClick={() => {setSelected(template);setDevice('desktop');}}>
               <div className={styles.cardCanvas}><DocumentPreview template={template} compact /></div>
               <div className={styles.cardFooter}>
@@ -190,7 +190,7 @@ export function TemplateGallery({ open, onClose, onApplyDesign, onCreateFromTemp
           </div>
         </div>
         <div className={styles.previewLayout}>
-          <div className={styles.previewStage}><DocumentPreview template={selected} device={device}/></div>
+          <div className={styles.previewStage} data-testid="template-gallery-preview"><DocumentPreview template={selected} device={device}/></div>
           <aside className={styles.previewDetails}>
             <span className={styles.detailCategory}>{selected.category}</span>
             <h3>{selected.title}</h3>
