@@ -2031,7 +2031,7 @@ ${text}`;
       </div>
     )}
 
-    {/* Sharing this newsletter—not a manually entered URL */}
+    {/* ── Share Modal ── */}
     {showShareModal && (
       <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.65)',zIndex:9999,display:'grid',placeItems:'center',padding:16}}
            onMouseDown={e=>{if(e.target===e.currentTarget)setShowShareModal(false);}}>
