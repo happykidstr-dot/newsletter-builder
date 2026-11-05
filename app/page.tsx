@@ -1091,15 +1091,20 @@ export default function BultenReadPage() {
   // This runs only once per page load.
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
-    // Never overwrite a previously edited local draft during automatic Notebook sync.
-    if (window.localStorage.getItem(DRAFT_KEY)) return;
+    // New incoming Notebook payloads must be confirmed before replacing a saved local draft.
     fetch('/api/notebook-sync')
       .then(r => {
         if (!r.ok) throw new Error('No notebook payload');
         return r.json();
       })
       .then(data => {
-        // Apply payload fields if they exist.
+        if (!data || !Array.isArray(data.blocks)) return;
+        const syncId = String(data._syncUpdatedAt || '');
+        const lastSeen = window.localStorage.getItem('bulten_last_notebook_sync');
+        if (syncId && lastSeen === syncId) return;
+        if (syncId) window.localStorage.setItem('bulten_last_notebook_sync',syncId);
+        if (window.localStorage.getItem(DRAFT_KEY) &&
+            !window.confirm('Yeni bir NotebookLM bülteni geldi. Mevcut yerel taslağınızın üzerine yazılsın mı? Önce HTML olarak dışa aktarabilirsiniz.')) return;
         if (data.title) setTitle(data.title);
         if (data.subtitle) setSubtitle(data.subtitle);
         if (data.design) setDesign(data.design);
@@ -1215,8 +1220,8 @@ export default function BultenReadPage() {
           maxTokens: 2000
         })
       });
-      if(!res.ok) return;
-      const data = await res.json();
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.error||'Çeviri servisi kullanılamıyor.');
       try {
         const translated: {id:string; fields:Record<string,string>}[] = JSON.parse(data.result.replace(/```json|```/g,'').trim());
         
@@ -1232,8 +1237,11 @@ export default function BultenReadPage() {
           return { ...b, data: { ...b.data, ...tr.fields } };
         }));
       } catch(e){
-        console.error('Translation JSON parse error:', e, data.result);
+        console.error('Translation JSON parse error:', e);
+        throw new Error('Çeviri yanıtı beklenen biçimde değil; mevcut içerik korundu.');
       }
+    } catch(e:any) {
+      alert(e?.message||'Çeviri tamamlanamadı; orijinal bülten içeriği korunur.');
     } finally { setTranslating(false); }
   }, [blocks, title, subtitle]);
 
@@ -1260,8 +1268,10 @@ export default function BultenReadPage() {
       if (!response.ok || !body.success) throw new Error(body.error||'Bülten kaydedilemedi.');
       setSavedList(prev=>[body.newsletter||entry,...prev].slice(0,200));
       setSaveSuccess(true); setTimeout(()=>setSaveSuccess(false),2000);
+      return true;
     } catch(e:any) {
       alert((e?.message||'Kaydetme başarısız.')+' Yerel otomatik taslağınız korunur.');
+      return false;
     }
   };
 
@@ -1413,6 +1423,8 @@ export default function BultenReadPage() {
       const parseRes = await fetch('/api/parse-file', { method: 'POST', body: fd });
       if (!parseRes.ok) throw new Error('Dosya okunamadı. Lütfen desteklenen bir format (PDF, DOCX, TXT) yükleyin.');
       const { text } = await parseRes.json();
+      if(typeof text!=='string'||!text.trim())throw new Error('Belgede okunabilir metin bulunamadı.');
+      if(text.length>7500)alert('Belge uzun olduğundan ilk 7500 karakteri AI bülteni için kullanılacak.');
       
       // 2. Generate Newsletter JSON via AI
       const prompt = `Aşağıdaki belge metninden profesyonel, ilgi çekici ve zengin içerikli bir e-bülten tasarla. 
@@ -1434,13 +1446,14 @@ Geçerli blok tipleri: title, paragraph, photos, textphoto, photogrid, author, f
 Önemli Notlar: Metnin içeriğine göre en uygun blokları (özellikle görsel ve etkileşimli blokları) gerçekçi placeholder Unsplash resimleriyle hayal et. Hedef kitleye (paydaşlar, ortaklar) seslenen profesyonel bir dil kullan. Yalnızca JSON objesini yaz, başında veya sonunda markdown karakterleri kullanma.
 
 BELGE METNİ:
-${text}`;
+${text.slice(0,7500)}`;
 
       const aiRes = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
       });
       const data = await aiRes.json();
+      if(!aiRes.ok)throw new Error(data.error||'AI belge üretimi başarısız.');
       let rawJson = data.reply || '';
       rawJson = rawJson.replace(/```json\n?/g, '').replace(/```/g, '').trim();
       const generated = JSON.parse(rawJson);
@@ -1892,7 +1905,7 @@ ${text}`;
               style={{background:'transparent',border:'none',color:'#0ea5e9',fontSize:13,fontWeight:800,cursor:'pointer',padding:'6px 14px',borderRadius:6,transition:'all .2s'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#e0f2fe'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='transparent'}}>
               📂 Aç
             </button>
-            <button onClick={()=>{ handleSave(); setBlocks([]); setTitle('Yeni Bülten'); setSubtitle('#1  •  ' + new Date().toLocaleDateString('tr-TR')); setHeaderImgUrl(''); setLogoUrl(''); }} title="Yeni boş bülten aç"
+            <button onClick={async()=>{ if(blocks.length && !(await handleSave())) return; setBlocks([]); setSelectedId(null); setTitle('Yeni Bülten'); setSubtitle('#1  •  ' + new Date().toLocaleDateString('tr-TR')); setHeaderImgUrl(''); setLogoUrl(''); }} title="Yeni boş bülten aç"
               style={{background:'transparent',border:'none',color:'#10b981',fontSize:13,fontWeight:800,cursor:'pointer',padding:'6px 14px',borderRadius:6,transition:'all .2s'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#d1fae5'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='transparent'}}>
               ✨ Yeni
             </button>
