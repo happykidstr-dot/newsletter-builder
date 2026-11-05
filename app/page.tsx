@@ -646,7 +646,7 @@ export default function BultenReadPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleUndo, handleRedo]);
 
-  const [selectedId,    setSelectedId]    = useState<string|null>(blocks[0].id);
+  const [selectedId,    setSelectedId]    = useState<string|null>(blocks[0]?.id ?? null);
   const [aiLoading,     setAiLoading]     = useState(false);
   const [published,     setPublished]     = useState(false);
   const [activeTab,     setActiveTab]     = useState<'design'|'content'>('content');
