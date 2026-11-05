@@ -29,7 +29,7 @@ HTML dışa aktarılan bültenlere LinkedIn, Facebook, X, WhatsApp, Telegram ve 
 
 **Tek tıkla güncel bülten paylaşımı:** Artık editörde açık olan bülteni yayımlamak için üstteki **Paylaş** düğmesine basmanız yeterlidir. Uygulama, bültenin kamuya açılmasını onaylamanızı ister; onaydan sonra mevcut başlık, metinler, görseller, logo ve tasarım kalıcı olarak Netlify Blobs üzerinde depolanır. `/b/<benzersiz-kimlik>` bağlantısı oluşur. Facebook, LinkedIn, X, WhatsApp, Telegram ve e-posta düğmeleri **o bültenin** adresini paylaşır.
 
-- Aynı bülteni değiştirmeden tekrar Paylaş'a basarsanız mevcut paylaşım bağlantısı tekrar açılır. Bülteni düzenleyip yeniden Paylaş'a basarsanız güncel içeriğin ayrı bir bağlantısı yayımlanır.
+- Aynı bülteni değiştirmeden tekrar Paylaş'a basarsanız mevcut paylaşım bağlantısı tekrar açılır. Bülteni düzenleyip **Güncelle**'ye bastığınızda aynı URL yenilenir; eski bağlantıyı alan okuyucular güncel sürümü görür.
 - Yayınlamadan önce kamuya açık bağlantının herkes tarafından görülebileceğini açıkça onaylamanız gerekir. Özel bilgi içeren bültenleri yayımlamayın.
 - Paylaşım editörünüzdeki taslağı veya kayıtlı bültenleri değiştirmez. Yayımlanan bir bültenin bağlantısı, sonraki site güncellemelerinde korunur.
 - Netlify'nin **production** ortamında yayımlanan içerikler site-geneli Blob deposunda, **Deploy Preview** ortamında test edilenler ise ayrı ve geçici depoda tutulur.
@@ -118,3 +118,13 @@ Clerk oturum açma desteği sağlanmaktadır.
 - **🖨️ Yazdır:** Bültenin yazdırılabilir görünümünü ayrı pencerede açıp tarayıcının yazdırma iletişim kutusunu gösterir.
 
 PDF üretimi yalnızca tarayıcıda, `html2pdf.js` 0.14.0 kullanılarak yapılır. OpenAI API çağrısı veya token kullanımı yoktur. Bültenin görsel düzeni ve fotoğrafları yüksek çözünürlüklü görüntü olarak aktarılır; dolayısıyla PDF metni her zaman seçilebilir/aranabilir olmayabilir. Harici görsellerin yüklenebilmesi, görsel sunucusunun CORS izinlerine bağlıdır. Video çerçeveleri ise PDF içinde bağlantı metni olarak gösterilir.
+
+## 🗂️ Kayıtlı Bültenler, Open ve Yayını Düzenleme
+
+Editörün üst bölümünde **Düzenle**, **Yayınla / Güncelle** ve **Paylaş** kontrolleri bulunur. İlk yayınlama için yayınlama onayı gerekir; sonraki değişiklikler yayıncıya ait düzenleme anahtarıyla **aynı `/b/<id>` adresini koruyarak** güncellenir.
+
+**Kaydet**, mevcut bülteni her seferinde çoğaltmak yerine aynı kayıt kimliğiyle günceller. **Aç** menüsünde kayıtlı bülten kartları, arama kutusu, `Taslak` / `Yayınlandı` durumu ve **Open** düğmesi vardır. Kartın üzerine çift tıklamak da bülteni editöre açar. Yayımlanmış bir kaydın **Edit** seçeneğiyle değişiklik yapıp **Güncelle**'ye basabilirsiniz.
+
+Yayımlanmış okuyucu sayfasındaki **Düzenle / Edit** bağlantısı da editöre döner. Güvenlik nedeniyle herkes bağlantıyı görebilir ancak yalnızca orijinal yayınlama anahtarı bu tarayıcıda kayıtlı olan kullanıcı **aynı yayını güncelleyebilir**. Edit anahtarı sosyal medya bağlantısında ya da herkese açık sayfada bulunmaz. Farklı tarayıcı veya cihazda giriş yapıldığında bu yerel anahtar otomatik taşınmaz.
+
+**Veri korunması:** Kayıtlı bültenler bu tarayıcının yerel depolama alanında saklanır. Bulut bülten kaydı yapılandırılmışsa bunlar listeye ayrıca eklenebilir, fakat gizli edit anahtarı buluta yüklenmez. Tarayıcı verileri silinirse yalnızca yerel saklanan kayıtlar ve düzenleme anahtarı kaybolabilir. Eski sistemde düzenleme anahtarı olmadan yayımlanmış bültenler güvenli olarak aynı URL'de değiştirilemez; bunları tekrar yayımlamak yeni bir bağlantı oluşturur.
