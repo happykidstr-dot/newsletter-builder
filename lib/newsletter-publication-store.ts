@@ -6,7 +6,7 @@ const RATE_STORE_NAME = 'bulten-publish-limits-v1';
 
 /** Public newsletters are persistent on production, isolated on deploy previews. */
 function isProduction(): boolean {
-  return process.env.CONTEXT === 'production';
+  return process.env.PUBLISH_BUILD_CONTEXT === 'production' || process.env.CONTEXT === 'production';
 }
 
 export function publicationStore() {
