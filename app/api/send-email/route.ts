@@ -1,94 +1,96 @@
+import { createHmac, randomBytes, randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { adminDb, escapeHtml, limitAction, requireUser, tooLarge, unavailableDb, validWebUrl } from '@/lib/server-security';
 
-export async function POST(req: NextRequest) {
-  try {
-    const { contacts, subject, html, customMsg } = await req.json();
-
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'RESEND_API_KEY tanımlanmamış. Lütfen .env dosyanıza ekleyin.' },
-        { status: 500 }
-      );
+type Contact = { email:string; name?:string };
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function signed(token:string,url:string,secret:string):string{
+  return createHmac('sha256',secret).update(token+'|'+url).digest('hex');
+}
+export async function POST(req:NextRequest){
+  const session=await requireUser();if('error'in session)return session.error;
+  const db=adminDb();if(!db)return unavailableDb();
+  if(tooLarge(req,256*1024))return NextResponse.json({error:'Bülten gönderimi çok büyük.'},{status:413});
+  const apiKey=process.env.RESEND_API_KEY;
+  const sender=process.env.RESEND_FROM_EMAIL;
+  if(!apiKey||!sender)return NextResponse.json({error:'E-posta servisi veya doğrulanmış gönderici eksik.'},{status:503});
+  try{
+    const body=await req.json();
+    const {subject,html,customMsg='',isTest=false,listId,testEmail}=body;
+    if(typeof subject!=='string'||!subject.trim()||subject.length>200||
+      typeof html!=='string'||!html.trim()||html.length>200000||
+      typeof customMsg!=='string'||customMsg.length>3000){
+      return NextResponse.json({error:'Gönderim içeriği geçersiz.'},{status:400});
     }
-
-    if (!contacts || contacts.length === 0) {
-      return NextResponse.json({ error: 'Gönderilecek kişi bulunamadı.' }, { status: 400 });
+    let contacts:Contact[]=[];
+    if(isTest===true){
+      if(typeof testEmail!=='string'||!emailPattern.test(testEmail)||testEmail.length>254)return NextResponse.json({error:'Test adresi geçersiz.'},{status:400});
+      contacts=[{email:testEmail,name:'Test kullanıcısı'}];
+    }else{
+      if(typeof listId!=='string'||listId.length>90)return NextResponse.json({error:'Geçerli iletişim listesi seçilmedi.'},{status:400});
+      const {data:list,error:listError}=await db.from('mailing_lists').select('contacts').eq('id',listId).eq('user_id',session.userId).maybeSingle();
+      if(listError)return NextResponse.json({error:'Alıcı listesi doğrulanamadı.'},{status:503});
+      if(!list)return NextResponse.json({error:'Alıcı listesi bulunamadı.'},{status:404});
+      if(!Array.isArray(list.contacts))return NextResponse.json({error:'Alıcı listesi hatalı.'},{status:400});
+      contacts=list.contacts;
     }
-
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Project Factory <onboarding@resend.dev>';
-
-    // Generate a unique campaign ID for this batch
-    const campaignId = Math.random().toString(36).substring(2, 15);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'; // Change in production
-
-    // Prepare batch requests
-    const batchData = contacts.map((contact: { email: string, name?: string }) => {
-      // Very simple merge tag replacement for {{isim}} or [Ad]
-      const contactName = contact.name || 'Değerli Üyemiz';
-      let personalizedHtml = html;
-      let personalizedSubject = subject;
-      
-      // Replace basic tags if they exist
-      personalizedHtml = personalizedHtml.replace(/\{\{isim\}\}/gi, contactName).replace(/\[Ad\]/gi, contactName);
-      personalizedSubject = personalizedSubject.replace(/\{\{isim\}\}/gi, contactName).replace(/\[Ad\]/gi, contactName);
-
-      if (customMsg) {
-         // Insert custom message before the newsletter content, maybe inside the body
-         const customHtml = `<div style="padding: 20px; font-family: sans-serif; font-size: 14px;">${customMsg.replace(/\\n/g, '<br/>').replace(/\{\{isim\}\}/gi, contactName)}</div>`;
-         personalizedHtml = personalizedHtml.replace('<div id="bulten-body">', `<div id="bulten-body">${customHtml}`);
+    if(contacts.length<1||contacts.length>50||
+      contacts.some(c=>!c||typeof c.email!=='string'||!emailPattern.test(c.email)||c.email.length>254||
+        (c.name!==undefined&&(typeof c.name!=='string'||c.name.length>200)))){
+      return NextResponse.json({error:'Bir gönderimde en fazla 50 geçerli alıcı olabilir.'},{status:400});
+    }
+    const normalized=new Set(contacts.map(c=>c.email.toLowerCase().trim()));
+    if(normalized.size!==contacts.length)return NextResponse.json({error:'Alıcı listesinde tekrar eden adresler var.'},{status:400});
+    const {data:blocked,error:blockError}=await db.from('suppressed_emails').select('email').eq('user_id',session.userId)
+      .in('email',Array.from(normalized));
+    if(blockError)return NextResponse.json({error:'Abonelik tercihleri okunamadı.'},{status:503});
+    const excluded=new Set((blocked||[]).map((c:any)=>c.email));
+    const actual=contacts.filter(c=>!excluded.has(c.email.toLowerCase().trim()));
+    if(!actual.length)return NextResponse.json({error:'Gönderilebilecek etkin alıcı bulunamadı.'},{status:400});
+    const rate=await limitAction(db,session.userId,'send',20,86400);if(rate)return rate;
+    const campaignId=randomUUID();
+    const appUrl=validWebUrl(process.env.NEXT_PUBLIC_APP_URL)||'';
+    const signingSecret=process.env.TRACKING_SIGNING_SECRET||'';
+    const trackingEnabled=Boolean(appUrl&&signingSecret.length>=24);
+    const recipients=actual.map(c=>({token:randomBytes(18).toString('hex'),user_id:session.userId,campaign_id:campaignId,
+      email:c.email.toLowerCase().trim()}));
+    if(trackingEnabled){
+      const {error:recipientError}=await db.from('campaign_recipients').insert(recipients);
+      if(recipientError)return NextResponse.json({error:'Kampanya güvenlik kayıtları oluşturulamadı.'},{status:503});
+    }
+    const messages=actual.map((contact,i)=>{
+      const token=recipients[i].token;
+      const name=escapeHtml(contact.name||'Değerli üyemiz');
+      const replace=(value:string)=>value.replace(/\{\{isim\}\}|\[Ad\]/gi,name);
+      let personalised=replace(html);
+      const personalizedSubject=subject.replace(/\{\{isim\}\}|\[Ad\]/gi,contact.name||'Değerli üyemiz');
+      if(customMsg){
+        const msg=replace(escapeHtml(customMsg)).replace(/\r?\n/g,'<br>');
+        personalised=personalised.replace('<div id="bulten-body">',`<div id="bulten-body"><div style="padding:20px;font-family:sans-serif;font-size:14px">${msg}</div>`);
       }
-
-      // ── Analytics Tracking (Open & Click) ──
-      const trackingId = Buffer.from(contact.email).toString('base64');
-      
-      // 1. Replace all links with our click tracking endpoint
-      // We use a regex to find <a href="..."> and replace the href
-      personalizedHtml = personalizedHtml.replace(/(<a[^>]+)href="([^"]+)"([^>]*>)/gi, (match: string, before: string, url: string, after: string) => {
-        // Skip mailto: or anchor links
-        if (url.startsWith('mailto:') || url.startsWith('#')) return match;
-        const encodedUrl = encodeURIComponent(url);
-        const trackUrl = `${appUrl}/api/track/click?c=${campaignId}&e=${trackingId}&u=${encodedUrl}`;
-        return `${before}href="${trackUrl}"${after}`;
-      });
-
-      // 2. Append a 1x1 invisible tracking pixel at the end of the body
-      const trackingPixel = `<img src="${appUrl}/api/track/open?c=${campaignId}&e=${trackingId}" width="1" height="1" alt="" style="display:none; visibility:hidden; width:1px; height:1px;" />`;
-      if (personalizedHtml.includes('</body>')) {
-        personalizedHtml = personalizedHtml.replace('</body>', `${trackingPixel}</body>`);
-      } else {
-        personalizedHtml += trackingPixel;
+      if(trackingEnabled){
+        personalised=personalised.replace(/(<a\b[^>]*?)href="([^"]+)"([^>]*>)/gi,(match:string,before:string,url:string,after:string)=>{
+          const safe=validWebUrl(url);
+          if(!safe)return match;
+          const dest=`${appUrl}/api/track/click?t=${token}&u=${encodeURIComponent(safe)}&s=${signed(token,safe,signingSecret)}`;
+          return `${before}href="${escapeHtml(dest)}"${after}`;
+        });
+        const pixel=`<img src="${appUrl}/api/track/open?t=${token}&s=${signed(token,'open',signingSecret)}" width="1" height="1" alt="" style="display:none" />`;
+        personalised=personalised.includes('</body>')?personalised.replace('</body>',pixel+'</body>'):personalised+pixel;
+        const unsubscribe=`${appUrl}/api/track/unsubscribe?t=${token}`;
+        personalised=personalised.includes('</body>')
+          ?personalised.replace('</body>',`<p style="text-align:center;font-size:12px"><a href="${unsubscribe}">Abonelikten ayrıl</a></p></body>`)
+          :personalised+`<p><a href="${unsubscribe}">Abonelikten ayrıl</a></p>`;
       }
-
-      return {
-        from: fromEmail,
-        to: contact.email,
-        subject: personalizedSubject,
-        html: personalizedHtml,
-      };
+      return {from:sender,to:contact.email,subject:personalizedSubject,html:personalised,
+        ...(trackingEnabled?{headers:{'List-Unsubscribe':`<${appUrl}/api/track/unsubscribe?t=${token}>`}}:{})};
     });
-
-    // Send via Resend Batch API
-    const response = await fetch('https://api.resend.com/emails/batch', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(batchData),
+    const res=await fetch('https://api.resend.com/emails/batch',{
+      method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${apiKey}`},body:JSON.stringify(messages),
     });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Resend Error:', errText);
-      return NextResponse.json({ error: `E-posta gönderim hatası: ${errText}` }, { status: response.status });
-    }
-
-    const data = await response.json();
-    return NextResponse.json({ success: true, data });
-
-  } catch (error: any) {
-    console.error('Send Email Route Error:', error);
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
-  }
+    if(!res.ok)return NextResponse.json({error:'E-posta sağlayıcısı gönderimi reddetti.'},{status:502});
+    const result=await res.json();
+    return NextResponse.json({success:true,count:actual.length,excluded:contacts.length-actual.length,
+      trackingEnabled,providerResult:result});
+  }catch{return NextResponse.json({error:'Gönderim işlemi gerçekleştirilemedi.'},{status:500});}
 }
