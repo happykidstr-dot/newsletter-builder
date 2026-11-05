@@ -24,9 +24,11 @@ test('publishing requires explicit confirmation and saves no changes to the edit
   assert.match(code,/setPublicNewsletterUrl\(url\)/);
   assert.doesNotMatch(code,/setBlocks\(|setTitle\(|setSubtitle\(/);
 });
-test('published links are unique per newsletter snapshot',()=>{
+test('new publications create links and existing ones require a private edit token',()=>{
   assert.match(api,/randomBytes\(12\)\.toString\('base64url'\)/);
-  assert.match(api,/publicationStore\(\)\.setJSON\(slug,record\)/);
+  assert.match(api,/store\.setJSON\(slug,record\)/);
+  assert.match(api,/matchesEditToken\(body\.editToken,previous\?\.editTokenHash\)/);
+  assert.match(api,/expectedRevision/);
   assert.match(reader,/publicationStore\(\)\.get\(slug/);
 });
 test('published HTML is sanitized and sandboxed',()=>{
