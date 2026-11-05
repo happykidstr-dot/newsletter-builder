@@ -9,6 +9,11 @@ async function check(){
   const homepage=await home.text();
   if(home.status!==200)return {ok:false,reason:'Homepage HTTP '+home.status};
   if(!homepage.includes('BÜLTEN') && !homepage.includes('READ'))return {ok:false,reason:'Homepage did not contain BÜLTEN READ branding'};
+  // Previous live versions also served /api/publish. Distinguish the NEW
+  // Edit/Publish/Update interface from the old deployment before reporting success.
+  if(!homepage.includes('Düzenle') || !homepage.includes('Yayınla')){
+    return {ok:false,reason:'Live editor still lacks Smore-style Düzenle / Yayınla controls'};
+  }
   // A live Netlify publication endpoint denies cross-site POST with 403.
   // Legacy versions responded 404 or redirected, so this tests new deployment.
   const publish=await fetch(base+'/api/publish',{
