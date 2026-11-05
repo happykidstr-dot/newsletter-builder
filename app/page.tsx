@@ -1,8 +1,6 @@
 'use client';
 import React, { useState, useCallback } from 'react';
-// Note: Clerk auth is handled in layout.tsx - these are placeholder no-ops for SSR safety
-const SignInButton = null as any;
-const UserButton = null as any;
+import { AuthBar } from '@/components/AuthBar';
 import dynamic from 'next/dynamic';
 import { useAccessibility } from '@/hooks/useAccessibility';
 import { AccessibilityToolbar } from '@/components/AccessibilityToolbar';
@@ -1906,10 +1904,10 @@ ${text}`;
 
           <div style={{width:1,height:24,background:'#e2e8f0',margin:'0 4px'}}/>
           
-          {/* Auth button — Clerk keys required for full login functionality */}
-          <button style={{padding:'8px 16px',borderRadius:8,border:'1px solid #e2e8f0',background:'#fff',color:'#475569',fontWeight:700,fontSize:13,cursor:'default',opacity:0.6}} title="Giriş yapmak için Clerk API anahtarları gerekli">
-            👤 Hesap
-          </button>
+          {/* Authentication status */}
+          {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+            ? <AuthBar />
+            : <span style={{fontSize:11,color:'#64748b'}} title="Bulut kaydı ve gönderim için güvenli oturum gerekir">Yerel taslak modu</span>}
         </div>
       </div>
 
