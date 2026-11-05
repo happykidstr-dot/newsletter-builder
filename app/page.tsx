@@ -1032,6 +1032,7 @@ export default function BultenReadPage() {
 
   // ── Auto-save / Restore logic ───────────────────────────────────────
   const DRAFT_KEY = 'bulten_draft_v1';
+  const [draftReady, setDraftReady] = React.useState(false);
   
   // On mount: Restore
   React.useEffect(() => {
@@ -1045,20 +1046,25 @@ export default function BultenReadPage() {
           setDesign(data.design || 'modern');
           setLogoUrl(data.logoUrl || '');
           setHeaderImgUrl(data.headerImgUrl || '');
+          setShowTOC(data.showTOC !== false);
           const safeBlocks = data.blocks.filter((b: any) => b && typeof b === 'object' && b.id);
           if (safeBlocks.length) {
              setBlocks(safeBlocks);
              setSelectedId(safeBlocks[0].id);
           }
         }
-      } catch(e) {}
+      } catch(e) { console.warn('Saved draft could not be read', e); }
     }
+    setDraftReady(true);
   }, []);
 
-  // On change: Save
+  // Autosave starts only after draft restoration to avoid overwriting old work.
   React.useEffect(() => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, subtitle, design, logoUrl, headerImgUrl, blocks }));
-  }, [title, subtitle, design, logoUrl, headerImgUrl, blocks]);
+    if (!draftReady) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, subtitle, design, logoUrl, headerImgUrl, blocks, showTOC }));
+    } catch (e) { console.warn('Local draft storage unavailable', e); }
+  }, [draftReady, title, subtitle, design, logoUrl, headerImgUrl, blocks, showTOC]);
 
   // ── Text-to-Speech ──────────────────────────────────────────────────
   // ── Notebook Sync ─────────────────────────────────────────────────────
@@ -1066,6 +1072,8 @@ export default function BultenReadPage() {
   // This runs only once per page load.
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
+    // Never overwrite a previously edited local draft during automatic Notebook sync.
+    if (window.localStorage.getItem(DRAFT_KEY)) return;
     fetch('/api/notebook-sync')
       .then(r => {
         if (!r.ok) throw new Error('No notebook payload');
@@ -1224,18 +1232,17 @@ export default function BultenReadPage() {
 
   const handleSave = async () => {
     const entry: SavedNL = { id:uid(), title, subtitle, design, blocks, logoUrl, headerImgUrl, showTOC, savedAt:new Date().toISOString() };
-    const next = [entry,...savedList].slice(0,20);
-    setSavedList(next);
-    setSaveSuccess(true); setTimeout(()=>setSaveSuccess(false),2000);
     try {
-      await fetch('/api/db/newsletters', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch('/api/db/newsletters', {
+        method: 'POST', headers: { 'Content-Type':'application/json' },
         body: JSON.stringify(entry)
       });
-    } catch(e) {
-      console.error('Failed to save to DB:', e);
-      alert('Bülten kaydedilemedi. Lütfen giriş yaptığınızdan emin olun.');
+      const body = await response.json().catch(()=>({}));
+      if (!response.ok || !body.success) throw new Error(body.error||'Bülten kaydedilemedi.');
+      setSavedList(prev=>[body.newsletter||entry,...prev].slice(0,200));
+      setSaveSuccess(true); setTimeout(()=>setSaveSuccess(false),2000);
+    } catch(e:any) {
+      alert((e?.message||'Kaydetme başarısız.')+' Yerel otomatik taslağınız korunur.');
     }
   };
 
@@ -1246,11 +1253,12 @@ export default function BultenReadPage() {
   };
 
   const handleDelete = async (id:string) => {
-    const next = savedList.filter(s=>s.id!==id);
-    setSavedList(next);
     try {
-      await fetch(`/api/db/newsletters?id=${id}`, { method: 'DELETE' });
-    } catch(e) {}
+      const response = await fetch(`/api/db/newsletters?id=${encodeURIComponent(id)}`, { method:'DELETE' });
+      const body = await response.json().catch(()=>({}));
+      if (!response.ok || !body.success) throw new Error(body.error||'Silme başarısız.');
+      setSavedList(prev=>prev.filter(s=>s.id!==id));
+    } catch(e:any) { alert(e?.message||'Kayıt silinemedi.'); }
   };
 
   const [showShareModal, setShowShareModal] = React.useState(false);
@@ -1268,7 +1276,7 @@ export default function BultenReadPage() {
         views: data.totalOpens || 0,
         opens: data.uniqueOpens || 0,
         clicks: data.totalClicks || 0,
-        lastWeek: data.uniqueOpens || 0
+        lastWeek: data.lastWeekOpens || 0
       });
     } catch(e) {}
     setShowAnalyticsModal(true);
@@ -1313,25 +1321,29 @@ export default function BultenReadPage() {
   const [testEmail, setTestEmail] = React.useState('');
 
   const saveLists = async (lists: MailingList[]) => {
-    setMailingLists(lists);
     try {
-      await fetch('/api/db/mailing-lists', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lists)
+      const response = await fetch('/api/db/mailing-lists', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(lists)
       });
-    } catch(e) {}
+      const data=await response.json().catch(()=>({}));
+      if (!response.ok||!data.success) throw new Error(data.error||'Liste kaydedilemedi.');
+      setMailingLists(lists);
+      return true;
+    } catch(e:any) {
+      setMlError(e?.message||'Liste kaydedilemedi; önceki liste korunuyor.');
+      return false;
+    }
   };
   const activeList = mailingLists.find(l=>l.id===activeListId)||null;
   const filteredContacts = (activeList?.contacts||[]).filter(c=>
     c.email.toLowerCase().includes(mlSearch.toLowerCase())||
     c.name.toLowerCase().includes(mlSearch.toLowerCase())
   );
-  const createList = () => {
+  const createList = async () => {
     if(!newListName.trim()) return;
     const nl:MailingList = {id:uid(),name:newListName.trim(),contacts:[],createdAt:new Date().toISOString()};
     const next=[...mailingLists,nl];
-    saveLists(next); setActiveListId(nl.id); setNewListName('');
+    if (await saveLists(next)) { setActiveListId(nl.id); setNewListName(''); }
   };
   const addContact = () => {
     if(!activeList) return;
@@ -1459,15 +1471,18 @@ ${text}`;
           subject: '[TEST] ' + title,
           html: htmlContent,
           customMsg: customMsg,
-          contacts: [{ email: testEmail, name: 'Test Kullanıcısı' }]
+          isTest: true,
+          testEmail: testEmail
         };
       } else {
         if(!activeList||activeList.contacts.length===0) return;
+        if(activeList.contacts.length>50) { setMlError('Bir gönderimde en fazla 50 alıcıya izin verilir. Listeyi bölün.'); return; }
         payload = {
           subject: title,
           html: htmlContent,
           customMsg: customMsg,
-          contacts: activeList.contacts
+          isTest: false,
+          listId: activeList.id
         };
       }
 
@@ -1649,9 +1664,12 @@ ${text}`;
     try {
       const res = await fetch('/api/ai-generate',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({ prompt, maxTokens:800, systemPrompt: 'You are an expert newsletter copywriter. Return ONLY the requested text without markdown formatting or introductory words.' })});
-      if(res.ok){ const d=await res.json(); const t=d.result||''; if(t && !t.includes('kullanılamıyor')) updateBlock(selectedBlock.id,{...selectedBlock.data,text:t}); }
-    } catch {
-      updateBlock(selectedBlock.id,{...selectedBlock.data,text:'AI içerik üretimi şu an kullanılamıyor. Lütfen API anahtarınızı kontrol edin.'});
+      const d=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(d.error||'AI metin üretimi başarısız.');
+      if(typeof d.result!=='string'||!d.result.trim()) throw new Error('AI boş yanıt verdi.');
+      updateBlock(selectedBlock.id,{...selectedBlock.data,text:d.result});
+    } catch(e:any) {
+      alert(e?.message||'AI metin üretilemedi. Mevcut metin korunuyor.');
     } finally { setAiLoading(false); }
   },[selectedBlock,updateBlock]);
 
@@ -1742,9 +1760,11 @@ ${text}`;
 
   const handleExport = ()=>{
     const html=generateHTML();
+    const url=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
     const a=document.createElement('a');
-    a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
-    a.download=`${title.replace(/\s+/g,'-').toLowerCase()}.html`; a.click();
+    a.href=url;a.download=`${(title.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ-]+/g,'-')||'bulten').toLowerCase()}.html`;
+    document.body.appendChild(a);a.click();a.remove();
+    window.setTimeout(()=>URL.revokeObjectURL(url),3000);
   };
 
   const handlePdfExport = ()=>{
@@ -1779,7 +1799,7 @@ ${text}`;
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 60px)',fontFamily:'Inter,system-ui,sans-serif',background:'#f1f5f9'}}>
 
       {/* ── Top Bar ── */}
-      <div style={{background:'#ffffff',borderBottom:'1px solid #e2e8f0',padding:'0 24px',height:68,display:'flex',alignItems:'center',gap:8,flexShrink:0,boxShadow:'0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',zIndex:10}}>
+      <div className="br-topbar" style={{background:'#ffffff',borderBottom:'1px solid #e2e8f0',padding:'0 24px',minHeight:68,display:'flex',alignItems:'center',gap:8,flexShrink:0,boxShadow:'0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',zIndex:10}}>
         
         {/* Brand */}
         <div style={{display:'flex',alignItems:'center',gap:10,marginRight:16}}>
@@ -1818,8 +1838,8 @@ ${text}`;
             <span style={{fontSize:15}}>⬇️</span> HTML
           </button>
           
-          <button onClick={handlePdfExport} title="PDF Olarak Al" style={{display:'flex',alignItems:'center',gap:6,background:'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:'pointer',padding:'8px 14px',borderRadius:8,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#f8fafc';(e.currentTarget as HTMLElement).style.color='#0f172a'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='#ffffff';(e.currentTarget as HTMLElement).style.color='#475569'}}>
-            <span style={{fontSize:15}}>📄</span> PDF
+          <button onClick={handlePdfExport} title="Tarayıcıda PDF olarak yazdır" style={{display:'flex',alignItems:'center',gap:6,background:'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:'pointer',padding:'8px 14px',borderRadius:8,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#f8fafc';(e.currentTarget as HTMLElement).style.color='#0f172a'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='#ffffff';(e.currentTarget as HTMLElement).style.color='#475569'}}>
+            <span style={{fontSize:15}}>📄</span> PDF Yazdır
           </button>
 
           <div style={{width:1,height:24,background:'#e2e8f0',margin:'0 4px'}}/>
@@ -1871,7 +1891,7 @@ ${text}`;
       </div>
 
       {/* ── 3-Panel ── */}
-      <div style={{flex:1,display:'grid',gridTemplateColumns:'240px 1fr 280px',overflow:'hidden'}}>
+      <div className="br-editor-grid" style={{flex:1,display:'grid',gridTemplateColumns:'240px minmax(0,1fr) 280px',overflow:'hidden'}}>
 
         {/* LEFT — palette + design */}
         <div style={{background:'#fff',borderRight:'1px solid #e2e8f0',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'4px 0 16px rgba(0,0,0,0.02)',zIndex:5}}>
