@@ -22,5 +22,5 @@ test('editor no longer shares the private editor homepage',()=>{
  const section=page.slice(page.indexOf('{/* ── Share Modal'),page.indexOf('{/* ── Analytics Modal'));
  assert.doesNotMatch(section,/window\.location\.href/);
  assert.match(section,/publisherShareLinks/);
- assert.match(section,/Yayımlanmış bültenin bağlantısı/);
+ assert.match(section,/Bu bültenin herkese açık adresi/);
 });
