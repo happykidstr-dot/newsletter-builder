@@ -872,6 +872,18 @@ export default function BultenReadPage() {
 
   const handleLoad=(record:SavedNL)=>{
     if(!record || !Array.isArray(record.blocks))return;
+    const existing=savedList.find(x=>x.id===activeNewsletterId);
+    const storedSnapshot=existing?JSON.stringify({
+      title:existing.title,subtitle:existing.subtitle,design:existing.design,
+      blocks:existing.blocks,headerImgUrl:existing.headerImgUrl,logoUrl:existing.logoUrl,showTOC:existing.showTOC,
+    }):'';
+    const changed=currentSnapshot()!==storedSnapshot;
+    if(changed && activeNewsletterId===record.id){
+      if(!window.confirm('Bu kaydın üzerindeki henüz kaydedilmemiş değişiklikler geri alınacak. Kayıtlı sürümü açmak istiyor musunuz?'))return;
+    }else if(changed && activeNewsletterId!==record.id && blocks.length){
+      // Keep work-in-progress before loading another newsletter.
+      if(!persistSavedLocally(savedEntry()))return;
+    }
     setActiveNewsletterId(record.id);
     setTitle(record.title||'Yeni Bülten');setSubtitle(record.subtitle||'');
     setDesign(record.design||'modern');setBlocks(record.blocks.map(b=>({...b,data:{...b.data}})));
@@ -960,8 +972,16 @@ export default function BultenReadPage() {
       if(!Array.isArray(remote))return;
       setSavedList(previous=>{
         const known=new Set(previous.map(v=>v.id));
-        const merged=[...previous,...remote.filter((v:any)=>
-          v&&typeof v.id==='string'&&Array.isArray(v.blocks)&&!known.has(v.id))].slice(0,30);
+        const imported=remote.filter((v:any)=>
+          v&&typeof v.id==='string'&&Array.isArray(v.blocks)&&!known.has(v.id))
+          .map((v:any)=>({
+            id:v.id,title:v.title||'Başlıksız Bülten',subtitle:v.subtitle||'',
+            design:v.design||'modern',blocks:v.blocks,logoUrl:v.logoUrl||'',
+            headerImgUrl:v.headerImgUrl||v.header_img_url||'',showTOC:v.showTOC!==false,
+            savedAt:v.savedAt||v.created_at||new Date().toISOString(),
+            publicNewsletterUrl:v.publicNewsletterUrl||'',
+          }));
+        const merged=[...previous,...imported].slice(0,30);
         return merged;
       });
     }).catch(()=>{});
