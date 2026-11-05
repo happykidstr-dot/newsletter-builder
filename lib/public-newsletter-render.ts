@@ -1,7 +1,7 @@
 import {randomBytes} from 'node:crypto';
 import sanitizeHtml from 'sanitize-html';
-import {escapeShareHtml, normalisePublicNewsletterUrl, readerShareBar, READER_SHARE_RUNTIME} from '@/lib/reader-social-share';
-import type {PublishedNewsletter} from '@/lib/newsletter-publication-store';
+import {escapeShareHtml, normalisePublicNewsletterUrl, readerShareBar, READER_SHARE_RUNTIME} from './reader-social-share';
+import type {PublishedNewsletter} from './newsletter-publication-store';
 
 const allowedTags = [
   'div','span','p','h1','h2','h3','h4','h5','h6','br','hr','strong','b','em','i',
