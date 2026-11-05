@@ -9,6 +9,8 @@ export default function middleware(request: NextRequest) {
       const isPublicRoute = createRouteMatcher([
         '/sign-in(.*)',
         '/sign-up(.*)',
+        '/b(.*)', // Published newsletters must be readable by everyone.
+        '/api/publish(.*)', // POST enforces Clerk auth directly when enabled.
       ]);
       return clerkMiddleware(async (auth: any, req: NextRequest) => {
         if (!isPublicRoute(req)) {

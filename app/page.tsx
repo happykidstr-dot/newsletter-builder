@@ -847,6 +847,9 @@ export default function BultenReadPage() {
   };
 
   const [showShareModal, setShowShareModal] = React.useState(false);
+  const [shareBusy, setShareBusy] = React.useState(false);
+  const [shareError, setShareError] = React.useState('');
+  const lastSharedSnapshot = React.useRef('');
   const [showAnalyticsModal, setShowAnalyticsModal] = React.useState(false);
   const [copyDone, setCopyDone] = React.useState<string|null>(null);
   const publishedShareUrl = normalisePublicNewsletterUrl(publicNewsletterUrl);
@@ -1320,11 +1323,13 @@ ${text}`;
     const published = normalisePublicNewsletterUrl(publicNewsletterUrl);
     const cleanTitle = escapeShareHtml(title);
     const cleanSubtitle = escapeShareHtml(subtitle);
+    const safeLogoUrl = safeReaderImageUrl(logoUrl);
+    const logoHtml = safeLogoUrl ? `<img src="${escapeShareHtml(safeLogoUrl)}" alt="Kurum logosu" style="display:block;max-width:175px;max-height:80px;object-fit:contain;margin:0 auto 12px;"/>` : '';
     const canonicalMeta = published ? `<link rel="canonical" href="${escapeShareHtml(published)}"><meta property="og:url" content="${escapeShareHtml(published)}">` : '';
     const ogImageUrl = normalisePublicNewsletterUrl(headerImgUrl);
     const ogImageMeta = ogImageUrl ? `<meta property="og:image" content="${escapeShareHtml(ogImageUrl)}">` : '';
 
-    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${cleanTitle}</title><meta name="description" content="${cleanSubtitle}"><meta property="og:title" content="${cleanTitle}"><meta property="og:description" content="${cleanSubtitle}"><meta property="og:type" content="article">${canonicalMeta}${ogImageMeta}<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn,#bulten-reader-share{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;"><button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${cleanTitle}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${cleanSubtitle}</p></div><div id="bulten-reading-content" style="padding:32px 40px;">${toc}${blockHtml}</div>${shareBarHtml}<div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
+    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${cleanTitle}</title><meta name="description" content="${cleanSubtitle}"><meta property="og:title" content="${cleanTitle}"><meta property="og:description" content="${cleanSubtitle}"><meta property="og:type" content="article">${canonicalMeta}${ogImageMeta}<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn,#bulten-reader-share{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;">${logoHtml}<button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${cleanTitle}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${cleanSubtitle}</p></div><div id="bulten-reading-content" style="padding:32px 40px;">${toc}${blockHtml}</div>${shareBarHtml}<div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
     <script>
       window.bultenIsSpeaking = false;
       window.bultenSpeak = function() {
@@ -1367,7 +1372,44 @@ ${text}`;
     </script>
     <script>${READER_SHARE_RUNTIME}</script>
     </body></html>`;
-  },[blocks,D,title,subtitle,showTOC,headerImgUrl,lang,publicNewsletterUrl]);
+  },[blocks,D,title,subtitle,showTOC,headerImgUrl,logoUrl,lang,publicNewsletterUrl]);
+
+  /**
+   * Publish a snapshot of the open editor—not a saved newsletter, an imported
+   * URL, or the BÜLTEN READ homepage. Public posting requires confirmation.
+   */
+  const handleShareCurrent = async () => {
+    if(shareBusy)return;
+    const snapshot = JSON.stringify({title,subtitle,design,blocks,headerImgUrl,logoUrl,showTOC});
+    const ownPublishedUrl = publishedShareUrl.startsWith(window.location.origin+'/b/');
+    if(ownPublishedUrl && lastSharedSnapshot.current === snapshot) {
+      setShareError('');
+      setShowShareModal(true);
+      return;
+    }
+    if(!window.confirm('Açık olan bültenin tamamı herkese açık bir web adresinde yayımlanacak. Bağlantıya sahip herkes bülteni okuyabilir ve paylaşabilir. Devam edilsin mi?'))return;
+    setShareBusy(true);
+    setShareError('');
+    try {
+      const response=await fetch('/api/publish',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({title,subtitle,headerImgUrl,html:generateHTML()}),
+      });
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok || typeof result.slug!=='string' || !/^[A-Za-z0-9_-]{16}$/.test(result.slug)){
+        throw new Error(result.error||'Bülten yayımlanamadı.');
+      }
+      const url=new URL('/b/'+result.slug,window.location.origin).toString();
+      setPublicNewsletterUrl(url);
+      lastSharedSnapshot.current=snapshot;
+      setShowShareModal(true);
+    }catch(error){
+      const message=error instanceof Error?error.message:'Paylaşım bağlantısı oluşturulamadı.';
+      setShareError(message);
+      alert(message+' Henüz herkese açık bir paylaşım bağlantısı oluşturulmadı.');
+    }finally {setShareBusy(false);}
+  };
 
   const handleExport = ()=>{
     const html=generateHTML();
@@ -1444,9 +1486,11 @@ ${text}`;
           </div>
           
           {/* Publication/share settings — the editor URL is never treated as the newsletter URL. */}
-          <button type="button" onClick={()=>setShowShareModal(true)} title="Okuyucu paylaşım seçenekleri"
-            style={{display:'flex',alignItems:'center',gap:6,background:'#ecfdf5',border:'1px solid #99d7c9',color:'#17675a',fontSize:13,fontWeight:800,cursor:'pointer',padding:'8px 14px',borderRadius:8}}>
-            <span aria-hidden="true">↗</span> Paylaş
+          <button type="button" onClick={handleShareCurrent} disabled={shareBusy}
+            title="Açık bülteni yayımla ve paylaş"
+            aria-label={shareBusy?'Bülten yayımlanıyor':'Mevcut bülteni paylaş'}
+            style={{display:'flex',alignItems:'center',gap:6,background:'#ecfdf5',border:'1px solid #99d7c9',color:'#17675a',fontSize:13,fontWeight:800,cursor:shareBusy?'progress':'pointer',padding:'8px 14px',borderRadius:8,opacity:shareBusy?.65:1}}>
+            <span aria-hidden="true">{shareBusy?'⏳':'↗'}</span> {shareBusy?'Yayımlanıyor…':'Paylaş'}
           </button>
 
           {/* Action Buttons styled softly */}
@@ -1992,30 +2036,39 @@ ${text}`;
       <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.65)',zIndex:9999,display:'grid',placeItems:'center',padding:16}}
            onMouseDown={e=>{if(e.target===e.currentTarget)setShowShareModal(false);}}>
         <section role="dialog" aria-modal="true" aria-labelledby="share-editor-title"
-           style={{background:'#fff',borderRadius:18,width:'min(520px,100%)',maxHeight:'90dvh',overflowY:'auto',boxShadow:'0 20px 65px rgba(0,0,0,.23)'}}>
+           style={{background:'#fff',borderRadius:18,width:'min(560px,100%)',maxHeight:'90dvh',overflowY:'auto',boxShadow:'0 20px 65px rgba(0,0,0,.23)'}}>
           <header style={{padding:'22px 24px',background:'#0e554d',display:'flex',justifyContent:'space-between',gap:12,alignItems:'center'}}>
-            <h2 id="share-editor-title" style={{fontSize:18,color:'#fff',margin:0,fontWeight:800}}>📤 Okuyucu Paylaşımı</h2>
+            <h2 id="share-editor-title" style={{fontSize:18,color:'#fff',margin:0,fontWeight:800}}>↗ Bu Bülteni Paylaş</h2>
             <button type="button" onClick={()=>setShowShareModal(false)} aria-label="Paylaşım penceresini kapat"
               style={{border:0,background:'rgba(255,255,255,.15)',color:'#fff',borderRadius:999,width:34,height:34,cursor:'pointer',fontSize:17}}>✕</button>
           </header>
           <div style={{padding:24,display:'flex',flexDirection:'column',gap:14}}>
-            <p style={{fontSize:13,lineHeight:1.6,color:'#475569',margin:0}}>
-              İndirilen bültenin içine okuyucular için LinkedIn, Facebook, X, WhatsApp, Telegram ve e-posta paylaşım düğmeleri eklenir.
-              Paylaşım için bültenin <strong>herkese açık, ayrı bir internet adresinde</strong> yayımlanmış olması gerekir.
-            </p>
-            <label htmlFor="published-newsletter-url" style={{fontSize:13,fontWeight:800,color:'#1e293b'}}>Yayımlanmış bültenin bağlantısı (isteğe bağlı)</label>
-            <input id="published-newsletter-url" type="url" value={publicNewsletterUrl} onChange={e=>setPublicNewsletterUrl(e.target.value)}
-              placeholder="https://ornek-site.org/bultenler/kasim-2026.html"
-              aria-describedby="published-newsletter-help"
-              style={{width:'100%',minHeight:44,padding:'10px 12px',border:'1px solid #cbd5e1',borderRadius:9,fontSize:13,color:'#1e293b'}}/>
-            <p id="published-newsletter-help" style={{fontSize:12,lineHeight:1.5,color:'#64748b',margin:0}}>
-              Henüz yayımlamadıysanız boş bırakın. HTML dosyasını bir web adresine yüklediğinizde düğmeler o adresi otomatik tanır.
-              E-posta içinde paylaşım bağlantılarının çalışması için bu alanı doldurun.
-            </p>
-            {!publishedShareUrl && <div role="status" style={{borderRadius:9,background:'#fff7ed',padding:'11px 13px',color:'#92400e',fontSize:12,lineHeight:1.5}}>
-              Henüz yayımlanmış bülten bağlantısı belirtilmedi. Editörün ana sayfa adresini paylaşmak bülteni paylaşmaz.
-            </div>}
-            <div role="group" aria-label="Sosyal medya paylaşım bağlantıları" style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:8}}>
+            <div role="status" style={{borderRadius:10,background:'#edfaf4',border:'1px solid #a7e2cc',padding:'13px 15px',color:'#16624e',fontSize:13,lineHeight:1.6}}>
+              <strong>✓ Bülten yayımlandı.</strong> Açık olan <strong>{title}</strong> bülteninin paylaşılabilir web adresi oluşturuldu.
+            </div>
+            <label htmlFor="published-newsletter-url" style={{fontSize:13,fontWeight:800,color:'#1e293b'}}>Bu bültenin herkese açık adresi</label>
+            <input id="published-newsletter-url" type="url" value={publishedShareUrl} readOnly
+              aria-label="Yayımlanmış bülten adresi"
+              style={{width:'100%',minHeight:44,padding:'10px 12px',border:'1px solid #cbd5e1',borderRadius:9,fontSize:13,color:'#1e293b',background:'#f8fafc'}}/>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:8}}>
+              <button type="button" onClick={copyPublishedLink}
+                style={{minHeight:44,padding:'11px 10px',borderRadius:10,border:0,background:'#0f766e',color:'#fff',fontWeight:800,cursor:'pointer'}}>
+                {copyDone==='link'?'✓ Kopyalandı':'🔗 Bağlantıyı Kopyala'}
+              </button>
+              <a href={publishedShareUrl} target="_blank" rel="noopener noreferrer"
+                style={{minHeight:44,display:'grid',placeItems:'center',borderRadius:10,border:'1px solid #cbd5e1',background:'#fff',color:'#0f6156',textDecoration:'none',fontWeight:800,fontSize:13}}>
+                ↗ Bülteni Görüntüle
+              </a>
+            </div>
+            {'share' in navigator && (
+              <button type="button" onClick={()=>{
+                navigator.share({title,url:publishedShareUrl}).catch(e=>{if(e?.name!=='AbortError')alert('Cihazın paylaşım menüsü açılamadı. Diğer bağlantıları kullanabilirsiniz.');});
+              }} style={{minHeight:44,background:'#ecfdf5',border:'1px solid #99d7c9',borderRadius:10,color:'#17675a',fontWeight:800,cursor:'pointer'}}>
+                📱 Telefonun Paylaşım Menüsü
+              </button>
+            )}
+            <p style={{margin:'0',fontSize:13,fontWeight:800,color:'#1e293b'}}>Sosyal medyada paylaş</p>
+            <div role="group" aria-label="Mevcut bülteni sosyal medyada paylaş" style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:8}}>
               {[
                 {key:'linkedin',name:'LinkedIn'},
                 {key:'facebook',name:'Facebook'},
@@ -2023,17 +2076,16 @@ ${text}`;
                 {key:'whatsapp',name:'WhatsApp'},
                 {key:'telegram',name:'Telegram'},
                 {key:'email',name:'E-posta'},
-              ].map(item=>publisherShareLinks[item.key] ?
-                <a key={item.key} href={publisherShareLinks[item.key]} target={item.key==='email'?'_self':'_blank'} rel="noopener noreferrer"
-                   style={{borderRadius:10,border:'1px solid #cbd5e1',padding:'11px 10px',textAlign:'center',fontWeight:800,fontSize:13,textDecoration:'none',color:'#0f6156',background:'#f8fafc'}}>{item.name} ↗</a> :
-                <span key={item.key} aria-disabled="true"
-                   style={{borderRadius:10,border:'1px solid #e2e8f0',padding:'11px 10px',textAlign:'center',fontWeight:800,fontSize:13,color:'#94a3b8',background:'#f8fafc'}}>{item.name}</span>
+              ].map(item=>
+                <a key={item.key} href={publisherShareLinks[item.key]||'#'} target={item.key==='email'?'_self':'_blank'} rel="noopener noreferrer"
+                   style={{borderRadius:10,border:'1px solid #cbd5e1',padding:'11px 10px',textAlign:'center',fontWeight:800,fontSize:13,textDecoration:'none',color:'#0f6156',background:'#f8fafc'}}>{item.name} ↗</a>
               )}
             </div>
-            <button type="button" onClick={copyPublishedLink} disabled={!publishedShareUrl}
-              style={{padding:'12px 14px',borderRadius:10,border:0,background:publishedShareUrl?'#0f766e':'#e2e8f0',color:publishedShareUrl?'#fff':'#64748b',fontWeight:800,cursor:publishedShareUrl?'pointer':'not-allowed'}}>
-              {copyDone==='link'?'✓ Bağlantı kopyalandı':'🔗 Bülten bağlantısını kopyala'}
-            </button>
+            <p style={{fontSize:12,lineHeight:1.6,color:'#64748b',margin:0}}>
+              Yayımlanan bağlantı herkese açıktır ve bu sürümün içeriklerini gösterir.
+              Taslağınızı düzenledikten sonra tekrar Paylaş'a basarsanız güncel içeriği taşıyan yeni bir bağlantı oluşturulur.
+              Bülteninizin taslağı ve kayıtları değiştirilmez.
+            </p>
           </div>
         </section>
       </div>

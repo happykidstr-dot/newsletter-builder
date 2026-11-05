@@ -31,3 +31,10 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser gallery scenarios
         run: npm run test:gallery:e2e
+      - name: Verify live Netlify Deploy Preview publishing
+        if: github.event_name == 'pull_request'
+        timeout-minutes: 6
+        env:
+          PREVIEW_URL: https://deploy-preview-${{ github.event.pull_request.number }}--bultenoku.netlify.app
+          PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/verify-public-preview.mjs

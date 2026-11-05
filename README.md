@@ -27,12 +27,16 @@ Profesyonel e-bültenler oluşturmak için bağımsız web uygulaması.
 
 HTML dışa aktarılan bültenlere LinkedIn, Facebook, X, WhatsApp, Telegram ve e-posta bağlantılarının bulunduğu **Bu bülteni paylaş** alanı eklenir. Destekleyen mobil tarayıcılarda işletim sisteminin paylaşım menüsü de açılır. Okuyucu herkese açık bülten URL'sini kopyalayabilir.
 
-**Önemli:** Bültenin sosyal medyada gerçekten açılabilmesi için HTML dosyasının herkese açık bir HTTP(S) adresinde yayımlanması gerekir. Sadece bilgisayarda duran bir dosyanın veya BÜLTEN READ editör ana sayfasının bağlantısı bültenin kendisi değildir.
+**Tek tıkla güncel bülten paylaşımı:** Artık editörde açık olan bülteni yayımlamak için üstteki **Paylaş** düğmesine basmanız yeterlidir. Uygulama, bültenin kamuya açılmasını onaylamanızı ister; onaydan sonra mevcut başlık, metinler, görseller, logo ve tasarım kalıcı olarak Netlify Blobs üzerinde depolanır. `/b/<benzersiz-kimlik>` bağlantısı oluşur. Facebook, LinkedIn, X, WhatsApp, Telegram ve e-posta düğmeleri **o bültenin** adresini paylaşır.
 
-- HTML dosyasını bir web sitesine yükleyin. Okuyucu sayfayı web adresinden açınca paylaşım düğmeleri o adresi kullanır.
-- E-posta bülteninde de sosyal bağlantıların çalışmasını istiyorsanız, **Bülteni Paylaş** ekranındaki **Yayımlanmış bültenin bağlantısı** alanına o sayfanın adresini girip HTML'yi yeniden dışa aktarın. E-posta istemcileri genellikle JavaScript çalıştırmaz; bağlantı bu nedenle önceden belirlenmelidir.
-- Yayımlanmış URL, bu bültenin yerel taslağında korunur; dış sunucuya otomatik bir bülten yayımlama servisi henüz sunulmaz.
-- Açık sosyal paylaşım bağlantıları erişilebilirlik için metin etiketlidir. Sosyal platformların gerçek paylaşım ve önizleme davranışı kendi kurallarına bağlıdır.
+- Aynı bülteni değiştirmeden tekrar Paylaş'a basarsanız mevcut paylaşım bağlantısı tekrar açılır. Bülteni düzenleyip yeniden Paylaş'a basarsanız güncel içeriğin ayrı bir bağlantısı yayımlanır.
+- Yayınlamadan önce kamuya açık bağlantının herkes tarafından görülebileceğini açıkça onaylamanız gerekir. Özel bilgi içeren bültenleri yayımlamayın.
+- Paylaşım editörünüzdeki taslağı veya kayıtlı bültenleri değiştirmez. Yayımlanan bir bültenin bağlantısı, sonraki site güncellemelerinde korunur.
+- Netlify'nin **production** ortamında yayımlanan içerikler site-geneli Blob deposunda, **Deploy Preview** ortamında test edilenler ise ayrı ve geçici depoda tutulur.
+- Sunucu HTML'yi temizler, gömülü kullanıcı betiklerini çalıştırmaz ve herkese açık sayfayı güvenlik kısıtlamalarıyla sunar.
+- Paylaşım için OpenAI API veya token kullanılmaz. Sosyal medya önizleme davranışları platformların kendi kurallarına bağlıdır.
+
+**Yerel geliştirme notu:** Kalıcı yayınlama işlemi Netlify Blobs ortamını gerektirir. Yerel geliştirmede tam depolama entegrasyonunu doğrulamak için `netlify dev` kullanılmalıdır. Standart `npm run dev` ortamında Netlify Blobs kimlik bilgileri yoksa yayınlama 503 ile başarısız olur; editördeki taslak korunur.
 
 ## 🚀 Kurulum
 

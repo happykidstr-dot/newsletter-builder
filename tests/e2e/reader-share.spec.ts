@@ -39,28 +39,26 @@ test('hosted reader page shares its actual newsletter URL and not the editor hom
   await expect(share.locator('#bulten-copy-share')).toBeVisible();
 });
 
-test('publisher must enter published URL before editor social buttons become active',async({page})=>{
+test('publisher receives a URL for the current newsletter without manual entry',async({page})=>{
   await page.goto('/');
-  await page.getByRole('button',{name:/Paylaş/}).first().click();
-  const dialog=page.getByRole('dialog',{name:'Okuyucu Paylaşımı'});
+  await page.route('**/api/publish',route=>route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM'})}));
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
+  const dialog=page.getByRole('dialog',{name:'Bu Bülteni Paylaş'});
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText(/Henüz yayımlanmış bülten bağlantısı belirtilmedi/)).toBeVisible();
-  const url=dialog.getByRole('textbox',{name:/Yayımlanmış bültenin bağlantısı/});
-  await url.fill('javascript:alert(1)');
-  await expect(dialog.getByRole('link',{name:/LinkedIn/})).toHaveCount(0);
-  await url.fill('https://example.org/newsletter/may-2027.html');
-  await expect(dialog.getByRole('link',{name:/LinkedIn/})).toHaveAttribute('href',/example\.org/);
-  await expect(dialog.getByRole('link',{name:/WhatsApp/})).toHaveAttribute('href',/wa\.me/);
+  await expect(dialog.getByRole('textbox',{name:'Yayımlanmış bülten adresi'}))
+    .toHaveValue(/\/b\/AQIDBAUGBwgJCgsM$/);
+  await expect(dialog.getByRole('textbox',{name:'Yayımlanmış bülten adresi'})).toHaveAttribute('readonly','');
 });
 
-test('known published URL is written as static share links for email clients without JavaScript',async({page})=>{
+test('newly published URL becomes static social links in HTML export for email readers',async({page})=>{
   await page.goto('/');
-  await page.getByRole('button',{name:/Paylaş/}).first().click();
-  await page.getByRole('textbox',{name:/Yayımlanmış bültenin bağlantısı/})
-    .fill('https://example.org/newsletters/impact.html');
-  await page.getByRole('button',{name:/Paylaşım penceresini kapat/}).click();
+  await page.route('**/api/publish',route=>route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM'})}));
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
+  await page.getByRole('button',{name:'Paylaşım penceresini kapat'}).click();
   const html=await downloadNewsletter(page);
   expect(html).toContain('https://www.linkedin.com/sharing/share-offsite/?url=');
-  expect(html).toContain('data-public-url="https://example.org/newsletters/impact.html"');
-  expect(html).toContain('property="og:url" content="https://example.org/newsletters/impact.html"');
+  expect(html).toContain('data-public-url="http://127.0.0.1:3000/b/AQIDBAUGBwgJCgsM"');
+  expect(html).toContain('property="og:url" content="http://127.0.0.1:3000/b/AQIDBAUGBwgJCgsM"');
 });
