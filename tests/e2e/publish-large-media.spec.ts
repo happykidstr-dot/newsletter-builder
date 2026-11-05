@@ -6,7 +6,7 @@ test('large photo embedded in newsletter is uploaded separately before publish',
   // lightweight social-share document. The user draft retains the original.
   const dataUrl=await page.evaluate(()=>{
     const canvas=document.createElement('canvas');
-    canvas.width=1650; canvas.height=1650;
+    canvas.width=1300; canvas.height=1300;
     const ctx=canvas.getContext('2d')!;
     const row=ctx.createImageData(canvas.width,canvas.height);
     for(let i=0;i<row.data.length;i+=4){
@@ -19,15 +19,13 @@ test('large photo embedded in newsletter is uploaded separately before publish',
     return canvas.toDataURL('image/png');
   });
   expect(dataUrl.length).toBeGreaterThan(5_500_000);
-  await page.evaluate(src=>{
-    window.localStorage.setItem('bulten_draft_v1',JSON.stringify({
-      title:'Büyük Fotoğraflı Bülten',subtitle:'Yayın testi',design:'modern',
-      blocks:[{id:'big-photo',type:'photos',data:{url:src,caption:'Kapsamlı etkinlik fotoğrafı'}}],
-      logoUrl:'',headerImgUrl:'',showTOC:false,
-    }));
-  },dataUrl);
-  await page.reload();
-  await expect(page.getByPlaceholder('Bülten başlığı...')).toHaveValue('Büyük Fotoğraflı Bülten');
+  // Enter the large photo through the visible editor, not localStorage:
+  // browser storage has its own quota and must not limit publishing.
+  await page.locator('#block-palette button').filter({hasText:'Görsel'}).first().click();
+  await page.getByPlaceholder('https://site.com/gorsel.png').fill(dataUrl);
+  const title=page.getByPlaceholder('Bülten başlığı...');
+  await title.fill('Büyük Fotoğraflı Bülten');
+  await expect(title).toHaveValue('Büyük Fotoğraflı Bülten');
   let uploads=0;let published:any=null;
   await page.route('**/api/media',async route=>{
     uploads++;const payload=route.request().postDataJSON();
