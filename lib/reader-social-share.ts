@@ -12,6 +12,20 @@ export function normalisePublicNewsletterUrl(input: string): string {
     return url.toString();
   } catch { return ''; }
 }
+/** Allow normal web links and harmless local placeholders, never executable URL schemes. */
+export function safeReaderLinkUrl(input: string): string {
+  const v=input.trim();
+  if(v==='#') return '#';
+  if (/^\/(?!\/)[A-Za-z0-9_./~%\-?&=]+$/.test(v)) return v;
+  return normalisePublicNewsletterUrl(v) || '#';
+}
+/** Raster data images and conventional HTTP(S) or root-relative images only. */
+export function safeReaderImageUrl(input: string): string {
+  const v=input.trim();
+  if(/^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/i.test(v))return v;
+  if(/^\/(?!\/)[A-Za-z0-9_./~%\-?&=]+$/.test(v))return v;
+  return normalisePublicNewsletterUrl(v);
+}
 export function escapeShareHtml(input: string): string {
   return input.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
