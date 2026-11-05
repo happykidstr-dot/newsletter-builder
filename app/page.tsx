@@ -1431,6 +1431,12 @@ ${text}`;
               style={{background:previewMode==='mobile'?'#fff':'transparent',border:'none',borderRadius:6,padding:'6px 12px',fontSize:12,fontWeight:700,color:previewMode==='mobile'?'#0f172a':'#64748b',cursor:'pointer',boxShadow:previewMode==='mobile'?'0 1px 3px rgba(0,0,0,0.1)':'none',transition:'all .2s'}}>📱 Mobil</button>
           </div>
           
+          {/* Publication/share settings — the editor URL is never treated as the newsletter URL. */}
+          <button type="button" onClick={()=>setShowShareModal(true)} title="Okuyucu paylaşım seçenekleri"
+            style={{display:'flex',alignItems:'center',gap:6,background:'#ecfdf5',border:'1px solid #99d7c9',color:'#17675a',fontSize:13,fontWeight:800,cursor:'pointer',padding:'8px 14px',borderRadius:8}}>
+            <span aria-hidden="true">↗</span> Paylaş
+          </button>
+
           {/* Action Buttons styled softly */}
           <button onClick={handleExport} title="HTML Olarak İndir" style={{display:'flex',alignItems:'center',gap:6,background:'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:'pointer',padding:'8px 14px',borderRadius:8,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#f8fafc';(e.currentTarget as HTMLElement).style.color='#0f172a'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='#ffffff';(e.currentTarget as HTMLElement).style.color='#475569'}}>
             <span style={{fontSize:15}}>⬇️</span> HTML
