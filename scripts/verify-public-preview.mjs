@@ -23,11 +23,30 @@ async function ready(){
 }
 await ready();
 
+// Test the independent media store before publishing an image-rich article.
+const pngOnePixel='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL2VQAAAABJRU5ErkJggg==';
+const mediaSent=await fetch(BASE+'/api/media',{
+  method:'POST',
+  headers:{Origin:BASE,'Content-Type':'application/json','User-Agent':'bulten-preview-e2e'},
+  body:JSON.stringify({mime:'image/png',base64:pngOnePixel}),
+  signal:AbortSignal.timeout(25000),
+});
+const mediaSaved=await mediaSent.json().catch(()=>({}));
+assert.equal(mediaSent.status,201,'Media upload failed: '+JSON.stringify(mediaSaved));
+const mediaUrl=new URL(mediaSaved.url);
+assert.equal(mediaUrl.origin,BASE,'Media must have a public same-origin reader URL.');
+assert.match(mediaUrl.pathname,/^\/media\/[A-Za-z0-9_-]{22}$/);
+const servedImage=await fetch(mediaSaved.url,{signal:AbortSignal.timeout(25000)});
+assert.equal(servedImage.status,200,'Published image is not accessible to social readers.');
+assert.match(servedImage.headers.get('content-type')||'',/image\/png/);
+const bytes=Buffer.from(await servedImage.arrayBuffer());
+assert.equal(bytes.subarray(0,4).toString('hex'),'89504e47','Media bytes changed during delivery.');
+
 const title='BÜLTEN READ QA — Paylaşım Denemesi';
 const snippet='Yalnızca otomatik test içerir; gerçek kullanıcı verisi yoktur.';
 const fakeHtml=`<!doctype html><html lang="tr"><body><div style="max-width:640px">
   <h1>${title}</h1>
-  <div id="bulten-reading-content"><p>${snippet}</p><script>window.__SHOULD_NOT_EXECUTE__=1;</script>
+  <div id="bulten-reading-content"><p>${snippet}</p><img src="${mediaSaved.url}" alt="Test görseli"><script>window.__SHOULD_NOT_EXECUTE__=1;</script>
   <a href="javascript:alert(1)" onclick="alert(2)">Test Bağlantısı</a></div>
   </div></body></html>`;
 const posted=await fetch(BASE+'/api/publish',{
@@ -48,6 +67,7 @@ assert.match(doc.headers.get('content-type')||'',/text\/html/);
 assert.match(doc.headers.get('content-security-policy')||'',/sandbox/);
 const html=await doc.text();
 assert.ok(html.includes(snippet),'Published document lost current newsletter content.');
+assert.ok(html.includes(mediaSaved.url),'Reader article lost its separately stored image URL.');
 assert.ok(html.includes('og:title'),'Social previews lack Open Graph title.');
 assert.ok(html.includes('linkedin.com/sharing/share-offsite'),'Reader share links were not generated.');
 assert.ok(!html.includes('__SHOULD_NOT_EXECUTE__'),'Untrusted scripts leaked into published document.');
