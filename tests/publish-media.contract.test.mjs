@@ -12,7 +12,7 @@ test('sharing strips embedded raster data from exported HTML via independent ass
  assert.match(client,/exportedHtml\.match\(DATA_IMAGE\)/);
  assert.match(client,/html=html\.split\(source\)\.join\(hosted\)/);
  assert.match(client,/fetch\('\/api\/media'/);
- assert.match(client,/set.*Cache/);
+ assert.match(client,/saveCache\(cache\)/);
  assert.match(editor,/prepareNewsletterForSharing\(generateHTML\(\),headerImgUrl/);
  assert.match(editor,/headerImgUrl:prepared\.headerImgUrl,html:prepared\.html/);
 });
