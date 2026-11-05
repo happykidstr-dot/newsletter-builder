@@ -2577,7 +2577,10 @@ ${text}`;
                   {savedList.length?'Aramanıza uygun bülten bulunamadı.':'Henüz kayıtlı bülteniniz yok. Üstteki Kaydet düğmesine basın.'}
                 </p>
               : savedList.filter(v=>[v.title,v.subtitle].join(' ').toLocaleLowerCase('tr').includes(savedSearch.toLocaleLowerCase('tr'))).map(record=>(
-                <div key={record.id} data-testid="saved-newsletter-item" onDoubleClick={()=>handleLoad(record)}
+                <div key={record.id} data-testid="saved-newsletter-item" onDoubleClick={e=>{
+                  if((e.target as HTMLElement).closest('button,a'))return;
+                  handleLoad(record);
+                }}
                   title="Çift tıklayarak editörde aç"
                   style={{border:'1px solid #dce5eb',borderRadius:13,overflow:'hidden',background:'#fff',boxShadow:'0 2px 8px rgba(15,23,42,.05)',minWidth:0}}>
                   <div style={{height:95,background:`linear-gradient(135deg,${(DESIGNS[record.design]||DESIGNS.modern).headerBg},#245c74)`,position:'relative',padding:14,display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
