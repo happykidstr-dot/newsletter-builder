@@ -42,3 +42,7 @@ test('app has separately visible Edit, Publish/Update and Share actions',()=>{
   assert.match(app,/Güncelle/);
   assert.match(app,/onClick=\{handleShareCurrent\}/);
 });
+
+test('empty newly created newsletters must not crash the editor',()=>{
+  assert.match(app,/blocks\[0\]\?\.id \?\? null/);
+});
