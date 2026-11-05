@@ -27,3 +27,7 @@ jobs:
         run: npx tsc --noEmit
       - name: Production build
         run: npm run build
+      - name: Install Chromium for browser smoke tests
+        run: npx playwright install --with-deps chromium
+      - name: Browser and API smoke tests (no external credentials)
+        run: npm run test:e2e
