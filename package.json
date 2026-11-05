@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:gallery": "node --test tests/*.contract.test.mjs",
+    "test:gallery:e2e": "playwright test"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.4",
@@ -28,6 +30,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.7",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@playwright/test": "1.64.1"
   }
 }

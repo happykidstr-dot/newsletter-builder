@@ -4,6 +4,9 @@ import React, { useState, useCallback } from 'react';
 const SignInButton = null as any;
 const UserButton = null as any;
 import dynamic from 'next/dynamic';
+import { TemplateGallery } from '@/components/TemplateGallery';
+import type { GalleryTemplate } from '@/lib/gallery-templates';
+import { escapeShareHtml, makeShareLinks, normalisePublicNewsletterUrl, readerShareBar, READER_SHARE_RUNTIME, safeReaderImageUrl, safeReaderLinkUrl } from '@/lib/reader-social-share';
 import { useAccessibility } from '@/hooks/useAccessibility';
 import { AccessibilityToolbar } from '@/components/AccessibilityToolbar';
 const BultenLocationMap = dynamic(() => import('@/components/BultenLocationMap'), { ssr: false, loading: () => <div style={{height:340,display:'flex',alignItems:'center',justifyContent:'center',color:'#94a3b8'}}>Harita yükleniyor...</div> });
@@ -60,7 +63,7 @@ type BT = 'title'|'paragraph'|'photos'|'video'|'event'|'separator'|'link'|'butto
 
 interface Block { id: string; type: BT; data: Record<string,string> }
 
-type Design = 'modern'|'classic'|'bold'|'minimal';
+type Design = 'modern'|'classic'|'bold'|'minimal'|'european'|'impact'|'partnership'|'evently'|'corporate'|'inclusive'|'stories'|'editorial';
 
 interface DesignConfig {
   label: string;
@@ -69,392 +72,7 @@ interface DesignConfig {
   font: string;
 }
 
-// ── 10 Pre-designed Templates ──────────────────────────────────────────
-const NEWSLETTER_TEMPLATES = [
-  {
-    id: 'tpl_school', title: 'Okul Haftalık Bülteni', subtitle: 'Mart Ayı 3. Hafta Gelişmeleri', design: 'classic' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=640&q=80',
-    blocks: [
-      { id:'b1', type:'title' as BT, data:{text:'Bu Hafta Okulumuzda Neler Oldu?',size:'h2'} },
-      { id:'b2', type:'paragraph' as BT, data:{text:'Değerli velilerimiz ve öğrencilerimiz,\n\nBu hafta bilim fuarımızda öğrencilerimizin ürettiği harika projeleri inceleme fırsatı bulduk...'} },
-      { id:'b3', type:'photos' as BT, data:{url:'https://images.unsplash.com/photo-1511629091441-ee46146481b6?w=640&q=80',caption:'Bilim fuarından kareler'} },
-      { id:'b4', type:'event' as BT, data:{title:'Veli Toplantısı',date:'2026-03-28',time:'13:00',location:'Konferans Salonu'} },
-      { id:'b5', type:'button' as BT, data:{text:'Not Çizelgesini İndir',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_event', title: 'Bahar Şenliği Davetiyesi', subtitle: 'Hepinizi bekliyoruz!', design: 'bold' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1487530811015-780c80ce0e68?w=640&q=80',
-    blocks: [
-      { id:'b1', type:'title' as BT, data:{text:'Geleneksel Bahar Şenliği',size:'h1'} },
-      { id:'b2', type:'paragraph' as BT, data:{text:'Müzik, dans, yemek ve eğlenceye hazır mısınız? Bu yıl baharı harika bir festivalle karşılıyoruz.'} },
-      { id:'b3', type:'event' as BT, data:{title:'Bahar Festivali 2026',date:'2026-05-15',time:'10:00 - 22:00',location:'Merkez Kampüs Etkinlik Alanı'} },
-      { id:'b4', type:'googleform' as BT, data:{url:'',height:'400'} },
-      { id:'b5', type:'button' as BT, data:{text:'LCV Lütfen (Buraya Tıklayın)',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_hr', title: 'İnsan Kaynakları Duyurusu', subtitle: 'Yeni Ekip Arkadaşları ve Güncellemeler', design: 'modern' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=640&q=80',
-    blocks: [
-      { id:'b1', type:'title' as BT, data:{text:'Aramıza Hoş Geldiniz!',size:'h2'} },
-      { id:'b2', type:'paragraph' as BT, data:{text:'Bu ay pazarlama ekibimize katılan yeni çalışma arkadaşlarımızı tebrik ederiz.'} },
-      { id:'b3', type:'separator' as BT, data:{style:'dashed'} },
-      { id:'b4', type:'title' as BT, data:{text:'Yeni Yemek Kartı Sistemi',size:'h3'} },
-      { id:'b5', type:'paragraph' as BT, data:{text:'Önümüzdeki aydan itibaren yemek kartı alt yapımız değişiyor. Detaylı bilgi ekte yer almaktadır.'} },
-      { id:'b6', type:'attachment' as BT, data:{fileName:'Yemek_Sistemi_Rehberi.pdf',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_launch', title: 'Yeni Ürün Lansmanı', subtitle: 'Project Factory v2.0 Yayında', design: 'minimal' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=640&q=80',
-    blocks: [
-      { id:'b1', type:'title' as BT, data:{text:'Geleceğin Platformuyla Tanışın',size:'h1'} },
-      { id:'b2', type:'paragraph' as BT, data:{text:'Aylardır üzerinde çalıştığımız yeni özellikler ve tamamen yenilenen arayüzümüzle kullanıma hazırız.'} },
-      { id:'b3', type:'video' as BT, data:{url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ'} },
-      { id:'b4', type:'title' as BT, data:{text:'Neler Yeni?',size:'h3'} },
-      { id:'b5', type:'paragraph' as BT, data:{text:'• Gelişmiş AI Asistanı\n• Toplu PDF dışa aktarımı\n• Yenilenmiş Analitik Paneli'} },
-      { id:'b6', type:'button' as BT, data:{text:'Hemen Deneyin',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_monthly', title: 'Aylık Şirket Özeti', subtitle: 'Nisan 2026 Performansımız', design: 'classic' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1554200876-56c2f25224fa?w=640&q=80',
-    blocks: [
-      { id:'b1', type:'title' as BT, data:{text:'Finansal Hedeflere Ulaştık!',size:'h2'} },
-      { id:'b2', type:'paragraph' as BT, data:{text:'Bu ay %15 büyüme kaydederek çeyrek hedeflerimizi aştık. Tüm ekibe teşekkürler!'} },
-      { id:'b3', type:'photos' as BT, data:{url:'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=640&q=80',caption:'Büyüme Grafiğimiz'} },
-      { id:'b4', type:'poll' as BT, data:{question:'Gelecek ayki ofis partisi nerede olsun?',opt1:'Teras Kat',opt2:'Bahçe',opt3:'Dışarıda Bir Mekan'} }
-    ]
-  },
-  {
-    id: 'tpl_parents', title: 'Veli Bilgilendirme', subtitle: 'Dönem Sonu Notları ve Uyarılar', design: 'modern' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=640&q=80',
-    blocks: [
-      { id:'b1', type:'title' as BT, data:{text:'Dönem Sonu Yaklaşıyor',size:'h2'} },
-      { id:'b2', type:'paragraph' as BT, data:{text:'Öğrencilerimizin sınav haftası önümüzdeki pazartesi başlıyor. Velilerimizin bu zorlu haftada onlara destek olmasını rica ediyoruz.'} },
-      { id:'b3', type:'separator' as BT, data:{style:'solid'} },
-      { id:'b4', type:'title' as BT, data:{text:'Beslenme Listesi',size:'h3'} },
-      { id:'b5', type:'attachment' as BT, data:{fileName:'Mayis_Ay_Beslenme.pdf',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_workshop', title: 'Eğitim & Atölye', subtitle: 'AB Proje Yazımı Eğitimi', design: 'bold' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=640&q=80',
-    blocks: [
-      { id:'b1', type:'title' as BT, data:{text:'Erasmus+ KA2 Proje Yazım Atölyesi',size:'h2'} },
-      { id:'b2', type:'paragraph' as BT, data:{text:'Kendi projenizi yazmak hiç bu kadar kolay olmamıştı. 2 günlük yoğun uygulamalı eğitimimize davetlisiniz.'} },
-      { id:'b3', type:'event' as BT, data:{title:'Proje Atölyesi',date:'2026-06-10',time:'09:00',location:'Zoom (Online)'} },
-      { id:'b4', type:'button' as BT, data:{text:'Kayıt Ol',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_club', title: 'Kitap Kulübü Bülteni', subtitle: 'Bu Ay Ne Okuyoruz?', design: 'minimal' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=640&q=80',
-    blocks: [
-      { id:'b1', type:'title' as BT, data:{text:'Ayın Kitabı: 1984',size:'h2'} },
-      { id:'b2', type:'paragraph' as BT, data:{text:'George Orwell\'in başyapıtı olan 1984\'ü distopya ayı kapsamında inceliyoruz.'} },
-      { id:'b3', type:'photos' as BT, data:{url:'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=640&q=80',caption:'Kitap Kapağı'} },
-      { id:'b4', type:'poll' as BT, data:{question:'Önümüzdeki ay hangi tür okuyalım?',opt1:'Bilim Kurgu',opt2:'Polisiye',opt3:'Tarih'} }
-    ]
-  },
-  {
-    id: 'tpl_ngo', title: 'Bağış Kampanyası', subtitle: 'Her Damla Bir Umut', design: 'classic' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=640&q=80',
-    blocks: [
-      { id:'b1', type:'title' as BT, data:{text:'Su Kuyusu Projemiz Başladı',size:'h1'} },
-      { id:'b2', type:'paragraph' as BT, data:{text:'Afrika\'da temiz suya erişimi olmayan köyler için başlattığımız projeye desteklerinizi bekliyoruz.'} },
-      { id:'b3', type:'button' as BT, data:{text:'Hemen Bağış Yap',url:'#'} },
-      { id:'b4', type:'video' as BT, data:{url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ'} }
-    ]
-  },
-  {
-    id: 'tpl_assignment', title: 'Ödev Duyurusu', subtitle: 'Matematik Süreç Değerlendirmesi', design: 'modern' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1509869175650-a1d97972541a?w=640&q=80',
-    blocks: [
-      { id:'b1', type:'title' as BT, data:{text:'2. Ünite Değerlendirme Ödevi',size:'h2'} },
-      { id:'b2', type:'paragraph' as BT, data:{text:'Öğrencilerimizin üslü sayılar konusunu pekiştirmesi için hazırlanan föyleri perşembe gününe kadar tamamlamaları gerekmektedir.'} },
-      { id:'b3', type:'attachment' as BT, data:{fileName:'Uslu_Sayilar_Foy_3.pdf',url:'#'} },
-      { id:'b4', type:'event' as BT, data:{title:'Ödev Son Teslim Tarihi',date:'2026-03-26',time:'08:30',location:'Matematik Sınıfı'} }
-    ]
-  },
-  {
-    id: 'tpl_proj_kickoff', title: 'Proje Haberleri: Kick-off', subtitle: 'Avrupa Eğitim Ağı Projemiz Başlıyor!', design: 'bold' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Projemizin İlk Adımını Attık',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Avrupa Birliği tarafından desteklenen projemizin açılış toplantısını (Kick-off) büyük bir heyecanla gerçekleştirdik. 5 farklı ülkeden gelen stratejik ortaklarımızla hedeflerimizi belirledik.'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Koordinatör olarak sorumluluğumuz büyük. İlk gün boyunca fikri çıktıların taslak planlarını ve yaygınlaştırma stratejilerini tartıştık.', url:'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=640&q=80', imagePos:'right'} },
-      { id:uid(), type:'separator' as BT, data:{style:'solid'} },
-      { id:uid(), type:'title' as BT, data:{text:'Proje Hedeflerimiz Neler?',size:'h2'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'1. Yenilikçi müfredat oluşturmak\n2. Dijital platform entegrasyonu sağlamak\n3. Ulusötesi eğitim hareketliliklerini artırmak'} },
-      { id:uid(), type:'photogrid' as BT, data:{cols:'3', url1:'https://images.unsplash.com/photo-1552664730-d307ca884978?w=320', cap1:'İspanya Ekibi', url2:'https://images.unsplash.com/photo-1558403194-611308249d50?w=320', cap2:'İtalya Ekibi', url3:'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=320', cap3:'Türkiye Ekibi'} },
-      { id:uid(), type:'event' as BT, data:{title:'Sıradaki Çevrimiçi Toplantı',date:'2026-10-15',time:'14:00',location:'Zoom / Teams'} },
-      { id:uid(), type:'poll' as BT, data:{question:'Sizce en kritik proje hedefimiz hangisi?',opt1:'Dijitalleşme',opt2:'Kapsayıcılık',opt3:'Yeşil Beceriler'} },
-      { id:uid(), type:'button' as BT, data:{text:'Proje Web Sitesini Ziyaret Et',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_proj_tpm', title: 'Proje Haberleri: TPM Özeti', subtitle: '2. Ulusötesi Ortaklık Toplantısı Gerçekleşti', design: 'modern' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Roma\'da Bir Araya Geldik',size:'h1'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'İtalya ortağımızın ev sahipliğinde gerçekleşen 2. Ulusötesi Toplantı (TPM) başarıyla tamamlandı. Gündemimizde pilot uygulamalar ve modül içeriklerinin son revizyonları vardı.', url:'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=640&q=80', imagePos:'left'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Katılımcılar, bölgesel farklılıklara uygun esnek bir müfredat üzerinde mutabık kalarak bir sonraki aşama için görev paylaşımı yaptılar.'} },
-      { id:uid(), type:'separator' as BT, data:{style:'solid'} },
-      { id:uid(), type:'title' as BT, data:{text:'Alınan Temel Kararlar',size:'h2'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'• Eğitim içerikleri 3 farklı dile çevrilecek.\n• Platform testleri gelecek ay başlayacak.\n• Yaygınlaştırma raporları her ay düzenli olarak toplanacak.'} },
-      { id:uid(), type:'attachment' as BT, data:{name:'TPM_2_Toplanti_Tutanaklari.pdf',url:'#'} },
-      { id:uid(), type:'author' as BT, data:{name:'Luigi Feretti',title:'Ev Sahibi Kurum Koordinatörü',bio:'Verimli ve sonuç odaklı bir toplantı oldu. Tüm ortaklarımıza katkılarından dolayı teşekkür ederiz.',avatar:'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=128'} },
-      { id:uid(), type:'photos' as BT, data:{url:'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=640', caption:'Tüm ortakların katılımıyla çekilen aile fotoğrafımız'} },
-      { id:uid(), type:'button' as BT, data:{text:'Detaylı Toplantı Raporunu İncele',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_proj_pr', title: 'Proje Haberleri: PR Lansmanı', subtitle: 'E-Öğrenme Platformumuz Yayında!', design: 'classic' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Aylardır Beklenen An Geldi',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Konsorsiyum olarak üzerinde titizlikle çalıştığımız Fikri Çıktımız (PR1) olan yenilikçi e-öğrenme platformumuzu sonunda kullanıcılarla buluşturuyoruz.'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Platform, hem öğretmenlerin hem de öğrencilerin etkileşimli olarak içerik üretebileceği, akran değerlendirmesi yapabileceği bir modüler yapıya sahip.', url:'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=640&q=80', imagePos:'right'} },
-      { id:uid(), type:'separator' as BT, data:{style:'solid'} },
-      { id:uid(), type:'title' as BT, data:{text:'Kimler Kullanabilir?',size:'h2'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'• Mesleki ve teknik anadolu lisesi öğretmenleri\n• Yetiştirme kurslarındaki eğitmenler\n• Kendi kendine öğrenme sürecindeki öğrenciler'} },
-      { id:uid(), type:'video' as BT, data:{url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', caption:'Platform Tanıtım Videomuz'} },
-      { id:uid(), type:'attachment' as BT, data:{name:'Kullanici_Kilavuzu_V1.pdf',url:'#'} },
-      { id:uid(), type:'poll' as BT, data:{question:'Platform arayüzünü nasıl buldunuz?',opt1:'Çok modern ve kullanışlı',opt2:'Geliştirilmesi gerekiyor',opt3:'Henüz test etmedim'} },
-      { id:uid(), type:'button' as BT, data:{text:'Platforma Ücretsiz Kayıt Ol',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_proj_ltt', title: 'Proje Haberleri: LTT Hareketliliği', subtitle: '5 Günlük Eğitim Etkinliğimizi Tamamladık', design: 'minimal' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1544928147-79a2dbc1f389?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Öğrenme, Öğretme ve Eğitim Zamanı!',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Ortak ülkelerden gelen öğretmenlerin katılımıyla gerçekleştirdiğimiz "Kapsayıcı Eğitim Metotları" (C1) faaliyetimiz başarıyla sonuçlandı.'} },
-      { id:uid(), type:'photogrid' as BT, data:{cols:'2', url1:'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=320', cap1:'Atölye Çalışmaları', url2:'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=320', cap2:'Sertifika Töreni'} },
-      { id:uid(), type:'separator' as BT, data:{style:'solid'} },
-      { id:uid(), type:'title' as BT, data:{text:'Katılımcı Deneyimleri',size:'h2'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'"Farklı kültürlerden gelen meslektaşlarımla çalışmak, kendi eğitim vizyonuma yepyeni bir boyut kattı." — Maria (İspanya)', url:'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=640&q=80', imagePos:'left'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Eğitim programı boyunca non-formal eğitim teknikleri, grup dinamikleri ve dijital araçların sınıf içi kullanımı uygulamalı olarak test edildi.'} },
-      { id:uid(), type:'googleform' as BT, data:{url:'https://docs.google.com/forms/d/e/1FAIpQLSf.../viewform', title:'Hareketlilik Değerlendirme Anketi'} },
-      { id:uid(), type:'photos' as BT, data:{url:'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=640', caption:'Proje sonrası kültürel gezi anılarımız'} },
-      { id:uid(), type:'button' as BT, data:{text:'Eğitim Materyallerine Göz At',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_proj_final', title: 'Proje Haberleri: Final Konferansı', subtitle: '2 Yıllık Serüvenin Ardından...', design: 'bold' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Kapanış Konferansımız ve Çıktılarımız',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Acısıyla tatlısıyla iki yıllık AB Erasmus+ projemizi noktalarken, elde ettiğimiz çıktıları yerel paydaşlarımızla görkemli bir final konferansında paylaştık.'} },
-      { id:uid(), type:'video' as BT, data:{url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', caption:'Proje Özeti ve Kapanış Videosu'} },
-      { id:uid(), type:'separator' as BT, data:{style:'solid'} },
-      { id:uid(), type:'title' as BT, data:{text:'Proje Sonuçları & İstatistikler',size:'h2'} },
-      { id:uid(), type:'photogrid' as BT, data:{cols:'3', url1:'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=320', cap1:'15+ Etkinlik', url2:'https://images.unsplash.com/photo-1556761175-5973dc0f32b7?w=320', cap2:'500+ Katılımcı', url3:'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=320', cap3:'3 Fikri Çıktı'} },
-      { id:uid(), type:'attachment' as BT, data:{name:'Politika_Onerileri_Raporu_TR.pdf',url:'#'} },
-      { id:uid(), type:'author' as BT, data:{name:'Dr. Ayşe Yılmaz',title:'Baş Koordinatör',bio:'Bu bir son değil, yarattığımız sürdürülebilir ağı genişleteceğimiz yeni bir başlangıçtır. Tüm ekibe minnettarım.',avatar:'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=128'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Sürdürülebilirlik planlarımız kapsamında e-platformumuz en az 5 yıl daha ücretsiz olarak kullanıma açık kalacaktır.', url:'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=640&q=80', imagePos:'right'} },
-      { id:uid(), type:'button' as BT, data:{text:'Sürdürülebilirlik Platformuna Git',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_municipal', title: 'Aylık Kent Bülteni', subtitle: 'Ekim 2026 Değerlendirmesi', design: 'modern' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Kıymetli Hemşehrilerimiz',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Bu ay şehrimizde hayata geçirdiğimiz projeleri ve önümüzdeki dönem planlarımızı sizlerle paylaşmaktan mutluluk duyuyoruz.'} },
-      { id:uid(), type:'author' as BT, data:{name:'Ahmet Yılmaz',title:'Belediye Başkanı',bio:'Daha yeşil ve yaşanabilir bir şehir için çalışmaya devam ediyoruz.',avatar:'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=128'} },
-      { id:uid(), type:'separator' as BT, data:{style:'solid'} },
-      { id:uid(), type:'title' as BT, data:{text:'Yeni Şehir Parkı Açılışı',size:'h2'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Merkez mahallemize kazandırdığımız 50.000 metrekarelik yeni şehir parkımız, çocuklarımız için geniş oyun alanları ve yürüyüş yolları içeriyor.', url:'https://images.unsplash.com/photo-1519331379826-f10be5486c6f?w=640&q=80', imagePos:'right'} },
-      { id:uid(), type:'photogrid' as BT, data:{cols:'3', url1:'https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?w=320', cap1:'Peyzaj Çalışmaları', url2:'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=320', cap2:'Çocuk Oyun Alanı', url3:'https://images.unsplash.com/photo-1510006851064-e6056cd0e3a8?w=320', cap3:'Yürüyüş Parkuru'} },
-      { id:uid(), type:'video' as BT, data:{url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', caption:'Parkımızın drone çekimi görüntüleri'} },
-      { id:uid(), type:'separator' as BT, data:{style:'dashed'} },
-      { id:uid(), type:'title' as BT, data:{text:'Ulaşımda Yeni Dönem',size:'h2'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Elektrikli otobüs filomuz bugün itibariyle seferlere başladı. Yeni hat güzergah haritasını aşağıdan indirebilirsiniz.'} },
-      { id:uid(), type:'attachment' as BT, data:{name:'Yeni_Otobus_Hatlari_2026.pdf',url:'#'} },
-      { id:uid(), type:'event' as BT, data:{title:'Halk Buluşması',date:'2026-10-15',time:'19:00',location:'Belediye Kültür Merkezi'} },
-      { id:uid(), type:'poll' as BT, data:{question:'Sıradaki projemiz ne olmalı?',opt1:'Yeni Kütüphane',opt2:'Spor Kompleksi',opt3:'Gençlik Merkezi'} },
-      { id:uid(), type:'button' as BT, data:{text:'Tüm Projeleri İncele',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_tech_digest', title: 'Haftalık Teknoloji Özeti', subtitle: 'Sayı: 42 | AI ve Gelecek', design: 'minimal' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Yapay Zeka Dünyayı Değiştiriyor',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Bu haftaki bültenimizde, üretken yapay zeka modellerinin son güncellemelerini ve sektörel etkilerini inceliyoruz.'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Yeni çıkan GPT-5 mimarisi, özellikle sağlık ve finans alanlarında devrim yaratacak gibi görünüyor. İlk test sonuçları beklentilerin çok üzerinde.', url:'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=640&q=80', imagePos:'left'} },
-      { id:uid(), type:'separator' as BT, data:{style:'solid'} },
-      { id:uid(), type:'title' as BT, data:{text:'Haftanın Öne Çıkanları',size:'h2'} },
-      { id:uid(), type:'photogrid' as BT, data:{cols:'2', url1:'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=320', cap1:'Veri Analizi', url2:'https://images.unsplash.com/photo-1633412802994-5c058f151b66?w=320', cap2:'Donanım Yenilikleri'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'• Kuantum bilgisayarlarda yeni hata düzeltme algoritması bulundu.\n• Akıllı telefon satışları son çeyrekte rekor kırdı.\n• Siber güvenlikte sıfır güven (zero-trust) mimarisi standartlaşıyor.'} },
-      { id:uid(), type:'link' as BT, data:{text:'Detaylı raporu okumak için teknoloji blogumuzu ziyaret edin',url:'#'} },
-      { id:uid(), type:'separator' as BT, data:{style:'dotted'} },
-      { id:uid(), type:'author' as BT, data:{name:'Caner Tekin',title:'Teknoloji Editörü',bio:'Gelecek koda yazıldı. Teknoloji dünyasındaki gelişmeleri sizin için sadeleştiriyoruz.',avatar:'https://images.unsplash.com/photo-1581382575275-97901c2635b7?w=128'} },
-      { id:uid(), type:'poll' as BT, data:{question:'Yapay zeka işinizi nasıl etkileyecek?',opt1:'Verimliliğimi artıracak',opt2:'İş yapış şeklimi tamamen değiştirecek',opt3:'Pek etki etmeyecek'} },
-      { id:uid(), type:'event' as BT, data:{title:'Webinar: AI Araçları Kullanımı',date:'2026-11-05',time:'20:00',location:'YouTube Live'} },
-      { id:uid(), type:'button' as BT, data:{text:'Gelecek Haftaki Sayıya Abone Ol',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_news_1', title: 'Sivil Toplum Haberleri', subtitle: 'Kasım 2026 Gelişmeleri', design: 'classic' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1593113589914-0759901168f1?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Saha Çalışmalarımızdan Notlar',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Bu ay dezavantajlı gruplara yönelik başlattığımız yeni istihdam programının ilk meyvelerini topluyoruz. Destek veren tüm bağışçılarımıza teşekkür ederiz.'} },
-      { id:uid(), type:'photogrid' as BT, data:{cols:'3', url1:'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=320', cap1:'Topluluk Buluşması', url2:'https://images.unsplash.com/photo-1542838132-92c53300491e?w=320', cap2:'Saha Eğitimi', url3:'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=320', cap3:'Sertifika Töreni'} },
-      { id:uid(), type:'separator' as BT, data:{style:'dotted'} },
-      { id:uid(), type:'title' as BT, data:{text:'Ayın Gönüllüsü: Zeynep Kaya',size:'h2'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Zeynep Hanım, projedeki üstün gayreti ve pozitif enerjisiyle bu ay "Ayın Gönüllüsü" seçildi. Kendisi mülteci çocukların entegrasyonu için haftada 15 saatini feda ediyor.', url:'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=640&q=80', imagePos:'right'} },
-      { id:uid(), type:'author' as BT, data:{name:'Zeynep Kaya',title:'Gönüllü Eğitmen',bio:'Bir çocuğun hayatına dokunmak, dünyanın yönünü değiştirmek demektir.',avatar:'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=128'} },
-      { id:uid(), type:'event' as BT, data:{title:'Aralık Ayı Dayanışma Kermesi',date:'2026-12-10',time:'10:00',location:'Merkez Şehir Meydanı'} },
-      { id:uid(), type:'poll' as BT, data:{question:'Sıradaki kampanyamız hangi alanda olmalı?',opt1:'Çocuk Eğitimi',opt2:'Kadın İstihdamı',opt3:'Çevre ve İklim'} },
-      { id:uid(), type:'attachment' as BT, data:{name:'STK_Aylik_Faaliyet_Raporu.pdf',url:'#'} },
-      { id:uid(), type:'button' as BT, data:{text:'Gönüllü Başvuru Formu',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_news_2', title: 'Avrupa Birliği Fırsatları', subtitle: 'Açık Çağrılar ve Hibeler', design: 'modern' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'2027 Erasmus+ Bütçeleri Belli Oldu',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Yeni dönemde yeşil seyahat (green travel) ödenekleri artırıldı. Ayrıca küçük ölçekli ortaklıklar için başvuru süreçleri dijitalleştirilerek kolaylaştırıldı.'} },
-      { id:uid(), type:'separator' as BT, data:{style:'solid'} },
-      { id:uid(), type:'title' as BT, data:{text:'Ufuk Avrupa (Horizon Europe) Açık Çağrıları',size:'h2'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Küresel ısınmayla mücadele kapsamında açılan ve 5 Milyon Euro bütçeli "İklim Nötr Şehirler" çağrısı için son başvuru tarihi yaklaşıyor. Konsorsiyum yapısı kurarken mutlaka KOBİ ve STK dengesine dikkat ediniz.', url:'https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?w=640&q=80', imagePos:'left'} },
-      { id:uid(), type:'video' as BT, data:{url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', caption:'Avrupa Komisyonu Resmi Çağrı Tanıtım Videosu'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'• KA122 (Kısa Dönemli Projeler): Son Gün 20 Şubat\n• KA220 (İşbirliği Ortaklıkları): Son Gün 24 Mart\n• CERV (Vatandaşlık): Son Gün 15 Nisan'} },
-      { id:uid(), type:'attachment' as BT, data:{name:'2027_Cagri_Rehberi_TR.pdf',url:'#'} },
-      { id:uid(), type:'link' as BT, data:{text:'Tüm güncel fırsatlar için EU Funding portalını ziyaret edin',url:'#'} },
-      { id:uid(), type:'button' as BT, data:{text:'Proje Fikrini Test Et (Ücretsiz)',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_news_3', title: 'Eğitim Gelişmeleri', subtitle: 'Dijital Öğrenme Trendleri', design: 'minimal' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Hibrit Öğrenme Modeli Yaygınlaşıyor',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Geçtiğimiz ay yayınlanan ulusal eğitim raporuna göre, okulların %40\'ı artık derslerin bir kısmını tamamen çevrimiçi platformlardan yürütüyor.'} },
-      { id:uid(), type:'photogrid' as BT, data:{cols:'2', url1:'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=320', cap1:'Dijital Sınıflar', url2:'https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?w=320', cap2:'Online Mentörlük'} },
-      { id:uid(), type:'separator' as BT, data:{style:'dashed'} },
-      { id:uid(), type:'title' as BT, data:{text:'Uzman Görüşü: EdTech Geleceği',size:'h2'} },
-      { id:uid(), type:'author' as BT, data:{name:'Prof. Dr. Ali Veli',title:'Eğitim Teknoloğu',bio:'Sanal gerçeklik (VR) laboratuvar derslerinin kalıcı bir parçası haline gelecek.',avatar:'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=128'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Yeni nesil tablet ve etkileşimli tahtalar, öğretmenlerin notlarını anlık olarak veli portallarına aktarıyor. Bu şeffaflık, öğrenci takibini inanılmaz derecede kolaylaştırdı.', url:'https://images.unsplash.com/photo-1531545514251-b146e5008b48?w=640&q=80', imagePos:'right'} },
-      { id:uid(), type:'poll' as BT, data:{question:'Sizce geleneksel testler kalkmalı mı?',opt1:'Evet, proje bazlı ödevlere geçilmeli',opt2:'Hayır, sınavlar şart',opt3:'Hibrit bir yapı mantıklı'} },
-      { id:uid(), type:'button' as BT, data:{text:'Teknoloji Entegreli Müfredat Raporu',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_news_4', title: 'Yerel Yönetim & Gençlik', subtitle: 'İzmir Gençlik Meclisi Bülteni', design: 'bold' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Gençlik Fonu Başvuruları Açıldı!',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Belediyemiz tarafından desteklenen ve 18-29 yaş arası genç girişimcilerin başvurabileceği yeni inovasyon fonu resmi olarak duyuruldu.'} },
-      { id:uid(), type:'video' as BT, data:{url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', caption:'Gençlik Başkanı Mesajı'} },
-      { id:uid(), type:'separator' as BT, data:{style:'solid'} },
-      { id:uid(), type:'title' as BT, data:{text:'Desteklenen Proje Kategorileri',size:'h2'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'• Akıllı Şehir Uygulamaları\n• Kültür ve Sanat İnisiyatifleri\n• Sosyal Medya İçerik Üretimi\n• Sıfır Atık / Ekoloji'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Proje başına 50.000 TL hibe desteği sağlanacaktır. Tüm katılımcılar ayrıca belediyemizin kuluçka merkezindeki paylaşımlı ofis alanından 6 ay ücretsiz yararlanacaktır.', url:'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=640&q=80', imagePos:'left'} },
-      { id:uid(), type:'event' as BT, data:{title:'Açılış Lansmanı ve Soru-Cevap',date:'2026-11-25',time:'18:00',location:'Büyükşehir Gençlik Merkezi'} },
-      { id:uid(), type:'attachment' as BT, data:{name:'Genc_Girisimci_Fon_Rehberi.pdf',url:'#'} },
-      { id:uid(), type:'button' as BT, data:{text:'Hemen Fikrini Gönder',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_news_5', title: 'Ar-Ge ve İnovasyon', subtitle: 'Aylık Ekosistem Haberleri', design: 'classic' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'TÜBİTAK 1501 Çağrısı Gelişmeleri',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Özel sektör Ar-Ge destek programları kapsamında yeni dönem çağrı dokümanları yayınlandı. Dijital ikiz (digital twin) odaklı projeler öncelikli desteklenecek.'} },
-      { id:uid(), type:'separator' as BT, data:{style:'dotted'} },
-      { id:uid(), type:'title' as BT, data:{text:'Ayın Başarı Hikayesi: Yeşil Kimya',size:'h2'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Marmara Teknokent bünyesinde faaliyet gösteren BioPlast A.Ş., bitkisel atıklardan 100% çözünebilir plastik üreten yeni patentiyle 2 Milyon Dolar yatırım aldı.', url:'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=640&q=80', imagePos:'right'} },
-      { id:uid(), type:'author' as BT, data:{name:'Dr. Aslı Demir',title:'Genel Müdür (CEO)',bio:'Dünyayı yaşanabilir kılmak için doğadan ilham alan inovasyonlar şart.',avatar:'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=128'} },
-      { id:uid(), type:'poll' as BT, data:{question:'Firmanızın Ar-Ge harcamaları ne yönde?',opt1:'Artıyor',opt2:'Aynı Kaldı',opt3:'Düşüyor'} },
-      { id:uid(), type:'event' as BT, data:{title:'Üniversite - Sanayi Çöpçatanlık Etkinliği',date:'2026-12-01',time:'09:00',location:'Kongre Merkezimiz'} },
-      { id:uid(), type:'button' as BT, data:{text:'İkili Görüşmelere (B2B) Kayıt',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_edu_1', title: 'Eğitim: Proje Döngüsü (PCM)', subtitle: 'Sıfırdan İleri Seviyeye Proje Yazımı', design: 'modern' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'AB Hibe Fonlarına Erişin',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Fikrinizi hibe kazanan bir projeye dönüştürmek için size uygulamalı bir mentörlük programı hazırladık. Mantıksal çerçeve (Logframe) analizinden bütçelemeye kadar her detayı öğrenin.'} },
-      { id:uid(), type:'video' as BT, data:{url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', caption:'Eğitim Tanıtım Videosu'} },
-      { id:uid(), type:'separator' as BT, data:{style:'solid'} },
-      { id:uid(), type:'title' as BT, data:{text:'Program Detayları',size:'h2'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'1. Modül: Sorun Analizi ve LFM Tablosu\n2. Modül: Ortak Bulma ve Ön Başvuru\n3. Modül: Bütçe Yazımı ve Kalemler\n4. Modül: Son Okuma ve Dış Etki Anketi', url:'https://images.unsplash.com/photo-1513128034602-7814ccaddd4e?w=640&q=80', imagePos:'left'} },
-      { id:uid(), type:'author' as BT, data:{name:'Can Yılmaz',title:'Kıdemli Proje Uzmanı',bio:'15 yılda 40\'tan fazla onaylanmış KA2 projesi referansıyla yanınızdayım.',avatar:'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=128'} },
-      { id:uid(), type:'event' as BT, data:{title:'Canlı Online İlk Ders',date:'2026-11-10',time:'20:00',location:'Zoom (Adresinize Link Gelecektir)'} },
-      { id:uid(), type:'attachment' as BT, data:{name:'PCM_Egitim_Mufredati.pdf',url:'#'} },
-      { id:uid(), type:'button' as BT, data:{text:'Eğitime Kayıt Ol (%20 İndirimli)',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_edu_2', title: 'Danışmanlık Hizmetleri', subtitle: 'Kurumsal Kapasite Geliştirme', design: 'classic' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Şirketinizin Hibe Stratejisi Hazır Mı?',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Avrupa Birliği ve Ulusal fonlara kendi iç ekibinizle bağımsız şekilde başvurabilmeniz için özel danışmanlık paketimizi sunuyoruz. Sizi balık almaya değil, balık tutmaya çağırıyoruz.'} },
-      { id:uid(), type:'separator' as BT, data:{style:'solid'} },
-      { id:uid(), type:'title' as BT, data:{text:'Danışmanlık Kapsamı',size:'h2'} },
-      { id:uid(), type:'photogrid' as BT, data:{cols:'3', url1:'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=320', cap1:'İhtiyaç Analizi', url2:'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=320', cap2:'Ulusal Fon Haritası', url3:'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=320', cap3:'Strateji Belgesi'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Ekibinizin yetkinliklerini analiz ediyor, PIC numarası kaydından kurum tanıtım dosyasına (PIF) kadar uluslararası ağlara katılmanızı sağlayacak tüm vitrininizi birlikte oluşturuyoruz.', url:'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=640&q=80', imagePos:'right'} },
-      { id:uid(), type:'poll' as BT, data:{question:'Proje ekibiniz var mı?',opt1:'Evet, ayrı bir departmanımız var',opt2:'Hayır, dışarıyla çalışıyoruz',opt3:'Kurmaya çalışıyoruz'} },
-      { id:uid(), type:'button' as BT, data:{text:'Ücretsiz 30 Dk Tanışma Toplantısı Ayarla',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_edu_3', title: 'Mentörlük: Genç Girişimciler', subtitle: 'Fikirden Yatırıma Yolculuk', design: 'bold' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Startup Mentörlüğü Programı 2026',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Cevheri parlak bir fikriniz varsa, onu yatırım yapılabilir bir iş modeline dönüştürmek için ihtiyacınız olan rehberliği sunuyoruz.'} },
-      { id:uid(), type:'separator' as BT, data:{style:'dashed'} },
-      { id:uid(), type:'title' as BT, data:{text:'Programda Neler Var?',size:'h2'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'• 1-on-1 (Birebir) Haftalık Koçluk Görüşmeleri\n• Pazar Büyüklüğü (TAM/SAM/SOM) Analizleri\n• Rakip Analizi ve SWOT Çıkarımı\n• Pitch Deck (Yatırımcı Sunumu) Tasarımı\n• Birebir Yatırımcı (Angel Investor) Simulasyonları', url:'https://images.unsplash.com/photo-1553877522-43269d4ea984?w=640&q=80', imagePos:'left'} },
-      { id:uid(), type:'video' as BT, data:{url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', caption:'Mezun girişimcilerimizin başarı hikayeleri'} },
-      { id:uid(), type:'author' as BT, data:{name:'Selin Doğan',title:'Melek Yatırımcı & Mentör',bio:'Harika ürünler değil, harika takımlar yatırım alır. O takım siz olabilirsiniz.',avatar:'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=128'} },
-      { id:uid(), type:'event' as BT, data:{title:'Açık Seçim Günü (Pitch Day)',date:'2026-12-20',time:'09:00',location:'Galata İnovasyon Merkezi'} },
-      { id:uid(), type:'attachment' as BT, data:{name:'Basvuru_Sartnamesi.pdf',url:'#'} },
-      { id:uid(), type:'button' as BT, data:{text:'Mentorluk Başvurusunu Tamamla',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_edu_4', title: 'Atölye: Teknoloji & Yapay Zeka', subtitle: 'Proje Süreçlerinde AI Kullanımı', design: 'minimal' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1485686531765-ba63b07845a7?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Projelerinizi Yapay Zekayla Hızlandırın',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Eski usül word dosyalarıyla boğuşmak geride kaldı. Project Factory AI ve ChatGPT gibi araçlarla hibe projelerinizi %70 daha hızlı nasıl yazacağınızı öğrenin.'} },
-      { id:uid(), type:'photogrid' as BT, data:{cols:'2', url1:'https://images.unsplash.com/photo-1518770660439-4636190af475?w=320', cap1:'AI İle Metin Üretimi', url2:'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=320', cap2:'Bütçe Analizi'} },
-      { id:uid(), type:'separator' as BT, data:{style:'dashed'} },
-      { id:uid(), type:'title' as BT, data:{text:'Kazanımlarınız Neler Olacak?',size:'h2'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Katılımcılar atölye sonunda kendi kurumlarının AI tabanlı proje şablonlarını (Prompt Matrix) oluşturabilecek ve hibe değerlendirme algoritmalarının nasıl çalıştığını (3 Lens Sistemi) anlayacaklardır.', url:'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=640&q=80', imagePos:'right'} },
-      { id:uid(), type:'link' as BT, data:{text:'Kullanılacak Eğitim Materyallerine Göz Atın',url:'#'} },
-      { id:uid(), type:'poll' as BT, data:{question:'ChatGPT/AI araçlarını işinizde sık kullanıyor musunuz?',opt1:'Her gün',opt2:'Haftada birkaç kez',opt3:'Hiç kullanmadım'} },
-      { id:uid(), type:'event' as BT, data:{title:'1 Günlük Hackathon/Atölye',date:'2026-11-28',time:'10:00',location:'Teknopark Konferans Salonu'} },
-      { id:uid(), type:'button' as BT, data:{text:'Atölye Biletini Al',url:'#'} }
-    ]
-  },
-  {
-    id: 'tpl_edu_5', title: 'Lobicilik ve Networking', subtitle: 'Brüksel Odaklı Ağ Kurma Eğitimi', design: 'classic' as Design,
-    headerImgUrl: 'https://images.unsplash.com/photo-1507679622767-14e3ee3193e2?w=640&q=80',
-    blocks: [
-      { id:uid(), type:'title' as BT, data:{text:'Kurumunuzu Avrupa Çapında Konumlandırın',size:'h1'} },
-      { id:uid(), type:'paragraph' as BT, data:{text:'Yüksek bütçeli Konsorsiyum projelerinde asistan ortak olmak yerine koordinatörlüğe soyunmak istiyorsanız, doğru kişilerle nasıl stratejik ortaklıklar kurulacağını keşfedin.'} },
-      { id:uid(), type:'separator' as BT, data:{style:'solid'} },
-      { id:uid(), type:'title' as BT, data:{text:'Ağ Kurma Eğitim İçeriği',size:'h2'} },
-      { id:uid(), type:'textphoto' as BT, data:{text:'Avrupa Komisyonu veritabanlarında (FTOP) profilinizi öne çıkarma, LinkedIn üzerinden Avrupalı proje sahiplerine erişme, Brüksel InfoDay etkinliklerinde etkili elevator-pitch yapma teknikleri gibi kritik yetkinlikler.', url:'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=640&q=80', imagePos:'left'} },
-      { id:uid(), type:'attachment' as BT, data:{name:'Networking_Checklist.pdf',url:'#'} },
-      { id:uid(), type:'author' as BT, data:{name:'Mehmet Çelik',title:'Uluslararası İlişkiler Direktörü',bio:'Büyük projeler kağıt üzerinde değil, kahve molalarında lobi yapılarak kazanılır.',avatar:'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=128'} },
-      { id:uid(), type:'event' as BT, data:{title:'Stratejik Ortaklıklar Semineri',date:'2026-12-05',time:'13:30',location:'Ankara Hilton Otel'} },
-      { id:uid(), type:'button' as BT, data:{text:'Rezervasyon Yap (! Son 5 Kontenjan !)',url:'#'} }
-    ]
-  }
-];
+// Eight curated templates are defined in lib/gallery-templates.ts.
 
 // ── Design configs ─────────────────────────────────────────────────────
 const DESIGNS: Record<Design, DesignConfig> = {
@@ -462,6 +80,14 @@ const DESIGNS: Record<Design, DesignConfig> = {
   classic: { label:'Classic',  headerBg:'#2d6a2d', headerColor:'#fff',    accentColor:'#2d6a2d', bodyBg:'#fffef5', textColor:'#2d2d2d', font:'Georgia, serif' },
   bold:    { label:'Bold',     headerBg:'#c0392b', headerColor:'#fff',    accentColor:'#e74c3c', bodyBg:'#fff',    textColor:'#1a1a1a', font:'Outfit, sans-serif' },
   minimal: { label:'Minimal',  headerBg:'#1a1a1a', headerColor:'#f5f5f5', accentColor:'#555',    bodyBg:'#fafafa', textColor:'#222',    font:'system-ui, sans-serif' },
+  european: {"label":"European Project Magazine","headerBg":"#122c4a","headerColor":"#fff","accentColor":"#d6ac59","bodyBg":"#f5f0e8","textColor":"#18273a","font":"Georgia, serif"},
+  impact: {"label":"Project Impact","headerBg":"#075d53","headerColor":"#fff","accentColor":"#e1a342","bodyBg":"#edf7f3","textColor":"#143e38","font":"Inter, system-ui, sans-serif"},
+  partnership: {"label":"Partnership News","headerBg":"#263b59","headerColor":"#fff","accentColor":"#547bb6","bodyBg":"#eef3fb","textColor":"#182f4c","font":"Inter, system-ui, sans-serif"},
+  evently: {"label":"Event & Webinar","headerBg":"#8a335a","headerColor":"#fff","accentColor":"#faac72","bodyBg":"#fff0f3","textColor":"#44263b","font":"Outfit, Inter, system-ui, sans-serif"},
+  corporate: {"label":"Corporate Digest","headerBg":"#212936","headerColor":"#fff","accentColor":"#cda46c","bodyBg":"#f3f4f6","textColor":"#26303d","font":"Inter, system-ui, sans-serif"},
+  inclusive: {"label":"Inclusive Newsletter","headerBg":"#153f5f","headerColor":"#fff","accentColor":"#147e86","bodyBg":"#ffffff","textColor":"#132f45","font":"Arial, Inter, system-ui, sans-serif"},
+  stories: {"label":"Visual Stories","headerBg":"#65402f","headerColor":"#fff","accentColor":"#b76942","bodyBg":"#fbf3ed","textColor":"#36251d","font":"Georgia, serif"},
+  editorial: {"label":"Minimal Editorial","headerBg":"#1f252b","headerColor":"#fff","accentColor":"#6f7258","bodyBg":"#fcfcfa","textColor":"#22272a","font":"Georgia, serif"},
 };
 
 // ── Block palette ─────────────────────────────────────────────────────
@@ -956,6 +582,7 @@ export default function BultenReadPage() {
   const [showTOC,       setShowTOC]       = useState(true);
   const [logoUrl,       setLogoUrl]       = useState('');
   const [headerImgUrl,  setHeaderImgUrl]  = useState('');
+  const [publicNewsletterUrl, setPublicNewsletterUrl] = useState('');
   const [previewMode,   setPreviewMode]   = useState<'desktop'|'mobile'>('desktop');
   const draggedBlockIdRef = React.useRef<string|null>(null);
 
@@ -1038,6 +665,7 @@ export default function BultenReadPage() {
           setDesign(data.design || 'modern');
           setLogoUrl(data.logoUrl || '');
           setHeaderImgUrl(data.headerImgUrl || '');
+          setPublicNewsletterUrl(typeof data.publicNewsletterUrl==='string' ? data.publicNewsletterUrl : '');
           const safeBlocks = data.blocks.filter((b: any) => b && typeof b === 'object' && b.id);
           if (safeBlocks.length) {
              setBlocks(safeBlocks);
@@ -1050,8 +678,8 @@ export default function BultenReadPage() {
 
   // On change: Save
   React.useEffect(() => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, subtitle, design, logoUrl, headerImgUrl, blocks }));
-  }, [title, subtitle, design, logoUrl, headerImgUrl, blocks]);
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, subtitle, design, logoUrl, headerImgUrl, blocks, publicNewsletterUrl }));
+  }, [title, subtitle, design, logoUrl, headerImgUrl, blocks, publicNewsletterUrl]);
 
   // ── Text-to-Speech ──────────────────────────────────────────────────
   const [isSpeaking, setIsSpeaking] = React.useState(false);
@@ -1180,14 +808,14 @@ export default function BultenReadPage() {
     translateBlocks(l);
   };
 
-  type SavedNL = { id:string; title:string; subtitle:string; design:Design; blocks:Block[]; logoUrl:string; headerImgUrl:string; showTOC:boolean; savedAt:string; };
+  type SavedNL = { id:string; title:string; subtitle:string; design:Design; blocks:Block[]; logoUrl:string; headerImgUrl:string; showTOC:boolean; savedAt:string; publicNewsletterUrl?:string; };
 
   const [showSavedModal, setShowSavedModal] = React.useState(false);
   const [savedList, setSavedList] = React.useState<SavedNL[]>([]);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
 
   const handleSave = async () => {
-    const entry: SavedNL = { id:uid(), title, subtitle, design, blocks, logoUrl, headerImgUrl, showTOC, savedAt:new Date().toISOString() };
+    const entry: SavedNL = { id:uid(), title, subtitle, design, blocks, logoUrl, headerImgUrl, showTOC, publicNewsletterUrl, savedAt:new Date().toISOString() };
     const next = [entry,...savedList].slice(0,20);
     setSavedList(next);
     setSaveSuccess(true); setTimeout(()=>setSaveSuccess(false),2000);
@@ -1206,7 +834,7 @@ export default function BultenReadPage() {
   const handleLoad = (s:SavedNL) => {
     setTitle(s.title); setSubtitle(s.subtitle); setDesign(s.design);
     setBlocks(s.blocks); setLogoUrl(s.logoUrl||''); setHeaderImgUrl(s.headerImgUrl||'');
-    setShowTOC(s.showTOC); setSelectedId(null); setShowSavedModal(false);
+    setShowTOC(s.showTOC); setPublicNewsletterUrl(s.publicNewsletterUrl||''); setSelectedId(null); setShowSavedModal(false);
   };
 
   const handleDelete = async (id:string) => {
@@ -1220,6 +848,17 @@ export default function BultenReadPage() {
   const [showShareModal, setShowShareModal] = React.useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = React.useState(false);
   const [copyDone, setCopyDone] = React.useState<string|null>(null);
+  const publishedShareUrl = normalisePublicNewsletterUrl(publicNewsletterUrl);
+  const publisherShareLinks = makeShareLinks(title,publishedShareUrl);
+  const copyPublishedLink = async () => {
+    if (!publishedShareUrl) return;
+    try {
+      await navigator.clipboard.writeText(publishedShareUrl);
+      setCopyDone('link');setTimeout(()=>setCopyDone(null),2200);
+    } catch {
+      window.prompt('Bağlantıyı kopyalayın:',publishedShareUrl);
+    }
+  };
 
   // Analytics helpers
   const [analytics, setAnalytics] = React.useState<{views:number, lastWeek:number, opens:number, clicks:number}>({views:0, lastWeek:0, opens:0, clicks:0});
@@ -1622,7 +1261,21 @@ ${text}`;
   // HTML export
   const generateHTML = useCallback(()=>{
     const blockHtml = blocks.map(b=>{
-      const d=b.data; const ac=D.accentColor; const tc=D.textColor; const ff=D.font;
+      const d:Record<string,string> = Object.fromEntries(Object.entries(b.data).map(([k,raw])=>{
+        const value=String(raw??'');
+        if(k==='size') return [k,['h1','h2','h3'].includes(value)?value:'h2'];
+        if(k==='cols') return [k,String(Math.max(1,Math.min(4,Number(value)||2)))];
+        if(k==='style') return [k,['solid','dashed','dotted'].includes(value)?value:'solid'];
+        if(k==='align') return [k,['left','center','right'].includes(value)?value:'center'];
+        if(k==='avatar'||k.startsWith('url')){
+          const imageBlock=['photos','textphoto','photogrid','author'].includes(b.type);
+          if(imageBlock) return [k,escapeShareHtml(safeReaderImageUrl(value))];
+          if(b.type==='video') return [k,value];
+          return [k,escapeShareHtml(safeReaderLinkUrl(value))];
+        }
+        return [k,escapeShareHtml(value)];
+      }));
+      const ac=D.accentColor; const tc=D.textColor; const ff=D.font;
       if(b.type==='title'){const sz={h1:'28px',h2:'22px',h3:'18px'}[d.size||'h2'];return `<${d.size||'h2'} style="color:${ac};font-size:${sz};font-family:${ff};font-weight:800;margin:0 0 8px;">${d.text}</${d.size||'h2'}>`;}
       if(b.type==='paragraph') return `<p style="color:${tc};font-size:15px;line-height:1.75;font-family:${ff};margin:0 0 8px;white-space:pre-wrap;">${d.text}</p>`;
       if(b.type==='photos') {
@@ -1635,7 +1288,7 @@ ${text}`;
         return d.url?`<img src="${d.url}" alt="${d.caption||''}" style="width:100%;border-radius:8px;display:block;"/>`:`<div style="height:80px;background:#e2e8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-family:${ff};">🖼 Görsel ekleyin</div>`;
       }
 
-      if(b.type==='video'){const v=ytId(d.url||'');return v?`<div style="position:relative;padding-bottom:56.25%;height:0;"><iframe src="https://www.youtube.com/embed/${v}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe></div>`:``;}
+      if(b.type==='video'){const v=ytId(d.url||'');return v && /^[A-Za-z0-9_-]{11}$/.test(v)?`<div style="position:relative;padding-bottom:56.25%;height:0;"><iframe src="https://www.youtube.com/embed/${v}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe></div>`:``;}
       if(b.type==='event') return `<div style="border-left:4px solid ${ac};padding:8px 16px;font-family:${ff};"><b style="color:${ac};">${d.title}</b>${d.date?`<br/><span style="color:${tc};font-size:13px;">📅 ${d.date} ${d.time}</span>`:''}${d.location?`<br/><span style="color:${tc};font-size:13px;">📍 ${d.location}</span>`:''}</div>`;
       if(b.type==='separator') return `<hr style="border:none;border-top:2px ${d.style} ${ac};margin:8px 0;"/>`;
       if(b.type==='link') return `<a href="${d.url}" style="color:${ac};font-family:${ff};font-weight:600;">🔗 ${d.text}</a>`;
@@ -1658,18 +1311,28 @@ ${text}`;
       return '';
     }).map(h=>`<div style="padding:10px 0;">${h}</div>`).join('');
 
-    const toc = showTOC ? `<div style="background:${D.accentColor}11;border-radius:8px;padding:14px 18px;margin-bottom:20px;border:1px solid ${D.accentColor}33;font-family:${D.font};">${blocks.filter(b=>b.type==='title').map(b=>`<div style="color:${D.accentColor};font-size:13px;font-weight:600;margin-bottom:4px;">→ ${b.data.text}</div>`).join('')}</div>` : '';
-    const headerBgStyle = headerImgUrl ? `background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.45)), url(${headerImgUrl}) center/cover no-repeat;` : `background:${D.headerBg};`;
+    const toc = showTOC ? `<div style="background:${D.accentColor}11;border-radius:8px;padding:14px 18px;margin-bottom:20px;border:1px solid ${D.accentColor}33;font-family:${D.font};">${blocks.filter(b=>b.type==='title').map(b=>`<div style="color:${D.accentColor};font-size:13px;font-weight:600;margin-bottom:4px;">→ ${escapeShareHtml(b.data.text||'')}</div>`).join('')}</div>` : '';
+    const safeHeaderImage = safeReaderImageUrl(headerImgUrl).replace(/["'\\()]/g, s => encodeURIComponent(s));
+    const headerBgStyle = safeHeaderImage ? `background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.45)), url("${safeHeaderImage}") center/cover no-repeat;` : `background:${D.headerBg};`;
 
-    const embeddedTextToRead = blocks.map(b => (b.type==='title'||b.type==='paragraph'||b.type==='textphoto'||b.type==='event') ? b.data.title||b.data.text||'' : '').filter(Boolean).join('. ');
-    const fullEmbeddedText = `${title}. ${subtitle}. ${embeddedTextToRead}`.replace(/"/g, '\\"').replace(/\n/g, ' ');
+    const shareBarHtml = readerShareBar(title, publicNewsletterUrl);
+    const published = normalisePublicNewsletterUrl(publicNewsletterUrl);
+    const cleanTitle = escapeShareHtml(title);
+    const cleanSubtitle = escapeShareHtml(subtitle);
+    const canonicalMeta = published ? `<link rel="canonical" href="${escapeShareHtml(published)}"><meta property="og:url" content="${escapeShareHtml(published)}">` : '';
+    const ogImageUrl = normalisePublicNewsletterUrl(headerImgUrl);
+    const ogImageMeta = ogImageUrl ? `<meta property="og:image" content="${escapeShareHtml(ogImageUrl)}">` : '';
 
-    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;"><button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${title}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${subtitle}</p></div><div style="padding:32px 40px;">${toc}${blockHtml}</div><div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
+    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${cleanTitle}</title><meta name="description" content="${cleanSubtitle}"><meta property="og:title" content="${cleanTitle}"><meta property="og:description" content="${cleanSubtitle}"><meta property="og:type" content="article">${canonicalMeta}${ogImageMeta}<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn,#bulten-reader-share{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;"><button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${cleanTitle}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${cleanSubtitle}</p></div><div id="bulten-reading-content" style="padding:32px 40px;">${toc}${blockHtml}</div>${shareBarHtml}<div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
     <script>
       window.bultenIsSpeaking = false;
       window.bultenSpeak = function() {
         if(window.bultenIsSpeaking) { window.speechSynthesis.cancel(); window.bultenIsSpeaking=false; document.getElementById('speakIcon').innerText='🔊'; document.getElementById('speakText').innerText='Dinle'; return; }
-        var u = new SpeechSynthesisUtterance("${fullEmbeddedText}");
+        var header=document.querySelector('h1');
+        var subtitle=header ? header.nextElementSibling : null;
+        var content=document.getElementById('bulten-reading-content');
+        var speechText=(header?header.textContent+'. ':'')+(subtitle?subtitle.textContent+'. ':'')+(content?content.textContent:'');
+        var u = new SpeechSynthesisUtterance(speechText);
         var targetPrefix = "${lang === 'en' ? 'en' : 'tr'}";
         u.lang = "${lang === 'en' ? 'en-GB' : 'tr-TR'}";
         
@@ -1701,8 +1364,9 @@ ${text}`;
         window.speechSynthesis.speak(u);
       };
     </script>
+    <script>${READER_SHARE_RUNTIME}</script>
     </body></html>`;
-  },[blocks,D,title,subtitle,showTOC,headerImgUrl,lang]);
+  },[blocks,D,title,subtitle,showTOC,headerImgUrl,lang,publicNewsletterUrl]);
 
   const handleExport = ()=>{
     const html=generateHTML();
@@ -1767,6 +1431,12 @@ ${text}`;
               style={{background:previewMode==='mobile'?'#fff':'transparent',border:'none',borderRadius:6,padding:'6px 12px',fontSize:12,fontWeight:700,color:previewMode==='mobile'?'#0f172a':'#64748b',cursor:'pointer',boxShadow:previewMode==='mobile'?'0 1px 3px rgba(0,0,0,0.1)':'none',transition:'all .2s'}}>📱 Mobil</button>
           </div>
           
+          {/* Publication/share settings — the editor URL is never treated as the newsletter URL. */}
+          <button type="button" onClick={()=>setShowShareModal(true)} title="Okuyucu paylaşım seçenekleri"
+            style={{display:'flex',alignItems:'center',gap:6,background:'#ecfdf5',border:'1px solid #99d7c9',color:'#17675a',fontSize:13,fontWeight:800,cursor:'pointer',padding:'8px 14px',borderRadius:8}}>
+            <span aria-hidden="true">↗</span> Paylaş
+          </button>
+
           {/* Action Buttons styled softly */}
           <button onClick={handleExport} title="HTML Olarak İndir" style={{display:'flex',alignItems:'center',gap:6,background:'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:'pointer',padding:'8px 14px',borderRadius:8,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#f8fafc';(e.currentTarget as HTMLElement).style.color='#0f172a'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='#ffffff';(e.currentTarget as HTMLElement).style.color='#475569'}}>
             <span style={{fontSize:15}}>⬇️</span> HTML
@@ -1805,7 +1475,7 @@ ${text}`;
               style={{background:'transparent',border:'none',color:'#0ea5e9',fontSize:13,fontWeight:800,cursor:'pointer',padding:'6px 14px',borderRadius:6,transition:'all .2s'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#e0f2fe'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='transparent'}}>
               📂 Aç
             </button>
-            <button onClick={()=>{ handleSave(); setBlocks([]); setTitle('Yeni Bülten'); setSubtitle('#1  •  ' + new Date().toLocaleDateString('tr-TR')); setHeaderImgUrl(''); setLogoUrl(''); }} title="Yeni boş bülten aç"
+            <button onClick={()=>{ handleSave(); setBlocks([]); setTitle('Yeni Bülten'); setSubtitle('#1  •  ' + new Date().toLocaleDateString('tr-TR')); setHeaderImgUrl(''); setLogoUrl(''); setPublicNewsletterUrl(''); }} title="Yeni boş bülten aç"
               style={{background:'transparent',border:'none',color:'#10b981',fontSize:13,fontWeight:800,cursor:'pointer',padding:'6px 14px',borderRadius:6,transition:'all .2s'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#d1fae5'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='transparent'}}>
               ✨ Yeni
             </button>
@@ -2299,48 +1969,53 @@ ${text}`;
 
     {/* ── Share Modal ── */}
     {showShareModal && (
-      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}
-           onClick={()=>setShowShareModal(false)}>
-        <div style={{background:'#fff',borderRadius:16,width:480,maxHeight:'88vh',display:'flex',flexDirection:'column',boxShadow:'0 16px 48px rgba(0,0,0,.25)',overflow:'hidden'}}
-             onClick={e=>e.stopPropagation()}>
-          <div style={{padding:'16px 20px',background:'linear-gradient(135deg,#0d9488,#059669)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span style={{fontWeight:800,fontSize:15,color:'#fff'}}>📤 Bülteni Paylaş</span>
-            <button onClick={()=>setShowShareModal(false)} style={{background:'none',border:'none',color:'rgba(255,255,255,.7)',fontSize:20,cursor:'pointer'}}>✕</button>
-          </div>
-          <div style={{padding:18,overflowY:'auto'}}>
-            {/* Social share */}
-            <div style={{fontSize:11,fontWeight:800,color:'#9ca3af',textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Sosyal Medya</div>
-            {[
-              {icon:'🔵',label:'Facebook\'ta Paylaş',color:'#1877F2',bg:'#e8f0fe',url:`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${encodeURIComponent(title)}`},
-              {icon:'🐦',label:'Twitter / X\'te Paylaş',color:'#1da1f2',bg:'#e8f7fe',url:`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(window.location.href)}`},
-              {icon:'💼',label:'LinkedIn\'de Paylaş',color:'#0077b5',bg:'#e8f1f8',url:`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`},
-              {icon:'💬',label:'WhatsApp ile Paylaş',color:'#25D366',bg:'#e8faf0',url:`https://wa.me/?text=${encodeURIComponent(title+' '+window.location.href)}`},
-            ].map(s=>(
-              <a key={s.label} href={s.url} target="_blank" rel="noreferrer"
-                style={{display:'flex',alignItems:'center',gap:12,padding:'12px',borderRadius:10,background:s.bg,marginBottom:8,textDecoration:'none',border:`1px solid ${s.color}22`}}>
-                <span style={{fontSize:20}}>{s.icon}</span>
-                <span style={{fontWeight:700,fontSize:13,color:s.color}}>{s.label}</span>
-                <span style={{marginLeft:'auto',fontSize:11,color:`${s.color}99`}}>↗</span>
-              </a>
-            ))}
-            {/* Utility actions */}
-            <div style={{fontSize:11,fontWeight:800,color:'#9ca3af',textTransform:'uppercase',letterSpacing:1,margin:'16px 0 10px'}}>Diğer Seçenekler</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+      <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.65)',zIndex:9999,display:'grid',placeItems:'center',padding:16}}
+           onMouseDown={e=>{if(e.target===e.currentTarget)setShowShareModal(false);}}>
+        <section role="dialog" aria-modal="true" aria-labelledby="share-editor-title"
+           style={{background:'#fff',borderRadius:18,width:'min(520px,100%)',maxHeight:'90dvh',overflowY:'auto',boxShadow:'0 20px 65px rgba(0,0,0,.23)'}}>
+          <header style={{padding:'22px 24px',background:'#0e554d',display:'flex',justifyContent:'space-between',gap:12,alignItems:'center'}}>
+            <h2 id="share-editor-title" style={{fontSize:18,color:'#fff',margin:0,fontWeight:800}}>📤 Okuyucu Paylaşımı</h2>
+            <button type="button" onClick={()=>setShowShareModal(false)} aria-label="Paylaşım penceresini kapat"
+              style={{border:0,background:'rgba(255,255,255,.15)',color:'#fff',borderRadius:999,width:34,height:34,cursor:'pointer',fontSize:17}}>✕</button>
+          </header>
+          <div style={{padding:24,display:'flex',flexDirection:'column',gap:14}}>
+            <p style={{fontSize:13,lineHeight:1.6,color:'#475569',margin:0}}>
+              İndirilen bültenin içine okuyucular için LinkedIn, Facebook, X, WhatsApp, Telegram ve e-posta paylaşım düğmeleri eklenir.
+              Paylaşım için bültenin <strong>herkese açık, ayrı bir internet adresinde</strong> yayımlanmış olması gerekir.
+            </p>
+            <label htmlFor="published-newsletter-url" style={{fontSize:13,fontWeight:800,color:'#1e293b'}}>Yayımlanmış bültenin bağlantısı (isteğe bağlı)</label>
+            <input id="published-newsletter-url" type="url" value={publicNewsletterUrl} onChange={e=>setPublicNewsletterUrl(e.target.value)}
+              placeholder="https://ornek-site.org/bultenler/kasim-2026.html"
+              aria-describedby="published-newsletter-help"
+              style={{width:'100%',minHeight:44,padding:'10px 12px',border:'1px solid #cbd5e1',borderRadius:9,fontSize:13,color:'#1e293b'}}/>
+            <p id="published-newsletter-help" style={{fontSize:12,lineHeight:1.5,color:'#64748b',margin:0}}>
+              Henüz yayımlamadıysanız boş bırakın. HTML dosyasını bir web adresine yüklediğinizde düğmeler o adresi otomatik tanır.
+              E-posta içinde paylaşım bağlantılarının çalışması için bu alanı doldurun.
+            </p>
+            {!publishedShareUrl && <div role="status" style={{borderRadius:9,background:'#fff7ed',padding:'11px 13px',color:'#92400e',fontSize:12,lineHeight:1.5}}>
+              Henüz yayımlanmış bülten bağlantısı belirtilmedi. Editörün ana sayfa adresini paylaşmak bülteni paylaşmaz.
+            </div>}
+            <div role="group" aria-label="Sosyal medya paylaşım bağlantıları" style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:8}}>
               {[
-                {icon:'🔗',label:'Linki Kopyala',key:'link',action:()=>{navigator.clipboard.writeText(window.location.href);setCopyDone('link');setTimeout(()=>setCopyDone(null),2000);}},
-                {icon:'✉️',label:'E-posta ile Paylaş',key:'email',action:()=>window.open(`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(subtitle+'\n\n'+window.location.href)}`)},
-                {icon:'</>',label:'Embed Kodu',key:'embed',action:()=>{navigator.clipboard.writeText(`<iframe src="${window.location.href}" width="100%" height="600" frameborder="0"></iframe>`);setCopyDone('embed');setTimeout(()=>setCopyDone(null),2000);}},
-                {icon:'🖨️',label:'Yazdır / PDF',key:'print',action:()=>window.print()},
-              ].map(btn=>(
-                <button key={btn.key} onClick={btn.action}
-                  style={{padding:'12px',borderRadius:10,border:'1px solid #e5e7eb',background:copyDone===btn.key?'#ecfdf5':'#f9fafb',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontWeight:700,fontSize:12,color:copyDone===btn.key?'#059669':'#374151',transition:'all .2s'}}>
-                  <span style={{fontSize:18}}>{btn.icon}</span>
-                  {copyDone===btn.key?'✓ Kopyalandı!':btn.label}
-                </button>
-              ))}
+                {key:'linkedin',name:'LinkedIn'},
+                {key:'facebook',name:'Facebook'},
+                {key:'x',name:'X'},
+                {key:'whatsapp',name:'WhatsApp'},
+                {key:'telegram',name:'Telegram'},
+                {key:'email',name:'E-posta'},
+              ].map(item=>publisherShareLinks[item.key] ?
+                <a key={item.key} href={publisherShareLinks[item.key]} target={item.key==='email'?'_self':'_blank'} rel="noopener noreferrer"
+                   style={{borderRadius:10,border:'1px solid #cbd5e1',padding:'11px 10px',textAlign:'center',fontWeight:800,fontSize:13,textDecoration:'none',color:'#0f6156',background:'#f8fafc'}}>{item.name} ↗</a> :
+                <span key={item.key} aria-disabled="true"
+                   style={{borderRadius:10,border:'1px solid #e2e8f0',padding:'11px 10px',textAlign:'center',fontWeight:800,fontSize:13,color:'#94a3b8',background:'#f8fafc'}}>{item.name}</span>
+              )}
             </div>
+            <button type="button" onClick={copyPublishedLink} disabled={!publishedShareUrl}
+              style={{padding:'12px 14px',borderRadius:10,border:0,background:publishedShareUrl?'#0f766e':'#e2e8f0',color:publishedShareUrl?'#fff':'#64748b',fontWeight:800,cursor:publishedShareUrl?'pointer':'not-allowed'}}>
+              {copyDone==='link'?'✓ Bağlantı kopyalandı':'🔗 Bülten bağlantısını kopyala'}
+            </button>
           </div>
-        </div>
+        </section>
       </div>
     )}
 
@@ -2684,48 +2359,33 @@ ${text}`;
       </div>
     )}
 
-    {/* ── Templates Modal ── */}
-    {showTemplatesModal && (
-      <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.75)',backdropFilter:'blur(4px)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}
-           onClick={()=>setShowTemplatesModal(false)}>
-        <div style={{background:'#ffffff',borderRadius:20,width:960,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 48px rgba(0,0,0,.2)',overflow:'hidden'}}
-             onClick={e=>e.stopPropagation()}>
-          <div style={{padding:'24px 32px',background:'#fff',borderBottom:'1px solid #f1f5f9',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div>
-              <h2 style={{fontWeight:800,fontSize:22,color:'#0f172a',margin:0,display:'flex',alignItems:'center',gap:8}}>✨ Hazır Şablonlar</h2>
-              <p style={{margin:'6px 0 0',fontSize:14,color:'#64748b'}}>Sektörünüze uygun, profesyonel olarak tasarlanmış şablonlardan birini seçerek hemen başlayın.</p>
-            </div>
-            <button onClick={()=>setShowTemplatesModal(false)} style={{background:'#f1f5f9',border:'none',color:'#64748b',width:36,height:36,borderRadius:'50%',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'background .2s'}} onMouseOver={e=>(e.target as HTMLElement).style.background='#e2e8f0'} onMouseOut={e=>(e.target as HTMLElement).style.background='#f1f5f9'}>✕</button>
-          </div>
-          <div style={{padding:'32px',overflowY:'auto',display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:24,flex:1,background:'#f8fafc'}}>
-            {NEWSLETTER_TEMPLATES.map(tpl=>(
-              <div key={tpl.id} onClick={()=>{
-                  setTitle(tpl.title); setSubtitle(tpl.subtitle);
-                  setDesign(tpl.design); setHeaderImgUrl(tpl.headerImgUrl);
-                  setBlocks(tpl.blocks as unknown as Block[]); setShowTemplatesModal(false);
-              }}
-              style={{background:'#fff',borderRadius:16,border:'1px solid #e2e8f0',overflow:'hidden',cursor:'pointer',transition:'all .3s cubic-bezier(0.4, 0, 0.2, 1)',boxShadow:'0 4px 6px -1px rgba(0,0,0,.05), 0 2px 4px -2px rgba(0,0,0,.05)',display:'flex',flexDirection:'column'}}
-              onMouseEnter={e=>{const el = e.currentTarget as HTMLElement; el.style.transform='translateY(-4px)'; el.style.boxShadow='0 20px 25px -5px rgba(0,0,0,.1), 0 8px 10px -6px rgba(0,0,0,.1)'; el.style.borderColor='#0ea5e9';}}
-              onMouseLeave={e=>{const el = e.currentTarget as HTMLElement; el.style.transform='none'; el.style.boxShadow='0 4px 6px -1px rgba(0,0,0,.05), 0 2px 4px -2px rgba(0,0,0,.05)'; el.style.borderColor='#e2e8f0';}}>
-                <div style={{height:160,backgroundImage:`url(${tpl.headerImgUrl})`,backgroundSize:'cover',backgroundPosition:'center',position:'relative'}}>
-                  <div style={{position:'absolute',top:12,left:12,background:'rgba(255,255,255,.95)',backdropFilter:'blur(4px)',padding:'4px 10px',borderRadius:20,fontSize:11,fontWeight:800,color:'#0f172a',boxShadow:'0 2px 4px rgba(0,0,0,.1)',textTransform:'uppercase',letterSpacing:.5}}>
-                    {tpl.design} TASARIM
-                  </div>
-                </div>
-                <div style={{padding:20,display:'flex',flexDirection:'column',flex:1}}>
-                  <div style={{fontWeight:800,fontSize:18,color:'#0f172a',marginBottom:6,lineHeight:1.3}}>{tpl.title}</div>
-                  <div style={{color:'#64748b',fontSize:13,lineHeight:1.5,marginBottom:16,flex:1}}>{tpl.subtitle}</div>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'auto',paddingTop:16,borderTop:'1px solid #f1f5f9'}}>
-                    <span style={{fontSize:12,fontWeight:700,color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>🧩 {tpl.blocks.length} Blok</span>
-                    <span style={{fontWeight:800,color:'#0ea5e9',fontSize:13,display:'flex',alignItems:'center',gap:4}}>Şablonu Seç <span style={{fontSize:16}}>→</span></span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )}
+    {/* Curated, full-page newsletter gallery. Keep existing content unless user explicitly replaces it. */}
+    <TemplateGallery
+      open={showTemplatesModal}
+      onClose={()=>setShowTemplatesModal(false)}
+      onApplyDesign={(template:GalleryTemplate)=>{
+        setDesign(template.design as Design);
+      }}
+      onCreateFromTemplate={(template:GalleryTemplate)=>{
+        const proceed = blocks.length===0 || window.confirm(
+          'Bu seçim mevcut bülten başlığı ve içerik bloklarınızın yerine örnek içerik yükleyecek. '+ 
+          'Mevcut çalışmanızı korumak için önce HTML olarak indirebilirsiniz. Devam edilsin mi?'
+        );
+        if(!proceed) return false;
+        const cloned:Block[] = template.blocks.map(b=>({
+          id: uid(), type:b.type as BT, data:{...b.data}
+        }));
+        setTitle(template.title);
+        setSubtitle(template.subtitle);
+        setDesign(template.design as Design);
+        setHeaderImgUrl(template.headerImgUrl);
+        setPublicNewsletterUrl('');
+        setBlocks(cloned);
+        setSelectedId(null);
+        setShowTOC(true);
+        return true;
+      }}
+    />
 
     {/* ── Saved Newsletters Modal ── */}
     {showSavedModal && (
