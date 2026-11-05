@@ -1300,15 +1300,24 @@ ${text}`;
     const toc = showTOC ? `<div style="background:${D.accentColor}11;border-radius:8px;padding:14px 18px;margin-bottom:20px;border:1px solid ${D.accentColor}33;font-family:${D.font};">${blocks.filter(b=>b.type==='title').map(b=>`<div style="color:${D.accentColor};font-size:13px;font-weight:600;margin-bottom:4px;">→ ${b.data.text}</div>`).join('')}</div>` : '';
     const headerBgStyle = headerImgUrl ? `background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.45)), url(${headerImgUrl}) center/cover no-repeat;` : `background:${D.headerBg};`;
 
-    const embeddedTextToRead = blocks.map(b => (b.type==='title'||b.type==='paragraph'||b.type==='textphoto'||b.type==='event') ? b.data.title||b.data.text||'' : '').filter(Boolean).join('. ');
-    const fullEmbeddedText = `${title}. ${subtitle}. ${embeddedTextToRead}`.replace(/"/g, '\\"').replace(/\n/g, ' ');
+    const shareBarHtml = readerShareBar(title, publicNewsletterUrl);
+    const published = normalisePublicNewsletterUrl(publicNewsletterUrl);
+    const cleanTitle = escapeShareHtml(title);
+    const cleanSubtitle = escapeShareHtml(subtitle);
+    const canonicalMeta = published ? `<link rel="canonical" href="${escapeShareHtml(published)}"><meta property="og:url" content="${escapeShareHtml(published)}">` : '';
+    const ogImageUrl = normalisePublicNewsletterUrl(headerImgUrl);
+    const ogImageMeta = ogImageUrl ? `<meta property="og:image" content="${escapeShareHtml(ogImageUrl)}">` : '';
 
-    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;"><button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${title}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${subtitle}</p></div><div style="padding:32px 40px;">${toc}${blockHtml}</div><div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
+    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${cleanTitle}</title><meta name="description" content="${cleanSubtitle}"><meta property="og:title" content="${cleanTitle}"><meta property="og:description" content="${cleanSubtitle}"><meta property="og:type" content="article">${canonicalMeta}${ogImageMeta}<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn,#bulten-reader-share{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;"><button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${title}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${subtitle}</p></div><div id="bulten-reading-content" style="padding:32px 40px;">${toc}${blockHtml}</div>${shareBarHtml}${headerClose}<p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
     <script>
       window.bultenIsSpeaking = false;
       window.bultenSpeak = function() {
         if(window.bultenIsSpeaking) { window.speechSynthesis.cancel(); window.bultenIsSpeaking=false; document.getElementById('speakIcon').innerText='🔊'; document.getElementById('speakText').innerText='Dinle'; return; }
-        var u = new SpeechSynthesisUtterance("${fullEmbeddedText}");
+        var header=document.querySelector('h1');
+        var subtitle=header ? header.nextElementSibling : null;
+        var content=document.getElementById('bulten-reading-content');
+        var speechText=(header?header.textContent+'. ':'')+(subtitle?subtitle.textContent+'. ':'')+(content?content.textContent:'');
+        var u = new SpeechSynthesisUtterance(speechText);
         var targetPrefix = "${lang === 'en' ? 'en' : 'tr'}";
         u.lang = "${lang === 'en' ? 'en-GB' : 'tr-TR'}";
         
@@ -1340,8 +1349,9 @@ ${text}`;
         window.speechSynthesis.speak(u);
       };
     </script>
+    <script>${READER_SHARE_RUNTIME}</script>
     </body></html>`;
-  },[blocks,D,title,subtitle,showTOC,headerImgUrl,lang]);
+  },[blocks,D,title,subtitle,showTOC,headerImgUrl,lang,publicNewsletterUrl]);
 
   const handleExport = ()=>{
     const html=generateHTML();
