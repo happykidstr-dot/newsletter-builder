@@ -674,6 +674,7 @@ export default function BultenReadPage() {
           setActiveNewsletterId(typeof data.activeNewsletterId==='string'?data.activeNewsletterId:uid());
           setPublication(data.publication&&typeof data.publication.editToken==='string'?data.publication:null);
           setPublicNewsletterUrl(data.publication?.url||data.publicNewsletterUrl||'');
+          lastSharedSnapshot.current=typeof data.publishedSnapshot==='string'?data.publishedSnapshot:'';
           const safeBlocks=data.blocks.filter((b:any)=>b&&typeof b==='object'&&typeof b.id==='string');
           if(safeBlocks.length){setBlocks(safeBlocks);setSelectedId(safeBlocks[0].id);}
         }
@@ -687,7 +688,7 @@ export default function BultenReadPage() {
     try{
       window.localStorage.setItem(DRAFT_KEY,JSON.stringify({
         activeNewsletterId,title,subtitle,design,logoUrl,headerImgUrl,blocks,
-        showTOC,publicNewsletterUrl,publication,
+        showTOC,publicNewsletterUrl,publication,publishedSnapshot:lastSharedSnapshot.current,
       }));
     }catch(error){console.warn('Yerel otomatik taslak kaydı yapılamadı:',error);}
   },[draftReady,activeNewsletterId,title,subtitle,design,logoUrl,headerImgUrl,blocks,showTOC,publicNewsletterUrl,publication]);
@@ -946,16 +947,44 @@ export default function BultenReadPage() {
   const [showMailModal, setShowMailModal] = React.useState(false);
   const [mailingLists, setMailingLists] = React.useState<MailingList[]>([]);
   
-  React.useEffect(() => {
-    // Load newsletters and mailing lists from DB
-    fetch('/api/db/newsletters').then(r=>r.json()).then(d=>{
-      if(Array.isArray(d)) setSavedList(d);
+  const [savedReady,setSavedReady]=React.useState(false);
+  React.useEffect(()=>{
+    try{
+      const local=JSON.parse(window.localStorage.getItem(SAVED_KEY)||'[]');
+      if(Array.isArray(local))setSavedList(local.filter((v:any)=>v&&typeof v.id==='string'&&Array.isArray(v.blocks)).slice(0,30));
+    }catch(error){console.warn('Kayıtlı bülten listesi açılamadı:',error);}
+    setSavedReady(true);
+    // Optional account-backed records are merged, never allowed to overwrite the
+    // same record (or private owner token) saved on this browser.
+    fetch('/api/db/newsletters').then(r=>r.ok?r.json():[]).then((remote:unknown)=>{
+      if(!Array.isArray(remote))return;
+      setSavedList(previous=>{
+        const known=new Set(previous.map(v=>v.id));
+        const merged=[...previous,...remote.filter((v:any)=>
+          v&&typeof v.id==='string'&&Array.isArray(v.blocks)&&!known.has(v.id))].slice(0,30);
+        return merged;
+      });
     }).catch(()=>{});
+    fetch('/api/db/mailing-lists').then(r=>r.ok?r.json():[]).then(d=>{
+      if(Array.isArray(d))setMailingLists(d);
+    }).catch(()=>{});
+  },[]);
 
-    fetch('/api/db/mailing-lists').then(r=>r.json()).then(d=>{
-      if(Array.isArray(d)) setMailingLists(d);
-    }).catch(()=>{});
-  }, []);
+  React.useEffect(()=>{
+    if(!savedReady)return;
+    const slug=new URLSearchParams(window.location.search).get('edit');
+    if(!slug)return;
+    if(!/^[A-Za-z0-9_-]{16}$/.test(slug)){
+      window.history.replaceState(null,'',window.location.pathname);return;
+    }
+    const own=savedList.find(s=>s.publication?.slug===slug&&Boolean(s.publication.editToken));
+    if(own){handleLoad(own);return;}
+    if(!window.localStorage.getItem('bulten_edit_attempt_'+slug)){
+      window.localStorage.setItem('bulten_edit_attempt_'+slug,'1');
+      alert('Bu yayını düzenlemek için bültenin yayımlandığı tarayıcıda kayıtlı sürümünü açmanız gerekir. Düzenleme anahtarı bu tarayıcıda bulunamadı.');
+    }
+    window.history.replaceState(null,'',window.location.pathname);
+  },[savedReady,savedList]);
   const [activeListId, setActiveListId] = React.useState<string|null>(null);
   const [newListName, setNewListName] = React.useState('');
   const [newContactEmail, setNewContactEmail] = React.useState('');
