@@ -117,3 +117,18 @@ body {
   body { background: #fff !important; }
   .wk-a11y-fab { display: none !important; }
 }
+
+
+/* Clearly visible focus indicator for keyboard navigation. */
+:where(button, a, input, select, textarea, [role="button"], [role="switch"], [tabindex]):focus-visible {
+  outline: 3px solid #0d9488 !important;
+  outline-offset: 3px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

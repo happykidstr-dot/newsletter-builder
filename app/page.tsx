@@ -21,6 +21,7 @@ const T = {
     // block types
     title:'Title', paragraph:'Paragraph', photos:'Photos', video:'Video',
     event:'Event', separator:'Separator', link:'Link', button:'Button', poll:'Poll', attachment:'Attachment',
+    textphoto:'Text + image', photogrid:'Photo grid', author:'Author', form:'Form', googleform:'Google Form',
     // editors
     titleText:'Title Text', size:'Size', h1:'H1 — Large', h2:'H2 — Medium', h3:'H3 — Small',
     text:'Text', chars:'characters', imageUrl:'Image URL', caption:'Caption',
@@ -42,6 +43,7 @@ const T = {
     // block types
     title:'Başlık', paragraph:'Metin', photos:'Görsel', video:'Video',
     event:'Etkinlik', separator:'Ayırıcı', link:'Bağlantı', button:'Buton', poll:'Anket', attachment:'Ek Dosya',
+    textphoto:'Metin + görsel', photogrid:'Fotoğraf ızgarası', author:'Yazar', form:'Form', googleform:'Google Form',
     // editors
     titleText:'Başlık Metni', size:'Boyut', h1:'H1 — Büyük', h2:'H2 — Orta', h3:'H3 — Küçük',
     text:'Metin', chars:'karakter', imageUrl:'Görsel URL', caption:'Alt Yazı',
@@ -78,7 +80,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:'b1', type:'title' as BT, data:{text:'Bu Hafta Okulumuzda Neler Oldu?',size:'h2'} },
       { id:'b2', type:'paragraph' as BT, data:{text:'Değerli velilerimiz ve öğrencilerimiz,\n\nBu hafta bilim fuarımızda öğrencilerimizin ürettiği harika projeleri inceleme fırsatı bulduk...'} },
       { id:'b3', type:'photos' as BT, data:{url:'https://images.unsplash.com/photo-1511629091441-ee46146481b6?w=640&q=80',caption:'Bilim fuarından kareler'} },
-      { id:'b4', type:'event' as BT, data:{title:'Veli Toplantısı',date:'2026-03-28',time:'13:00',location:'Konferans Salonu'} },
+      { id:'b4', type:'event' as BT, data:{title:'Veli Toplantısı',date:'',time:'13:00',location:'Konferans Salonu'} },
       { id:'b5', type:'button' as BT, data:{text:'Not Çizelgesini İndir',url:'#'} }
     ]
   },
@@ -88,7 +90,7 @@ const NEWSLETTER_TEMPLATES = [
     blocks: [
       { id:'b1', type:'title' as BT, data:{text:'Geleneksel Bahar Şenliği',size:'h1'} },
       { id:'b2', type:'paragraph' as BT, data:{text:'Müzik, dans, yemek ve eğlenceye hazır mısınız? Bu yıl baharı harika bir festivalle karşılıyoruz.'} },
-      { id:'b3', type:'event' as BT, data:{title:'Bahar Festivali 2026',date:'2026-05-15',time:'10:00 - 22:00',location:'Merkez Kampüs Etkinlik Alanı'} },
+      { id:'b3', type:'event' as BT, data:{title:'Bahar Festivali (örnek)',date:'',time:'10:00 - 22:00',location:'Merkez Kampüs Etkinlik Alanı'} },
       { id:'b4', type:'googleform' as BT, data:{url:'',height:'400'} },
       { id:'b5', type:'button' as BT, data:{text:'LCV Lütfen (Buraya Tıklayın)',url:'#'} }
     ]
@@ -144,7 +146,7 @@ const NEWSLETTER_TEMPLATES = [
     blocks: [
       { id:'b1', type:'title' as BT, data:{text:'Erasmus+ KA2 Proje Yazım Atölyesi',size:'h2'} },
       { id:'b2', type:'paragraph' as BT, data:{text:'Kendi projenizi yazmak hiç bu kadar kolay olmamıştı. 2 günlük yoğun uygulamalı eğitimimize davetlisiniz.'} },
-      { id:'b3', type:'event' as BT, data:{title:'Proje Atölyesi',date:'2026-06-10',time:'09:00',location:'Zoom (Online)'} },
+      { id:'b3', type:'event' as BT, data:{title:'Proje Atölyesi',date:'',time:'09:00',location:'Zoom (Online)'} },
       { id:'b4', type:'button' as BT, data:{text:'Kayıt Ol',url:'#'} }
     ]
   },
@@ -175,7 +177,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:'b1', type:'title' as BT, data:{text:'2. Ünite Değerlendirme Ödevi',size:'h2'} },
       { id:'b2', type:'paragraph' as BT, data:{text:'Öğrencilerimizin üslü sayılar konusunu pekiştirmesi için hazırlanan föyleri perşembe gününe kadar tamamlamaları gerekmektedir.'} },
       { id:'b3', type:'attachment' as BT, data:{fileName:'Uslu_Sayilar_Foy_3.pdf',url:'#'} },
-      { id:'b4', type:'event' as BT, data:{title:'Ödev Son Teslim Tarihi',date:'2026-03-26',time:'08:30',location:'Matematik Sınıfı'} }
+      { id:'b4', type:'event' as BT, data:{title:'Ödev Son Teslim Tarihi',date:'',time:'08:30',location:'Matematik Sınıfı'} }
     ]
   },
   {
@@ -189,7 +191,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'title' as BT, data:{text:'Proje Hedeflerimiz Neler?',size:'h2'} },
       { id:uid(), type:'paragraph' as BT, data:{text:'1. Yenilikçi müfredat oluşturmak\n2. Dijital platform entegrasyonu sağlamak\n3. Ulusötesi eğitim hareketliliklerini artırmak'} },
       { id:uid(), type:'photogrid' as BT, data:{cols:'3', url1:'https://images.unsplash.com/photo-1552664730-d307ca884978?w=320', cap1:'İspanya Ekibi', url2:'https://images.unsplash.com/photo-1558403194-611308249d50?w=320', cap2:'İtalya Ekibi', url3:'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=320', cap3:'Türkiye Ekibi'} },
-      { id:uid(), type:'event' as BT, data:{title:'Sıradaki Çevrimiçi Toplantı',date:'2026-10-15',time:'14:00',location:'Zoom / Teams'} },
+      { id:uid(), type:'event' as BT, data:{title:'Sıradaki Çevrimiçi Toplantı',date:'',time:'14:00',location:'Zoom / Teams'} },
       { id:uid(), type:'poll' as BT, data:{question:'Sizce en kritik proje hedefimiz hangisi?',opt1:'Dijitalleşme',opt2:'Kapsayıcılık',opt3:'Yeşil Beceriler'} },
       { id:uid(), type:'button' as BT, data:{text:'Proje Web Sitesini Ziyaret Et',url:'#'} }
     ]
@@ -274,7 +276,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'title' as BT, data:{text:'Ulaşımda Yeni Dönem',size:'h2'} },
       { id:uid(), type:'paragraph' as BT, data:{text:'Elektrikli otobüs filomuz bugün itibariyle seferlere başladı. Yeni hat güzergah haritasını aşağıdan indirebilirsiniz.'} },
       { id:uid(), type:'attachment' as BT, data:{name:'Yeni_Otobus_Hatlari_2026.pdf',url:'#'} },
-      { id:uid(), type:'event' as BT, data:{title:'Halk Buluşması',date:'2026-10-15',time:'19:00',location:'Belediye Kültür Merkezi'} },
+      { id:uid(), type:'event' as BT, data:{title:'Halk Buluşması',date:'',time:'19:00',location:'Belediye Kültür Merkezi'} },
       { id:uid(), type:'poll' as BT, data:{question:'Sıradaki projemiz ne olmalı?',opt1:'Yeni Kütüphane',opt2:'Spor Kompleksi',opt3:'Gençlik Merkezi'} },
       { id:uid(), type:'button' as BT, data:{text:'Tüm Projeleri İncele',url:'#'} }
     ]
@@ -294,7 +296,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'separator' as BT, data:{style:'dotted'} },
       { id:uid(), type:'author' as BT, data:{name:'Caner Tekin',title:'Teknoloji Editörü',bio:'Gelecek koda yazıldı. Teknoloji dünyasındaki gelişmeleri sizin için sadeleştiriyoruz.',avatar:'https://images.unsplash.com/photo-1581382575275-97901c2635b7?w=128'} },
       { id:uid(), type:'poll' as BT, data:{question:'Yapay zeka işinizi nasıl etkileyecek?',opt1:'Verimliliğimi artıracak',opt2:'İş yapış şeklimi tamamen değiştirecek',opt3:'Pek etki etmeyecek'} },
-      { id:uid(), type:'event' as BT, data:{title:'Webinar: AI Araçları Kullanımı',date:'2026-11-05',time:'20:00',location:'YouTube Live'} },
+      { id:uid(), type:'event' as BT, data:{title:'Webinar: AI Araçları Kullanımı',date:'',time:'20:00',location:'YouTube Live'} },
       { id:uid(), type:'button' as BT, data:{text:'Gelecek Haftaki Sayıya Abone Ol',url:'#'} }
     ]
   },
@@ -309,7 +311,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'title' as BT, data:{text:'Ayın Gönüllüsü: Zeynep Kaya',size:'h2'} },
       { id:uid(), type:'textphoto' as BT, data:{text:'Zeynep Hanım, projedeki üstün gayreti ve pozitif enerjisiyle bu ay "Ayın Gönüllüsü" seçildi. Kendisi mülteci çocukların entegrasyonu için haftada 15 saatini feda ediyor.', url:'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=640&q=80', imagePos:'right'} },
       { id:uid(), type:'author' as BT, data:{name:'Zeynep Kaya',title:'Gönüllü Eğitmen',bio:'Bir çocuğun hayatına dokunmak, dünyanın yönünü değiştirmek demektir.',avatar:'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=128'} },
-      { id:uid(), type:'event' as BT, data:{title:'Aralık Ayı Dayanışma Kermesi',date:'2026-12-10',time:'10:00',location:'Merkez Şehir Meydanı'} },
+      { id:uid(), type:'event' as BT, data:{title:'Aralık Ayı Dayanışma Kermesi',date:'',time:'10:00',location:'Merkez Şehir Meydanı'} },
       { id:uid(), type:'poll' as BT, data:{question:'Sıradaki kampanyamız hangi alanda olmalı?',opt1:'Çocuk Eğitimi',opt2:'Kadın İstihdamı',opt3:'Çevre ve İklim'} },
       { id:uid(), type:'attachment' as BT, data:{name:'STK_Aylik_Faaliyet_Raporu.pdf',url:'#'} },
       { id:uid(), type:'button' as BT, data:{text:'Gönüllü Başvuru Formu',url:'#'} }
@@ -357,7 +359,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'title' as BT, data:{text:'Desteklenen Proje Kategorileri',size:'h2'} },
       { id:uid(), type:'paragraph' as BT, data:{text:'• Akıllı Şehir Uygulamaları\n• Kültür ve Sanat İnisiyatifleri\n• Sosyal Medya İçerik Üretimi\n• Sıfır Atık / Ekoloji'} },
       { id:uid(), type:'textphoto' as BT, data:{text:'Proje başına 50.000 TL hibe desteği sağlanacaktır. Tüm katılımcılar ayrıca belediyemizin kuluçka merkezindeki paylaşımlı ofis alanından 6 ay ücretsiz yararlanacaktır.', url:'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=640&q=80', imagePos:'left'} },
-      { id:uid(), type:'event' as BT, data:{title:'Açılış Lansmanı ve Soru-Cevap',date:'2026-11-25',time:'18:00',location:'Büyükşehir Gençlik Merkezi'} },
+      { id:uid(), type:'event' as BT, data:{title:'Açılış Lansmanı ve Soru-Cevap',date:'',time:'18:00',location:'Büyükşehir Gençlik Merkezi'} },
       { id:uid(), type:'attachment' as BT, data:{name:'Genc_Girisimci_Fon_Rehberi.pdf',url:'#'} },
       { id:uid(), type:'button' as BT, data:{text:'Hemen Fikrini Gönder',url:'#'} }
     ]
@@ -373,7 +375,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'textphoto' as BT, data:{text:'Marmara Teknokent bünyesinde faaliyet gösteren BioPlast A.Ş., bitkisel atıklardan 100% çözünebilir plastik üreten yeni patentiyle 2 Milyon Dolar yatırım aldı.', url:'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=640&q=80', imagePos:'right'} },
       { id:uid(), type:'author' as BT, data:{name:'Dr. Aslı Demir',title:'Genel Müdür (CEO)',bio:'Dünyayı yaşanabilir kılmak için doğadan ilham alan inovasyonlar şart.',avatar:'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=128'} },
       { id:uid(), type:'poll' as BT, data:{question:'Firmanızın Ar-Ge harcamaları ne yönde?',opt1:'Artıyor',opt2:'Aynı Kaldı',opt3:'Düşüyor'} },
-      { id:uid(), type:'event' as BT, data:{title:'Üniversite - Sanayi Çöpçatanlık Etkinliği',date:'2026-12-01',time:'09:00',location:'Kongre Merkezimiz'} },
+      { id:uid(), type:'event' as BT, data:{title:'Üniversite - Sanayi Çöpçatanlık Etkinliği',date:'',time:'09:00',location:'Kongre Merkezimiz'} },
       { id:uid(), type:'button' as BT, data:{text:'İkili Görüşmelere (B2B) Kayıt',url:'#'} }
     ]
   },
@@ -388,7 +390,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'title' as BT, data:{text:'Program Detayları',size:'h2'} },
       { id:uid(), type:'textphoto' as BT, data:{text:'1. Modül: Sorun Analizi ve LFM Tablosu\n2. Modül: Ortak Bulma ve Ön Başvuru\n3. Modül: Bütçe Yazımı ve Kalemler\n4. Modül: Son Okuma ve Dış Etki Anketi', url:'https://images.unsplash.com/photo-1513128034602-7814ccaddd4e?w=640&q=80', imagePos:'left'} },
       { id:uid(), type:'author' as BT, data:{name:'Can Yılmaz',title:'Kıdemli Proje Uzmanı',bio:'15 yılda 40\'tan fazla onaylanmış KA2 projesi referansıyla yanınızdayım.',avatar:'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=128'} },
-      { id:uid(), type:'event' as BT, data:{title:'Canlı Online İlk Ders',date:'2026-11-10',time:'20:00',location:'Zoom (Adresinize Link Gelecektir)'} },
+      { id:uid(), type:'event' as BT, data:{title:'Canlı Online İlk Ders',date:'',time:'20:00',location:'Zoom (Adresinize Link Gelecektir)'} },
       { id:uid(), type:'attachment' as BT, data:{name:'PCM_Egitim_Mufredati.pdf',url:'#'} },
       { id:uid(), type:'button' as BT, data:{text:'Eğitime Kayıt Ol (%20 İndirimli)',url:'#'} }
     ]
@@ -418,7 +420,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'textphoto' as BT, data:{text:'• 1-on-1 (Birebir) Haftalık Koçluk Görüşmeleri\n• Pazar Büyüklüğü (TAM/SAM/SOM) Analizleri\n• Rakip Analizi ve SWOT Çıkarımı\n• Pitch Deck (Yatırımcı Sunumu) Tasarımı\n• Birebir Yatırımcı (Angel Investor) Simulasyonları', url:'https://images.unsplash.com/photo-1553877522-43269d4ea984?w=640&q=80', imagePos:'left'} },
       { id:uid(), type:'video' as BT, data:{url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', caption:'Mezun girişimcilerimizin başarı hikayeleri'} },
       { id:uid(), type:'author' as BT, data:{name:'Selin Doğan',title:'Melek Yatırımcı & Mentör',bio:'Harika ürünler değil, harika takımlar yatırım alır. O takım siz olabilirsiniz.',avatar:'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=128'} },
-      { id:uid(), type:'event' as BT, data:{title:'Açık Seçim Günü (Pitch Day)',date:'2026-12-20',time:'09:00',location:'Galata İnovasyon Merkezi'} },
+      { id:uid(), type:'event' as BT, data:{title:'Açık Seçim Günü (Pitch Day)',date:'',time:'09:00',location:'Galata İnovasyon Merkezi'} },
       { id:uid(), type:'attachment' as BT, data:{name:'Basvuru_Sartnamesi.pdf',url:'#'} },
       { id:uid(), type:'button' as BT, data:{text:'Mentorluk Başvurusunu Tamamla',url:'#'} }
     ]
@@ -435,7 +437,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'textphoto' as BT, data:{text:'Katılımcılar atölye sonunda kendi kurumlarının AI tabanlı proje şablonlarını (Prompt Matrix) oluşturabilecek ve hibe değerlendirme algoritmalarının nasıl çalıştığını (3 Lens Sistemi) anlayacaklardır.', url:'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=640&q=80', imagePos:'right'} },
       { id:uid(), type:'link' as BT, data:{text:'Kullanılacak Eğitim Materyallerine Göz Atın',url:'#'} },
       { id:uid(), type:'poll' as BT, data:{question:'ChatGPT/AI araçlarını işinizde sık kullanıyor musunuz?',opt1:'Her gün',opt2:'Haftada birkaç kez',opt3:'Hiç kullanmadım'} },
-      { id:uid(), type:'event' as BT, data:{title:'1 Günlük Hackathon/Atölye',date:'2026-11-28',time:'10:00',location:'Teknopark Konferans Salonu'} },
+      { id:uid(), type:'event' as BT, data:{title:'1 Günlük Hackathon/Atölye',date:'',time:'10:00',location:'Teknopark Konferans Salonu'} },
       { id:uid(), type:'button' as BT, data:{text:'Atölye Biletini Al',url:'#'} }
     ]
   },
@@ -450,7 +452,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'textphoto' as BT, data:{text:'Avrupa Komisyonu veritabanlarında (FTOP) profilinizi öne çıkarma, LinkedIn üzerinden Avrupalı proje sahiplerine erişme, Brüksel InfoDay etkinliklerinde etkili elevator-pitch yapma teknikleri gibi kritik yetkinlikler.', url:'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=640&q=80', imagePos:'left'} },
       { id:uid(), type:'attachment' as BT, data:{name:'Networking_Checklist.pdf',url:'#'} },
       { id:uid(), type:'author' as BT, data:{name:'Mehmet Çelik',title:'Uluslararası İlişkiler Direktörü',bio:'Büyük projeler kağıt üzerinde değil, kahve molalarında lobi yapılarak kazanılır.',avatar:'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=128'} },
-      { id:uid(), type:'event' as BT, data:{title:'Stratejik Ortaklıklar Semineri',date:'2026-12-05',time:'13:30',location:'Ankara Hilton Otel'} },
+      { id:uid(), type:'event' as BT, data:{title:'Stratejik Ortaklıklar Semineri',date:'',time:'13:30',location:'Ankara Hilton Otel'} },
       { id:uid(), type:'button' as BT, data:{text:'Rezervasyon Yap (! Son 5 Kontenjan !)',url:'#'} }
     ]
   }
@@ -488,8 +490,8 @@ function uid() { return Math.random().toString(36).slice(2,9); }
 function ytId(url:string){ const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^&?\s]+)/); return m?m[1]:null; }
 
 // ── Canvas block renderer ──────────────────────────────────────────────
-function CanvasBlock({ block, design, selected, onClick }: {
-  block: Block; design: DesignConfig; selected: boolean; onClick: ()=>void;
+function CanvasBlock({ block, design, selected, onClick, lang }: {
+  block: Block; design: DesignConfig; selected: boolean; onClick: ()=>void; lang: Lang;
 }) {
   const d = block.data;
   const ac = design.accentColor;
@@ -594,7 +596,7 @@ function CanvasBlock({ block, design, selected, onClick }: {
             ? <img src={d.url} alt={d.caption||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
             : <div style={{width:'100%',height:120,background:'#e2e8f0',borderRadius:8,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#94a3b8',gap:4}}>
                 <span style={{fontSize:24}}>🖼</span>
-                <span style={{fontSize:11,fontFamily:ff}}>Add a Picture</span>
+                <span style={{fontSize:11,fontFamily:ff}}>{lang==='tr' ? 'Görsel ekleyin' : 'Add a picture'}</span>
               </div>}
         </div>
       </div>
@@ -610,7 +612,7 @@ function CanvasBlock({ block, design, selected, onClick }: {
               ? <img src={s.url} alt={s.cap} style={{width:'100%',borderRadius:8,display:'block'}}/>
               : <div style={{background:'#e2e8f0',borderRadius:8,height:120,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#94a3b8',gap:4}}>
                   <span style={{fontSize:24}}>🖼</span>
-                  <span style={{fontSize:11,fontFamily:ff}}>Add a Picture</span>
+                  <span style={{fontSize:11,fontFamily:ff}}>{lang==='tr' ? 'Görsel ekleyin' : 'Add a picture'}</span>
                 </div>}
             {s.cap && <p style={{margin:'4px 0 0',fontSize:11,color:'#64748b',fontFamily:ff,textAlign:'center'}}>{s.cap}</p>}
           </div>
@@ -681,7 +683,12 @@ function CanvasBlock({ block, design, selected, onClick }: {
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      aria-label={`${lang==='tr' ? 'Bloğu seç' : 'Select block'}: ${PALETTE.find(p=>p.type===block.type)?.label||block.type}`}
       onClick={onClick}
+      onKeyDown={e=>{ if(e.target===e.currentTarget && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); onClick(); } }}
       style={{
         padding:'12px 0', cursor:'pointer',
         outline: selected ? `2px solid ${ac}` : '2px solid transparent',
@@ -735,7 +742,7 @@ function ImageUpload({ value, onChange, label }: { value: string; onChange: (url
       {value && (
         <div style={{marginTop:8,position:'relative',display:'inline-block'}}>
           <img src={value} alt="" style={{height:60,borderRadius:6,boxShadow:'0 1px 6px rgba(0,0,0,.12)',display:'block'}}/>
-          <button onClick={()=>onChange('')}
+          <button type="button" aria-label="Görseli kaldır" onClick={()=>onChange('')}
             style={{position:'absolute',top:-5,right:-5,width:16,height:16,borderRadius:'50%',background:'#ef4444',border:'none',color:'#fff',fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
         </div>
       )}
@@ -950,8 +957,8 @@ export default function BultenReadPage() {
   const a11y = useAccessibility({ storagePrefix: 'bulten_a11y_' });
   const dragTypeRef = React.useRef<BT|null>(null);
   const [dropIndicator, setDropIndicator] = React.useState<number|null>(null);
-  const [title,    setTitle]    = useState('The Weekly Update');
-  const [subtitle, setSubtitle] = useState('#1  •  March 24th, 2026');
+  const [title,    setTitle]    = useState('Project Factory Bülteni');
+  const [subtitle, setSubtitle] = useState('Sayı 1 • Tarih ekleyin');
   const [design,        setDesign]        = useState<Design>('modern');
   const [showTOC,       setShowTOC]       = useState(true);
   const [logoUrl,       setLogoUrl]       = useState('');
@@ -960,11 +967,11 @@ export default function BultenReadPage() {
   const draggedBlockIdRef = React.useRef<string|null>(null);
 
   const [blocks,        _setBlocks]       = useState<Block[]>([
-    { id:uid(), type:'title',     data:{ text:'Use titles for easy scanning', size:'h2'} },
-    { id:uid(), type:'paragraph', data:{ text:'You can use a paragraph block to write a welcome message, explain assignments, or share an inspiration for the week.\n\nThe more your readers know about what\'s happening, the better they can support your goals.' } },
-    { id:uid(), type:'photos',    data:{ url:'', caption:'Add a photo to personalize your newsletter!' } },
+    { id:uid(), type:'title',     data:{ text:'Bülteninizin ana başlığı', size:'h2'} },
+    { id:uid(), type:'paragraph', data:{ text:'Bu bölüme bülteninizin giriş metnini yazın. Projenizdeki gelişmeleri, etkinlikleri ve okuyucularınızla paylaşmak istediğiniz haberleri anlatın.' } },
+    { id:uid(), type:'photos',    data:{ url:'', caption:'Bülteninize görsel ekleyin' } },
     { id:uid(), type:'separator', data:{ style:'solid' } },
-    { id:uid(), type:'event',     data:{ title:'Proje Toplantısı', date:'2026-04-01', time:'14:00', location:'Online — Zoom' } },
+    { id:uid(), type:'event',     data:{ title:'Örnek etkinlik (tarih belirleyin)', date:'', time:'', location:'Çevrim içi' } },
   ]);
 
   const historyRef = React.useRef<{ past: Block[][], future: Block[][] }>({ past: [], future: [] });
@@ -1145,15 +1152,12 @@ export default function BultenReadPage() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // ── IP-based language detection (on mount) ──────────────────────────
+  // Respect the language chosen previously; do not infer it from IP location.
   React.useEffect(() => {
-    fetch('https://ipapi.co/json/')
-      .then(r=>r.json())
-      .then(data=>{
-        if(data.country_code && data.country_code!=='TR') setLang('en');
-        else setLang('tr');
-      })
-      .catch(()=>{}); // silently fallback
+    try {
+      const preferred = window.localStorage.getItem('bulten_ui_language');
+      if (preferred === 'tr' || preferred === 'en') setLang(preferred);
+    } catch { /* Local storage may be unavailable in restricted browsers. */ }
   }, []);
 
   // ── Translate blocks via OpenAI ──────────────────────────────────────
@@ -1208,6 +1212,7 @@ export default function BultenReadPage() {
 
   const handleLangSwitch = (l: Lang) => {
     setLang(l);
+    try { window.localStorage.setItem('bulten_ui_language', l); } catch {}
     translateBlocks(l);
   };
 
@@ -1745,13 +1750,22 @@ ${text}`;
   const handlePdfExport = ()=>{
     const printHtml = generateHTML();
     const win = window.open('', '_blank');
-    if (!win) return;
+    if (!win) {
+      alert('PDF yazdırma penceresi engellendi. Lütfen açılır pencerelere izin verin.');
+      return;
+    }
+    let printed = false;
+    const printOnce = () => {
+      if (printed || win.closed) return;
+      printed = true;
+      try { win.focus(); win.print(); } catch(e) { console.error('PDF print failed', e); }
+    };
+    win.addEventListener('load', printOnce, {once:true});
     win.document.open();
     win.document.write(printHtml);
     win.document.close();
-    // Give images time to load before printing
-    win.onload = () => { win.print(); };
-    setTimeout(() => { try { win.print(); } catch(e){} }, 1800);
+    // Fallback for browsers that do not dispatch load for document.write().
+    setTimeout(printOnce, 1800);
   };
 
   // ── Styles ──
@@ -1761,6 +1775,7 @@ ${text}`;
 
   return (
     <>
+    <a href="#bulten-main" className="a11y-skip-link">Ana içeriğe geç</a>
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 60px)',fontFamily:'Inter,system-ui,sans-serif',background:'#f1f5f9'}}>
 
       {/* ── Top Bar ── */}
@@ -1895,10 +1910,11 @@ ${text}`;
               {/* TOC toggle */}
               <div style={{padding:'12px 14px',borderTop:'1px solid #e5e7eb',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <span style={{fontSize:12,fontWeight:600,color:'#374151'}}>{t.toc}</span>
-                <div onClick={()=>setShowTOC(x=>!x)}
-                  style={{width:40,height:22,borderRadius:11,background:showTOC?D.accentColor:'#d1d5db',cursor:'pointer',position:'relative',transition:'background .2s'}}>
-                  <div style={{position:'absolute',top:3,left:showTOC?20:3,width:16,height:16,borderRadius:'50%',background:'#fff',transition:'left .2s'}}/>
-                </div>
+                <button type="button" role="switch" aria-checked={showTOC} aria-label={t.toc}
+                  onClick={()=>setShowTOC(x=>!x)}
+                  style={{width:40,height:22,border:0,borderRadius:11,background:showTOC?D.accentColor:'#d1d5db',cursor:'pointer',position:'relative',transition:'background .2s'}}>
+                  <span aria-hidden="true" style={{position:'absolute',top:3,left:showTOC?20:3,width:16,height:16,borderRadius:'50%',background:'#fff',transition:'left .2s'}}/>
+                </button>
               </div>
 
               {/* Block list */}
@@ -2032,7 +2048,7 @@ ${text}`;
         </div>
 
         {/* CENTER — canvas */}
-        <div style={{
+        <div id="bulten-main" tabIndex={-1} style={{
           overflowY:'auto', padding:32,
           ...(headerImgUrl
             ? { backgroundImage:`url(${headerImgUrl})`, backgroundSize:'cover', backgroundPosition:'center', backgroundAttachment:'fixed', position:'relative' }
@@ -2041,7 +2057,7 @@ ${text}`;
           {/* TOC */}
           {showTOC && blocks.some(b=>b.type==='title') && (
             <div style={{maxWidth:previewMode==='mobile'?375:640,margin:'0 auto 12px',background:'#fff',borderRadius:8,padding:'10px 16px',border:`1px solid ${D.accentColor}33`,transition:'max-width 0.3s ease'}}>
-              <div style={{fontSize:10,fontWeight:800,letterSpacing:1,textTransform:'uppercase',color:'#9ca3af',marginBottom:6}}>Contents</div>
+              <div style={{fontSize:10,fontWeight:800,letterSpacing:1,textTransform:'uppercase',color:'#9ca3af',marginBottom:6}}>{t.toc}</div>
               {blocks.filter(b=>b.type==='title').map(b=>(
                 <div key={b.id} style={{fontSize:12,color:D.accentColor,fontWeight:600,marginBottom:2,fontFamily:D.font}}>→ {b.data.text}</div>
               ))}
@@ -2054,7 +2070,7 @@ ${text}`;
               {logoUrl
                 ? <div style={{position:'relative',display:'inline-block'}}>
                     <img src={logoUrl} alt="Logo" style={{height:52,borderRadius:8,boxShadow:'0 2px 8px rgba(0,0,0,.15)'}}/>
-                    <button onClick={()=>setLogoUrl('')}
+                    <button type="button" aria-label="Logoyu kaldır" onClick={()=>setLogoUrl('')}
                       style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'#ef4444',border:'none',color:'#fff',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
                   </div>
                 : (
@@ -2193,7 +2209,7 @@ ${text}`;
                     onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='1'}
                     onMouseLeave={e=>{ if(!(insertMenuOpen && insertAtIdx===idx)) (e.currentTarget as HTMLElement).style.opacity='0'; }}>
                     <div style={{ position:'absolute', left:0, right:0, top:'50%', borderTop:'2px dashed #10b981', opacity:.4 }}/>
-                    <button
+                    <button type="button" aria-label="Buraya yeni içerik bloğu ekle"
                       onClick={e=>{ e.stopPropagation(); const same = insertMenuOpen && insertAtIdx===idx; setInsertAtIdx(idx); setInsertMenuOpen(!same); }}
                       style={{ position:'relative', zIndex:2, width:28, height:28, borderRadius:'50%', background:'#10b981', border:'none', color:'#fff', fontSize:18, lineHeight:'1', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 8px rgba(16,185,129,.4)', flexShrink:0 }}>
                       +
@@ -2239,7 +2255,7 @@ ${text}`;
                         <InsertDivider idx={i}/>
                         {dropIndicator===i && <div style={{height:3,background:D.accentColor,borderRadius:2,margin:'2px 0'}}/>}
                         <div style={{cursor:'grab'}}>
-                          <CanvasBlock block={b} design={D} selected={selectedId===b.id} onClick={()=>setSelectedId(b.id)}/>
+                          <CanvasBlock block={b} design={D} selected={selectedId===b.id} onClick={()=>setSelectedId(b.id)} lang={lang}/>
                         </div>
                       </div>
                     ))}
