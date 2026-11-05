@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {publicationStore, type PublishedNewsletter} from '@/lib/newsletter-publication-store';
 import {renderPublishedNewsletter} from '@/lib/public-newsletter-render';
+import {publicOriginForRequest} from '@/lib/publication-origin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{slug:string}
     if(!row||row.version!==1||typeof row.bodyHtml!=='string'||typeof row.title!=='string'){
       return new NextResponse('Bülten bulunamadı.',{status:404});
     }
-    const url=new URL('/b/'+slug,new URL(req.url).origin).toString();
+    const url=new URL('/b/'+slug,publicOriginForRequest(req)).toString();
     const {html,csp}=renderPublishedNewsletter(row,url);
     return new NextResponse(html,{
       status:200,
