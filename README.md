@@ -9,7 +9,6 @@ Profesyonel e-bültenler oluşturmak için bağımsız web uygulaması.
 - **20+ Hazır Şablon** — Okul bülteni, proje haberleri, sivil toplum, teknoloji özeti, belediye bülteni...
 - **4 Tasarım Teması** — Modern, Classic, Bold, Minimal
 - **AI İçerik Üretimi** — OpenAI ile metin oluşturma, yeniden yazma, uzatma
-- **NotebookLM Entegrasyonu** — JSON verisi push ederek bülten oluşturma
 - **Çeviri** — AI ile tek tıkla Türkçe/İngilizce çeviri
 - **HTML / PDF** — HTML dosyası indirme, tarayıcı üzerinden PDF olarak yazdırma
 - **E-posta Gönderimi** — Mailing list yönetimi ve toplu gönderim
@@ -55,18 +54,6 @@ npm run dev
 
 Tarayıcıda `http://localhost:3000` adresini açın.
 
-## 📤 NotebookLM ile Bülten Gönderme
-
-```bash
-# JSON dosyasından bülten yükle
-node scripts/push-newsletter.js ornek_bulten.json
-
-# Uzak sunucuya gönder
-node scripts/push-newsletter.js https://your-site.com/api/notebook-sync bulten.json
-```
-
-Detaylı kılavuz için: [NOTEBOOKLM_BULTEN_KILAVUZU.md](NOTEBOOKLM_BULTEN_KILAVUZU.md)
-
 ## 📁 Proje Yapısı
 
 ```
@@ -76,25 +63,21 @@ newsletter-builder/
 │   ├── layout.tsx            # Root layout (Clerk auth, fonts)
 │   ├── globals.css           # Global stiller
 │   └── api/
-│       ├── notebook-sync/    # NotebookLM veri senkronizasyon API
-│       └── ai-generate/      # OpenAI içerik üretim API
+│       ├── ai-generate/      # OpenAI içerik üretim API
+│       └── db/               # Bülten ve liste kayıt API'leri
 ├── components/
 │   ├── AccessibilityToolbar.tsx  # Erişilebilirlik araç çubuğu
 │   └── BultenLocationMap.tsx     # Leaflet harita (analytics)
 ├── hooks/
 │   └── useAccessibility.ts      # Erişilebilirlik hook
-├── scripts/
-│   └── push-newsletter.js       # CLI bülten yükleme aracı
 ├── middleware.ts                 # Clerk auth middleware
-├── data/                        # Geçici veri depolama
 ├── public/bulten_resimler/      # Örnek görseller
-├── ornek_bulten.json            # Örnek bülten JSON
-└── NOTEBOOKLM_BULTEN_KILAVUZU.md
+└── ornek_bulten.json            # Örnek bülten JSON
 ```
 
 ## 🔒 Auth
 
-Clerk kullanılmaktadır. `/api/notebook-sync` yazma ve silme işlemleri yalnızca `NOTEBOOK_SYNC_SECRET` ile doğrulanmış webhook çağrılarına izin verir. GET kullanıcı oturumu gerektirir.
+Clerk, özel bülten ve iletişim listesi API'lerine erişimde kullanılır. Eksik güvenlik yapılandırmasında sunucu tarafı işlemler kapalıdır.
 
 ## 📋 Gereksinimler
 
@@ -105,7 +88,7 @@ Clerk kullanılmaktadır. `/api/notebook-sync` yazma ve silme işlemleri yalnız
 
 ## 🔐 Kasım 2026 güvenlik ve veri bütünlüğü güncellemesi
 
-Kapsamlı güvenlik, kayıt, NotebookLM ve alıcı listesi düzeltmeleri `fix/bulten-read-security-data-20261105` dalında hazırlanmıştır. **Canlıya almak için önce [SECURITY_DEPLOYMENT.md](SECURITY_DEPLOYMENT.md) içindeki migration/ortam değişkenleri adımlarını uygulayın.**
+Kapsamlı güvenlik, kayıt ve alıcı listesi düzeltmeleri `fix/bulten-read-security-data-20261105` dalında hazırlanmıştır. **Canlıya almak için önce [SECURITY_DEPLOYMENT.md](SECURITY_DEPLOYMENT.md) içindeki migration/ortam değişkenleri adımlarını uygulayın.**
 
 - Özel API'lerde sunucu tarafı oturum; AI ve toplu e-posta kotası
 - Sunucu veritabanında bülten, logo ve içindekiler saklama
