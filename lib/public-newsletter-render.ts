@@ -93,6 +93,8 @@ export function renderPublishedNewsletter(
   const image=normalisePublicNewsletterUrl(record.headerImgUrl||'');
   const metaImage=image?`<meta property="og:image" content="${escapeShareHtml(image)}">`:'';
   const shareBar=readerShareBar(record.title,canonical);
+  const shareSlug=canonical.match(/\/b\/([A-Za-z0-9_-]{16})(?:[?#]|$)/)?.[1]||'';
+  const editHref=shareSlug?`/?edit=${encodeURIComponent(shareSlug)}`:'/';
   const html=`<!doctype html><html lang="tr"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="index,follow">
@@ -107,10 +109,13 @@ img,iframe{max-width:100%}button,a{touch-action:manipulation}
 a:focus-visible,button:focus-visible{outline:3px solid #0d9488;outline-offset:3px}
 .published-share{max-width:640px;margin:0 auto 24px;background:white;border-radius:12px;overflow:hidden}
 .published-label{font:700 11px/1.4 system-ui;letter-spacing:.7px;color:#475569;text-align:center;margin:20px 0 0}
+.published-owner{max-width:640px;margin:10px auto;text-align:right;padding:0 12px;font:700 13px system-ui}
+.published-owner a{display:inline-flex;gap:5px;background:#e5f7f4;color:#115e59;text-decoration:none;padding:10px 14px;border-radius:8px}
 @media(max-width:680px){body>main>div{max-width:100%!important;margin:0!important;border-radius:0!important}#bulten-reading-content{padding:18px!important}}
-@media print{body{background:white}#bulten-reader-share,#speakBtn,.published-label{display:none!important}}
+@media print{body{background:white}#bulten-reader-share,#speakBtn,.published-label,.published-owner{display:none!important}}
 </style></head>
 <body><main><p class="published-label">BÜLTEN READ · YAYIMLANMIŞ BÜLTEN</p>
+<nav class="published-owner" aria-label="Yayın düzenleme"><a href="${editHref}" target="_blank" rel="noopener noreferrer" title="Sadece bu tarayıcıda düzenleme izni bulunan yayıncılar güncelleyebilir">✎ Düzenle / Edit</a></nav>
 ${record.bodyHtml}
 <div class="published-share">${shareBar}</div>
 </main>
