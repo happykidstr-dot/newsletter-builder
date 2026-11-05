@@ -11,7 +11,7 @@ Profesyonel e-bültenler oluşturmak için bağımsız web uygulaması.
 - **AI İçerik Üretimi** — OpenAI ile metin oluşturma, yeniden yazma, uzatma
 - **NotebookLM Entegrasyonu** — JSON verisi push ederek bülten oluşturma
 - **Çeviri** — AI ile tek tıkla Türkçe/İngilizce çeviri
-- **PDF & HTML Export** — Bülteni HTML olarak indirme
+- **HTML / PDF** — HTML dosyası indirme, tarayıcı üzerinden PDF olarak yazdırma
 - **E-posta Gönderimi** — Mailing list yönetimi ve toplu gönderim
 - **Erişilebilirlik** — Tam donanımlı a11y toolbar (font boyutu, kontrast, disleksi fontu, büyüteç, vb.)
 - **Clerk Auth** — Güvenli oturum yönetimi
@@ -94,7 +94,7 @@ newsletter-builder/
 
 ## 🔒 Auth
 
-Clerk kullanılmaktadır. `/api/notebook-sync` endpoint'i auth gerektirmez (push script'ten erişim için).
+Clerk kullanılmaktadır. `/api/notebook-sync` yazma ve silme işlemleri yalnızca `NOTEBOOK_SYNC_SECRET` ile doğrulanmış webhook çağrılarına izin verir. GET kullanıcı oturumu gerektirir.
 
 ## 📋 Gereksinimler
 
@@ -102,3 +102,15 @@ Clerk kullanılmaktadır. `/api/notebook-sync` endpoint'i auth gerektirmez (push
 - npm 9+
 - Clerk hesabı (auth için)
 - OpenAI API anahtarı (AI içerik üretimi için, isteğe bağlı)
+
+## 🔐 Kasım 2026 güvenlik ve veri bütünlüğü güncellemesi
+
+Kapsamlı güvenlik, kayıt, NotebookLM ve alıcı listesi düzeltmeleri `fix/bulten-read-security-data-20261105` dalında hazırlanmıştır. **Canlıya almak için önce [SECURITY_DEPLOYMENT.md](SECURITY_DEPLOYMENT.md) içindeki migration/ortam değişkenleri adımlarını uygulayın.**
+
+- Özel API'lerde sunucu tarafı oturum; AI ve toplu e-posta kotası
+- Sunucu veritabanında bülten, logo ve içindekiler saklama
+- Doğrulanmış gönderici ve izinli alıcı listesi; abonelikten ayrılma
+- HTML güvenliği ve gerçek mobil editör için uyarlanabilir düzen
+- `npm test` kaynak sözleşmesi testleri, GitHub Actions TypeScript + Next.js derlemesi
+
+PDF butonu henüz doğrudan PDF üretmez: tarayıcının **PDF olarak kaydet/yazdır** akışını kullanır. E-posta ve AI entegrasyonları gerekli gizli anahtarlar olmadan güvenlik nedeniyle devre dışı kalır.
