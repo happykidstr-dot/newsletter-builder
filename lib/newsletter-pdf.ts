@@ -73,7 +73,7 @@ export async function downloadNewsletterPdf(html:string,title:string):Promise<vo
         imageTimeout:12000,
         logging:false,
       },
-      jsPDF: {unit:'mm',format:'a4',orientation:'portrait',compress:true},
+      jsPDF: {unit:'mm',format:'a4',orientation:'portrait'},
       pagebreak: {mode:['css','legacy'],avoid:['img','h1','h2','h3','figure']},
     })
     .from(node)
