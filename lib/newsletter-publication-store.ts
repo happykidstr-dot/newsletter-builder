@@ -30,6 +30,10 @@ export interface PublishedNewsletter {
   subtitle: string;
   headerImgUrl: string;
   createdAt: string;
+  /** Added for newly published newsletters; older records remain readable. */
+  updatedAt?: string;
+  revision?: number;
+  editTokenHash?: string;
 }
 
 /** Best-effort per-IP throttling; do not present this as a bot-proof quota. */
