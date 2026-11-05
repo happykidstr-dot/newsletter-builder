@@ -1103,44 +1103,6 @@ export default function BultenReadPage() {
   }, [draftReady, title, subtitle, design, logoUrl, headerImgUrl, blocks, showTOC]);
 
   // ── Text-to-Speech ──────────────────────────────────────────────────
-  // ── Notebook Sync ─────────────────────────────────────────────────────
-  // On mount, fetch any payload sent from Google Notebook LM and apply it to the editor state.
-  // This runs only once per page load.
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    // New incoming Notebook payloads must be confirmed before replacing a saved local draft.
-    fetch('/api/notebook-sync')
-      .then(r => {
-        if (!r.ok) throw new Error('No notebook payload');
-        return r.json();
-      })
-      .then(data => {
-        if (!data || !Array.isArray(data.blocks)) return;
-        const syncId = String(data._syncUpdatedAt || '');
-        const lastSeen = window.localStorage.getItem('bulten_last_notebook_sync');
-        if (syncId && lastSeen === syncId) return;
-        if (syncId) window.localStorage.setItem('bulten_last_notebook_sync',syncId);
-        if (window.localStorage.getItem(DRAFT_KEY) &&
-            !window.confirm('Yeni bir NotebookLM bülteni geldi. Mevcut yerel taslağınızın üzerine yazılsın mı? Önce HTML olarak dışa aktarabilirsiniz.')) return;
-        if (data.title) setTitle(data.title);
-        if (data.subtitle) setSubtitle(data.subtitle);
-        if (data.design) setDesign(data.design);
-        if (data.logoUrl) setLogoUrl(data.logoUrl);
-        if (data.headerImgUrl) setHeaderImgUrl(data.headerImgUrl);
-        if (Array.isArray(data.blocks) && data.blocks.length) {
-          const safeBlocks = data.blocks.filter((b: any) => b && typeof b === 'object' && b.id);
-          if (safeBlocks.length) {
-             setBlocks(safeBlocks);
-             setSelectedId(safeBlocks[0].id);
-          }
-        }
-      })
-      .catch(err => {
-        // Silently ignore if no payload – normal operation.
-        console.debug('Notebook sync not available:', err.message);
-      });
-  }, []);
-
   const [isSpeaking, setIsSpeaking] = React.useState(false);
   const handleSpeak = () => {
     if (isSpeaking) {
