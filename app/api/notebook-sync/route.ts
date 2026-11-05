@@ -17,10 +17,10 @@ export async function GET() {
   const session = await requireUser();
   if ('error' in session) return session.error;
   const db = adminDb(); if (!db) return unavailableDb();
-  const { data, error } = await db.from('notebook_payloads').select('payload').eq('user_id', session.userId).maybeSingle();
+  const { data, error } = await db.from('notebook_payloads').select('payload,updated_at').eq('user_id', session.userId).maybeSingle();
   if (error) return NextResponse.json({ error: 'Notebook verisi okunamadı.' }, { status: 503 });
   if (!data) return NextResponse.json({ error: 'Henüz gelen Notebook verisi yok.' }, { status: 404 });
-  return NextResponse.json(data.payload, { headers: { 'Cache-Control': 'no-store' } });
+  return NextResponse.json({ ...data.payload, _syncUpdatedAt:data.updated_at }, { headers: { 'Cache-Control': 'no-store' } });
 }
 export async function POST(req: NextRequest) {
   if (!validWebhook(req)) return NextResponse.json({ error: 'Geçersiz senkronizasyon anahtarı.' }, { status: 401 });
