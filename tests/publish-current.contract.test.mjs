@@ -12,7 +12,7 @@ const pkg=JSON.parse(read('package.json'));
 test('Share publishes the open unsaved editor document instead of asking for a URL',()=>{
   assert.match(page,/onClick=\{handleShareCurrent\}/);
   assert.match(page,/fetch\('\/api\/publish'/);
-  assert.match(page,/html:generateHTML\(\)/);
+  assert.match(page,/html:prepared\.html/);
   assert.match(page,/JSON\.stringify\(\{title,subtitle,design,blocks,headerImgUrl,logoUrl,showTOC\}\)/);
   assert.doesNotMatch(page,/onChange=\{e=>setPublicNewsletterUrl\(e\.target\.value\)\}/);
 });
