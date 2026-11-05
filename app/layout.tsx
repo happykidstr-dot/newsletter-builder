@@ -10,7 +10,7 @@ try {
 } catch {}
 
 export const metadata: Metadata = {
-  title: 'Newsletter Builder | Project Factory',
+  title: 'BÜLTEN READ | Project Factory',
   description: 'Profesyonel e-bültenler oluşturun — Sürükle & Bırak, AI içerik üretimi, NotebookLM entegrasyonu',
   keywords: 'newsletter, bülten, e-bülten, builder, editor, AI, NotebookLM',
 };
