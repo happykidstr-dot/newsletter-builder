@@ -2881,7 +2881,7 @@ ${text.slice(0,7500)}`;
       </div>
     )}
 
-    <AccessibilityToolbar {...a11y} lang={lang}/>
+    <AccessibilityToolbar {...a11y} lang={lang} showSkipLink={false}/>
 
     </>
   );
