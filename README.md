@@ -9,7 +9,6 @@ Profesyonel e-bültenler oluşturmak için bağımsız web uygulaması.
 - **20+ Hazır Şablon** — Okul bülteni, proje haberleri, sivil toplum, teknoloji özeti, belediye bülteni...
 - **4 Tasarım Teması** — Modern, Classic, Bold, Minimal
 - **AI İçerik Üretimi** — OpenAI ile metin oluşturma, yeniden yazma, uzatma
-- **NotebookLM Entegrasyonu** — JSON verisi push ederek bülten oluşturma
 - **Çeviri** — AI ile tek tıkla Türkçe/İngilizce çeviri
 - **PDF & HTML Export** — Bülteni HTML olarak indirme
 - **E-posta Gönderimi** — Mailing list yönetimi ve toplu gönderim
@@ -55,18 +54,6 @@ npm run dev
 
 Tarayıcıda `http://localhost:3000` adresini açın.
 
-## 📤 NotebookLM ile Bülten Gönderme
-
-```bash
-# JSON dosyasından bülten yükle
-node scripts/push-newsletter.js ornek_bulten.json
-
-# Uzak sunucuya gönder
-node scripts/push-newsletter.js https://your-site.com/api/notebook-sync bulten.json
-```
-
-Detaylı kılavuz için: [NOTEBOOKLM_BULTEN_KILAVUZU.md](NOTEBOOKLM_BULTEN_KILAVUZU.md)
-
 ## 📁 Proje Yapısı
 
 ```
@@ -76,25 +63,21 @@ newsletter-builder/
 │   ├── layout.tsx            # Root layout (Clerk auth, fonts)
 │   ├── globals.css           # Global stiller
 │   └── api/
-│       ├── notebook-sync/    # NotebookLM veri senkronizasyon API
 │       └── ai-generate/      # OpenAI içerik üretim API
 ├── components/
 │   ├── AccessibilityToolbar.tsx  # Erişilebilirlik araç çubuğu
 │   └── BultenLocationMap.tsx     # Leaflet harita (analytics)
 ├── hooks/
 │   └── useAccessibility.ts      # Erişilebilirlik hook
-├── scripts/
-│   └── push-newsletter.js       # CLI bülten yükleme aracı
 ├── middleware.ts                 # Clerk auth middleware
 ├── data/                        # Geçici veri depolama
 ├── public/bulten_resimler/      # Örnek görseller
-├── ornek_bulten.json            # Örnek bülten JSON
-└── NOTEBOOKLM_BULTEN_KILAVUZU.md
+└── ornek_bulten.json            # Örnek bülten JSON
 ```
 
 ## 🔒 Auth
 
-Clerk kullanılmaktadır. `/api/notebook-sync` endpoint'i auth gerektirmez (push script'ten erişim için).
+Clerk oturum açma desteği sağlanmaktadır.
 
 ## 📋 Gereksinimler
 
