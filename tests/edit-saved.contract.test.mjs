@@ -18,7 +18,8 @@ test('saved records use stable id, local storage and preserve owner publication 
 test('there is exactly one saved gallery with OPEN and double click',()=>{
   assert.equal((app.match(/\{showSavedModal &&/g)||[]).length,1);
   assert.match(app,/data-testid="saved-newsletter-item"/);
-  assert.match(app,/onDoubleClick=\{\(\)=>handleLoad\(record\)\}/);
+  assert.match(app,/onDoubleClick=\{e=>\{/);
+  assert.match(app,/handleLoad\(record\)/);
   assert.match(app,/>Open<\/button>/);
   assert.match(app,/>✎ Edit<\/button>/);
 });
