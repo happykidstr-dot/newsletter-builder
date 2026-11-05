@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import {publicationStore, checkPublishQuota, type PublishedNewsletter} from '@/lib/newsletter-publication-store';
 import {sanitiseNewsletterBody} from '@/lib/public-newsletter-render';
+import {allowedSiteOrigin, publicOriginForRequest} from '@/lib/publication-origin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,8 +29,8 @@ export async function POST(req:NextRequest){
   // Require a browser request from this editor origin. Do not accept hidden
   // cross-site publication requests; server-to-server clients are not needed.
   const origin=req.headers.get('origin');
-  const expected=new URL(req.url).origin;
-  if(!origin || origin!==expected){
+  if(!origin || !allowedSiteOrigin(origin)){
+
     return NextResponse.json({error:'Yayınlama yalnızca bu sitenin editöründen yapılabilir.'},{status:403});
   }
   if(Number(req.headers.get('content-length')||'0')>MAX_BYTES){
@@ -44,6 +45,7 @@ export async function POST(req:NextRequest){
       const session=await auth();
       if(!session.userId)return NextResponse.json({error:'Bülteni yayımlamak için oturum açın.'},{status:401});
     }
+    const publicOrigin=publicOriginForRequest(req);
     const raw=await readWithLimit(req);
     const body=JSON.parse(raw);
     if(typeof body?.html!=='string'||body.html.length>MAX_BYTES||
@@ -66,7 +68,7 @@ export async function POST(req:NextRequest){
     await publicationStore().setJSON(slug,record);
     // Browser constructs the final URL using its own origin, so a request with
     // forged Host headers cannot influence what the user shares.
-    return NextResponse.json({slug,url:new URL('/b/'+slug,expected).toString()},{
+    return NextResponse.json({slug,url:new URL('/b/'+slug,publicOrigin).toString()},{
       status:201,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'},
     });
   }catch(error){
