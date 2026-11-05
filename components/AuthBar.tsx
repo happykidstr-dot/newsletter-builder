@@ -8,12 +8,12 @@ export function AuthBar() {
 
   return (
     <div style={{
-      position: 'fixed', top: 0, right: 0, zIndex: 99999,
-      padding: '8px 16px',
+      position: 'relative', zIndex: 20,
+      padding: '0 6px',
       display: 'flex', alignItems: 'center', gap: 10,
     }}>
       {!isSignedIn ? (
-        <SignInButton>
+        <SignInButton mode="modal">
           <button style={{
             padding: '8px 20px', borderRadius: 8,
             background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
