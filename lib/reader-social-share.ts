@@ -44,14 +44,15 @@ const SHARE_ITEMS = [
 export function readerShareBar(title: string, publicUrl: string): string {
   const canonical = normalisePublicNewsletterUrl(publicUrl);
   const links = makeShareLinks(title,canonical);
-  const href = (id:string) => links[id] || '#';
-  return `<section id="bulten-reader-share" data-public-url="${escapeShareHtml(canonical)}" aria-label="Bu bülteni paylaş" style="padding:20px 28px;border-top:1px solid #e5e7eb;background:#f8fafc;font:14px/1.5 system-ui,Arial,sans-serif;color:#1f2937;">
+  const href = (id:string) => links[id] || '';
+  const publicByDefault = canonical ? 'block' : 'none';
+  return `<section id="bulten-reader-share" data-public-url="${escapeShareHtml(canonical)}" aria-label="Bu bülteni paylaş" style="display:${publicByDefault};padding:20px 28px;border-top:1px solid #e5e7eb;background:#f8fafc;font:14px/1.5 system-ui,Arial,sans-serif;color:#1f2937;">
   <h2 style="font-size:17px;margin:0 0 4px;font-weight:800;color:#1f2937;">Bu bülteni paylaş</h2>
   <p style="font-size:12px;color:#64748b;margin:0 0 14px;">İçeriği yararlı bulduysanız sosyal medya hesaplarınızda paylaşabilirsiniz.</p>
   <nav aria-label="Sosyal medya paylaşımı" style="display:flex;gap:8px;flex-wrap:wrap">
     ${SHARE_ITEMS.map(item=>`<a data-share-network="${item.id}" href="${escapeShareHtml(href(item.id))}" target="${item.id==='email'?'_self':'_blank'}" rel="noopener noreferrer" aria-label="${item.name} üzerinde paylaş" style="display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:9px 13px;color:#1e3a4d;font-size:12px;font-weight:700;text-decoration:none;border:1px solid #cbd5e1;border-radius:9px;background:white;">${item.name}</a>`).join('')}
     <button type="button" id="bulten-native-share" style="display:none;min-height:40px;padding:9px 13px;color:#fff;background:#126f65;border:0;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">Paylaş</button>
-    <button type="button" id="bulten-copy-share" style="min-height:40px;padding:9px 13px;color:#126f65;background:#e7f5f2;border:1px solid #a7d5cc;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">Bağlantıyı kopyala</button>
+    <button type="button" id="bulten-copy-share" style="display:none;min-height:40px;padding:9px 13px;color:#126f65;background:#e7f5f2;border:1px solid #a7d5cc;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;">Bağlantıyı kopyala</button>
   </nav>
   <p id="bulten-share-status" role="status" aria-live="polite" style="margin:10px 0 0;font-size:12px;color:#64748b;"></p>
   </section>`;
@@ -91,11 +92,12 @@ export const READER_SHARE_RUNTIME = `
   });
   var copy=document.getElementById('bulten-copy-share');
   var nativeBtn=document.getElementById('bulten-native-share');
+  root.style.display='block';
   if(!link){
     status.textContent='Bu dosyayı paylaşmak için önce herkese açık bir web adresinde yayımlayın. Yerel dosya veya editör adresi paylaşılamaz.';
-    if(copy){copy.disabled=true;copy.style.opacity='.5';}
     return;
   }
+  if(copy)copy.style.display='inline-flex';
   if(nativeBtn&&navigator.share){
     nativeBtn.style.display='inline-flex';
     nativeBtn.addEventListener('click',function(){
