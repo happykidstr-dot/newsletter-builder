@@ -4,8 +4,8 @@ test('large photo embedded in newsletter is uploaded separately before publish',
   test.setTimeout(120_000);
   await page.goto('/');
   await expect(page.getByPlaceholder('Bülten başlığı...')).toBeVisible();
-  await page.getByRole('button',{name:/İçerik Ekle/}).click();
-  await page.locator('#block-palette button').filter({hasText:'Görsel'}).first().click();
+  await page.getByTestId('editor-tab-content').click();
+  await page.getByTestId('palette-photos').click();
   await page.getByRole('button',{name:/Yanyana Sütunlar/}).click();
   // Construct a real raster image whose data URL is much larger than a
   // lightweight social-share document. The user draft retains the original.
