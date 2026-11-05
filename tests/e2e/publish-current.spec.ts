@@ -8,7 +8,7 @@ test('Paylaş publishes the current unsaved newsletter and opens links to the re
     requests++;
     posted=route.request().postDataJSON();
     await route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({
-      slug:'AQIDBAUGBwgJCgsM',url:'http://127.0.0.1:3000/b/AQIDBAUGBwgJCgsM',
+      slug:'AQIDBAUGBwgJCgsM',url:'http://127.0.0.1:3000/b/AQIDBAUGBwgJCgsM',editToken:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',revision:1,
     })});
   });
   page.once('dialog',dialog=>dialog.accept());
@@ -41,7 +41,7 @@ test('already published unchanged newsletter reopens share links without republi
   await page.goto('/');
   let requests=0;
   await page.route('**/api/publish',async route=>{requests++;await route.fulfill({status:201,contentType:'application/json',
-    body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM'})});});
+    body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM',editToken:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',revision:1})});});
   page.once('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
   await expect(page.getByRole('dialog',{name:'Bu Bülteni Paylaş'})).toBeVisible();
@@ -50,21 +50,32 @@ test('already published unchanged newsletter reopens share links without republi
   expect(requests).toBe(1);
 });
 
-test('edited newsletter creates a new public URL on next share',async({page})=>{
+test('edited newsletter updates the SAME public URL with its private edit token',async({page})=>{
   await page.goto('/');
   const title=page.getByPlaceholder('Bülten başlığı...');
-  const ids=['AQIDBAUGBwgJCgsM','BwgJCgsMAQIDBAUG'];let requests=0;
+  const posted:any[]=[];
   await page.route('**/api/publish',async route=>{
-    await route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({slug:ids[requests++]})});
+    const body=route.request().postDataJSON();posted.push(body);
+    await route.fulfill({
+      status:posted.length===1?201:200,
+      contentType:'application/json',
+      body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM',
+        ...posted.length===1?{editToken:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',revision:1}:{updated:true,revision:2}}),
+    });
   });
   page.on('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
   await page.getByRole('button',{name:'Paylaşım penceresini kapat'}).click();
   await title.fill('Değiştirilmiş Bülten');
-  await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
-  expect(requests).toBe(2);
+  await page.getByRole('button',{name:'Yayını güncelle'}).click();
+  expect(posted).toHaveLength(2);
+  expect(posted[0].slug).toBeUndefined();
+  expect(posted[1].slug).toBe('AQIDBAUGBwgJCgsM');
+  expect(posted[1].editToken).toBe('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+  expect(posted[1].expectedRevision).toBe(1);
   await expect(page.getByRole('textbox',{name:'Yayımlanmış bülten adresi'}))
-    .toHaveValue(/BwgJCgsMAQIDBAUG/);
+    .toHaveValue(/AQIDBAUGBwgJCgsM/);
+  await expect(page.getByText(/2\. sürüm/)).toBeVisible();
 });
 
 test('server publication failure shows an error but does not claim a public URL exists',async({page})=>{
