@@ -584,6 +584,11 @@ export default function BultenReadPage() {
   const [logoUrl,       setLogoUrl]       = useState('');
   const [headerImgUrl,  setHeaderImgUrl]  = useState('');
   const [publicNewsletterUrl, setPublicNewsletterUrl] = useState('');
+  type PublicationInfo = { slug:string; editToken:string; url:string; revision:number; publishedAt:string };
+  const [publication, setPublication] = useState<PublicationInfo|null>(null);
+  const [activeNewsletterId, setActiveNewsletterId] = useState<string>(()=>uid());
+  const [draftReady, setDraftReady] = useState(false);
+  const SAVED_KEY = 'bulten_saved_newsletters_v2';
   const [previewMode,   setPreviewMode]   = useState<'desktop'|'mobile'>('desktop');
   const draggedBlockIdRef = React.useRef<string|null>(null);
 
@@ -653,34 +658,39 @@ export default function BultenReadPage() {
 
   // ── Auto-save / Restore logic ───────────────────────────────────────
   const DRAFT_KEY = 'bulten_draft_v1';
-  
-  // On mount: Restore
+
   React.useEffect(() => {
-    const saved = localStorage.getItem(DRAFT_KEY);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        if (data && data.blocks && data.blocks.length > 0) {
-          setTitle(data.title || 'Yeni Bülten');
-          setSubtitle(data.subtitle || '');
-          setDesign(data.design || 'modern');
-          setLogoUrl(data.logoUrl || '');
-          setHeaderImgUrl(data.headerImgUrl || '');
-          setPublicNewsletterUrl(typeof data.publicNewsletterUrl==='string' ? data.publicNewsletterUrl : '');
-          const safeBlocks = data.blocks.filter((b: any) => b && typeof b === 'object' && b.id);
-          if (safeBlocks.length) {
-             setBlocks(safeBlocks);
-             setSelectedId(safeBlocks[0].id);
-          }
+    try {
+      const saved=window.localStorage.getItem(DRAFT_KEY);
+      if(saved){
+        const data=JSON.parse(saved);
+        if(data && Array.isArray(data.blocks) && data.blocks.length){
+          setTitle(data.title||'Yeni Bülten');
+          setSubtitle(data.subtitle||'');
+          setDesign(data.design||'modern');
+          setLogoUrl(data.logoUrl||'');
+          setHeaderImgUrl(data.headerImgUrl||'');
+          setShowTOC(data.showTOC!==false);
+          setActiveNewsletterId(typeof data.activeNewsletterId==='string'?data.activeNewsletterId:uid());
+          setPublication(data.publication&&typeof data.publication.editToken==='string'?data.publication:null);
+          setPublicNewsletterUrl(data.publication?.url||data.publicNewsletterUrl||'');
+          const safeBlocks=data.blocks.filter((b:any)=>b&&typeof b==='object'&&typeof b.id==='string');
+          if(safeBlocks.length){setBlocks(safeBlocks);setSelectedId(safeBlocks[0].id);}
         }
-      } catch(e) {}
-    }
+      }
+    }catch(error){console.warn('Taslak okunamadı:',error);}
+    setDraftReady(true);
   }, []);
 
-  // On change: Save
   React.useEffect(() => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, subtitle, design, logoUrl, headerImgUrl, blocks, publicNewsletterUrl }));
-  }, [title, subtitle, design, logoUrl, headerImgUrl, blocks, publicNewsletterUrl]);
+    if(!draftReady)return;
+    try{
+      window.localStorage.setItem(DRAFT_KEY,JSON.stringify({
+        activeNewsletterId,title,subtitle,design,logoUrl,headerImgUrl,blocks,
+        showTOC,publicNewsletterUrl,publication,
+      }));
+    }catch(error){console.warn('Yerel otomatik taslak kaydı yapılamadı:',error);}
+  },[draftReady,activeNewsletterId,title,subtitle,design,logoUrl,headerImgUrl,blocks,showTOC,publicNewsletterUrl,publication]);
 
   // ── Text-to-Speech ──────────────────────────────────────────────────
   const [isSpeaking, setIsSpeaking] = React.useState(false);
@@ -809,41 +819,80 @@ export default function BultenReadPage() {
     translateBlocks(l);
   };
 
-  type SavedNL = { id:string; title:string; subtitle:string; design:Design; blocks:Block[]; logoUrl:string; headerImgUrl:string; showTOC:boolean; savedAt:string; publicNewsletterUrl?:string; };
+  type SavedNL = {
+    id:string; title:string; subtitle:string; design:Design; blocks:Block[];
+    logoUrl:string; headerImgUrl:string; showTOC:boolean; savedAt:string;
+    publicNewsletterUrl?:string; publication?:PublicationInfo|null;
+    publishedSnapshot?:string;
+  };
 
-  const [showSavedModal, setShowSavedModal] = React.useState(false);
-  const [savedList, setSavedList] = React.useState<SavedNL[]>([]);
-  const [saveSuccess, setSaveSuccess] = React.useState(false);
+  const [showSavedModal,setShowSavedModal]=React.useState(false);
+  const [savedList,setSavedList]=React.useState<SavedNL[]>([]);
+  const [saveSuccess,setSaveSuccess]=React.useState(false);
+  const [savedSearch,setSavedSearch]=React.useState('');
 
-  const handleSave = async () => {
-    const entry: SavedNL = { id:uid(), title, subtitle, design, blocks, logoUrl, headerImgUrl, showTOC, publicNewsletterUrl, savedAt:new Date().toISOString() };
-    const next = [entry,...savedList].slice(0,20);
-    setSavedList(next);
-    setSaveSuccess(true); setTimeout(()=>setSaveSuccess(false),2000);
+  const persistSavedLocally = (entry:SavedNL):boolean => {
     try {
-      await fetch('/api/db/newsletters', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entry)
+      const next=[entry,...savedList.filter(x=>x.id!==entry.id)].slice(0,30);
+      window.localStorage.setItem(SAVED_KEY,JSON.stringify(next));
+      setSavedList(next);
+      return true;
+    }catch(error){
+      console.error('Bültenin yerel kaydı başarısız:',error);
+      alert('Bülten kaydedilemedi. Tarayıcı depolama alanını kontrol edin; büyük fotoğrafları küçültmeyi deneyin.');
+      return false;
+    }
+  };
+  const currentSnapshot=()=>JSON.stringify({title,subtitle,design,blocks,headerImgUrl,logoUrl,showTOC});
+  const savedEntry=(override?:PublicationInfo|null,snapshot?:string):SavedNL=>({
+    id:activeNewsletterId,title,subtitle,design,blocks:blocks.map(b=>({...b,data:{...b.data}})),
+    logoUrl,headerImgUrl,showTOC,savedAt:new Date().toISOString(),
+    publicNewsletterUrl:override?.url||publicNewsletterUrl,
+    publication:override===undefined?publication:override,
+    publishedSnapshot:snapshot===undefined?(publication?lastSharedSnapshot.current:''):snapshot,
+  });
+
+  const handleSave=async ():Promise<boolean>=>{
+    const entry=savedEntry();
+    if(!persistSavedLocally(entry))return false;
+    setSaveSuccess(true);window.setTimeout(()=>setSaveSuccess(false),2200);
+    // Server storage is optional. Never send the owner-only edit token to a
+    // cloud record; local browser storage is the source of edit permission.
+    const {publication:secret,publishedSnapshot,...cloudRecord}=entry;
+    try {
+      const response=await fetch('/api/db/newsletters',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(cloudRecord),
       });
-    } catch(e) {
-      console.error('Failed to save to DB:', e);
-      alert('Bülten kaydedilemedi. Lütfen giriş yaptığınızdan emin olun.');
+      if(!response.ok)console.info('Bulut kaydı yapılandırılmamış, bülten bu tarayıcıda saklandı.');
+    }catch{console.info('Bulut bağlantısı yok, yerel bülten kaydı korundu.');}
+    return true;
+  };
+
+  const handleLoad=(record:SavedNL)=>{
+    if(!record || !Array.isArray(record.blocks))return;
+    setActiveNewsletterId(record.id);
+    setTitle(record.title||'Yeni Bülten');setSubtitle(record.subtitle||'');
+    setDesign(record.design||'modern');setBlocks(record.blocks.map(b=>({...b,data:{...b.data}})));
+    setLogoUrl(record.logoUrl||'');setHeaderImgUrl(record.headerImgUrl||'');
+    setShowTOC(record.showTOC!==false);
+    setPublication(record.publication?.editToken?record.publication:null);
+    setPublicNewsletterUrl(record.publication?.url||record.publicNewsletterUrl||'');
+    lastSharedSnapshot.current=record.publishedSnapshot||'';
+    setSelectedId(null);setShowSavedModal(false);setShowShareModal(false);
+    if(typeof window!=='undefined'&&window.location.search.includes('edit=')){
+      window.history.replaceState(null,'',window.location.pathname);
     }
   };
 
-  const handleLoad = (s:SavedNL) => {
-    setTitle(s.title); setSubtitle(s.subtitle); setDesign(s.design);
-    setBlocks(s.blocks); setLogoUrl(s.logoUrl||''); setHeaderImgUrl(s.headerImgUrl||'');
-    setShowTOC(s.showTOC); setPublicNewsletterUrl(s.publicNewsletterUrl||''); setSelectedId(null); setShowSavedModal(false);
-  };
-
-  const handleDelete = async (id:string) => {
-    const next = savedList.filter(s=>s.id!==id);
-    setSavedList(next);
-    try {
-      await fetch(`/api/db/newsletters?id=${id}`, { method: 'DELETE' });
-    } catch(e) {}
+  const handleDelete=async(id:string)=>{
+    if(!window.confirm('Bu bülteni kayıtlı listeden silmek istiyor musunuz? Yayımlanmış internet bağlantısı silinmez.'))return;
+    const next=savedList.filter(s=>s.id!==id);
+    try{
+      window.localStorage.setItem(SAVED_KEY,JSON.stringify(next));
+      setSavedList(next);
+    }catch{alert('Silme işlemi bu tarayıcıda kaydedilemedi.');return;}
+    try{await fetch('/api/db/newsletters?id='+encodeURIComponent(id),{method:'DELETE'});}catch{}
   };
 
   const [showShareModal, setShowShareModal] = React.useState(false);
