@@ -39,6 +39,9 @@ const posted=await fetch(BASE+'/api/publish',{
 const result=await posted.json().catch(()=>({}));
 assert.equal(posted.status,201,'publish failed: '+JSON.stringify(result));
 assert.match(result.slug,/^[A-Za-z0-9_-]{16}$/);
+assert.match(result.editToken,/^[A-Za-z0-9_-]{43}$/,'New publication must return a private edit credential');
+assert.equal(result.revision,1);
+
 const doc=await fetch(BASE+'/b/'+result.slug,{signal:AbortSignal.timeout(25000)});
 assert.equal(doc.status,200,'Published newsletter not readable.');
 assert.match(doc.headers.get('content-type')||'',/text\/html/);
@@ -50,4 +53,28 @@ assert.ok(html.includes('linkedin.com/sharing/share-offsite'),'Reader share link
 assert.ok(!html.includes('__SHOULD_NOT_EXECUTE__'),'Untrusted scripts leaked into published document.');
 assert.ok(!html.includes('javascript:alert'),'Unsafe user links survived sanitisation.');
 assert.ok(html.includes('SpeechSynthesisUtterance'),'Browser voice reader did not remain available.');
-console.log('PASS: Netlify preview public publish -> /b/'+result.slug+' -> sanitised HTML, shares and speech');
+const revisedHtml=fakeHtml.replace(snippet,'Bu bülten yeniden düzenlendi; yeni sürüm yayında.');
+const malicious=await fetch(BASE+'/api/publish',{
+  method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},
+  body:JSON.stringify({title,subtitle:'Otomatik test',headerImgUrl:'',
+    html:revisedHtml,slug:result.slug,editToken:'B'.repeat(43),expectedRevision:1}),
+  signal:AbortSignal.timeout(25000),
+});
+assert.equal(malicious.status,403,'Another reader must not overwrite the published newsletter.');
+const edited=await fetch(BASE+'/api/publish',{
+  method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},
+  body:JSON.stringify({title,subtitle:'Otomatik test',headerImgUrl:'',
+    html:revisedHtml,slug:result.slug,editToken:result.editToken,expectedRevision:1}),
+  signal:AbortSignal.timeout(25000),
+});
+const update=await edited.json().catch(()=>({}));
+assert.equal(edited.status,200,'Publisher update failed: '+JSON.stringify(update));
+assert.equal(update.slug,result.slug,'Updated newsletter must retain its original link.');
+assert.equal(update.revision,2,'Revision did not increase');
+const refreshed=await fetch(BASE+'/b/'+result.slug,{cache:'no-store',signal:AbortSignal.timeout(25000)});
+assert.equal(refreshed.status,200,'Updated newsletter is not readable');
+const newHtml=await refreshed.text();
+assert.ok(newHtml.includes('Bu bülten yeniden düzenlendi; yeni sürüm yayında.'),'The published URL did not update');
+assert.ok(!newHtml.includes(snippet),'Old newsletter body remained visible');
+
+console.log('PASS: Netlify preview public publish, unauthorized edit rejected, authorized edit updated same URL');
