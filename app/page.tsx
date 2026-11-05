@@ -1527,8 +1527,22 @@ ${text}`;
       setPublication(updatedPublication);
       setPublicNewsletterUrl(url);
       lastSharedSnapshot.current=snapshot;
-      if(!persistSavedLocally(savedEntry(updatedPublication,snapshot))){
-        alert('Bülten yayımlandı ancak düzenleme anahtarı bu tarayıcıda saklanamadı. Bu sayfayı kapatmadan önce içerik yedeği alın.');
+      // The published editor source references stable image URLs instead of
+      // embedding multi-megabyte photos in browser localStorage. The currently
+      // open editor is unchanged; reopening the saved draft remains editable.
+      const lightweight=savedEntry(updatedPublication,snapshot);
+      const publishedSrc=(value:string)=>prepared.mediaMap[value]||value;
+      lightweight.blocks=lightweight.blocks.map(block=>({
+        ...block,data:Object.fromEntries(Object.entries(block.data).map(([key,value])=>[key,publishedSrc(value)])),
+      }));
+      lightweight.logoUrl=publishedSrc(lightweight.logoUrl);
+      lightweight.headerImgUrl=publishedSrc(lightweight.headerImgUrl);
+      lightweight.publishedSnapshot=JSON.stringify({
+        title,subtitle,design,blocks:lightweight.blocks,
+        headerImgUrl:lightweight.headerImgUrl,logoUrl:lightweight.logoUrl,showTOC,
+      });
+      if(!persistSavedLocally(lightweight)){
+        alert('Bülten yayımlandı ancak düzenleme kaydı bu tarayıcıda saklanamadı. Sayfadan ayrılmadan önce bir yedek alın.');
       }
       setShowShareModal(true);
     }catch(error){
