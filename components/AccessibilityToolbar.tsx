@@ -23,6 +23,8 @@ export interface ShortcutDef {
 
 export interface AccessibilityToolbarProps extends UseAccessibilityReturn {
   lang: 'tr' | 'en';
+  /** Render a skip link if the surrounding app does not provide one */
+  showSkipLink?: boolean;
   /** Extra keyboard-shortcut rows to show in the shortcuts modal */
   extraShortcuts?: ShortcutDef[];
   /** Text-to-Speech controls (optional — gracefully omitted if not provided) */
@@ -36,6 +38,7 @@ export interface AccessibilityToolbarProps extends UseAccessibilityReturn {
    ═══════════════════════════════════════════════════════════════ */
 export function AccessibilityToolbar({
   lang,
+  showSkipLink = true,
   extraShortcuts,
   tts,
   stt,
@@ -267,10 +270,10 @@ function MagnifierLens() {
       {/* ── Cursor-following Magnifier Lens ── */}
       {magnifier && <MagnifierLens />}
 
-      {/* ── Skip to content ── */}
-      <a href="#main-content" className="a11y-skip-link">
+      {/* ── Skip to content: do not duplicate the parent app's skip link ── */}
+      {showSkipLink && <a href="#main-content" className="a11y-skip-link">
         {t('Ana içeriğe geç', 'Skip to main content')}
-      </a>
+      </a>}
 
       {/* ── Floating Accessibility Toolbar (FAB) ── */}
       <div className="wk-a11y-fab" style={{ position: 'fixed', bottom: 80, right: 20, zIndex: 9998 }}>
