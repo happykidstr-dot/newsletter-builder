@@ -485,6 +485,27 @@ const PALETTE: { type: BT; icon: string; label: string; def: Record<string,strin
   { type:'attachment', icon:'📎',  label:'Attachment',  def:{ name:'dosya.pdf', url:'#' } },
 ];
 
+
+function exportEscape(value: unknown): string {
+  return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function exportWebUrl(value: unknown): string {
+  if(typeof value !== 'string' || value.length>2048) return '#';
+  try {
+    const parsed = new URL(value);
+    if(!['https:','http:'].includes(parsed.protocol)) return '#';
+    return exportEscape(parsed.toString());
+  }catch{return '#';}
+}
+function exportImageUrl(value: unknown): string {
+  if(typeof value !== 'string') return '';
+  // Local image upload data URLs must be actual raster image data, never SVG or HTML.
+  if(/^data:image\/(?:png|jpeg|gif|webp);base64,[a-zA-Z0-9+/=]+$/.test(value)) return value;
+  const safe=exportWebUrl(value);
+  return safe === '#' ? '' : safe;
+}
+
 function uid() { return Math.random().toString(36).slice(2,9); }
 
 function ytId(url:string){ const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^&?\s]+)/); return m?m[1]:null; }
@@ -1676,7 +1697,16 @@ ${text}`;
   // HTML export
   const generateHTML = useCallback(()=>{
     const blockHtml = blocks.map(b=>{
-      const d=b.data; const ac=D.accentColor; const tc=D.textColor; const ff=D.font;
+      const d: Record<string,string> = Object.fromEntries(Object.entries(b.data).map(([k,v])=>{
+        if (k==='size') return [k,['h1','h2','h3'].includes(v)?v:'h2'];
+        if (k==='cols') return [k,String(Math.max(1,Math.min(4,parseInt(v)||2)))];
+        if (k==='style') return [k,['solid','dashed','dotted'].includes(v)?v:'solid'];
+        if (k==='align') return [k,['left','center','right'].includes(v)?v:'center'];
+        if (k==='avatar' || (k.startsWith('url') && ['photos','photogrid','textphoto'].includes(b.type))) return [k,exportImageUrl(v)];
+        if (k==='url') return [k,exportWebUrl(v)];
+        return [k,exportEscape(v)];
+      }));
+      const ac=D.accentColor; const tc=D.textColor; const ff=D.font;
       if(b.type==='title'){const sz={h1:'28px',h2:'22px',h3:'18px'}[d.size||'h2'];return `<${d.size||'h2'} style="color:${ac};font-size:${sz};font-family:${ff};font-weight:800;margin:0 0 8px;">${d.text}</${d.size||'h2'}>`;}
       if(b.type==='paragraph') return `<p style="color:${tc};font-size:15px;line-height:1.75;font-family:${ff};margin:0 0 8px;white-space:pre-wrap;">${d.text}</p>`;
       if(b.type==='photos') {
@@ -1709,50 +1739,43 @@ ${text}`;
       if(b.type==='author') {
         return `<div style="border:1px solid ${ac}22;border-radius:12px;padding:20px;font-family:${ff};display:flex;gap:16px;align-items:flex-start;background:${ac}06;">${d.avatar?`<img src="${d.avatar}" style="width:68px;height:68px;border-radius:50%;object-fit:cover;flex-shrink:0;border:3px solid ${ac};"/>`:''}<div style="flex:1;"><div style="font-weight:800;font-size:16px;color:${tc};">${d.name||''}</div>${d.title?`<div style="font-size:13px;color:${ac};font-weight:600;margin-bottom:4px;">${d.title}</div>`:''}${d.bio?`<p style="font-size:13px;color:${tc};line-height:1.6;margin:6px 0 0;">${d.bio}</p>`:''}</div></div>`;
       }
+      if(b.type==='form') {
+        return `<section style="padding:16px;border:1px solid ${ac};border-radius:8px;font-family:${ff};"><h2>${d.title||'Form'}</h2><p>Bu form yalnızca önizlemedir; başvuru toplamak için bir Google Form bağlantısı ekleyin.</p></section>`;
+      }
+      if(b.type==='googleform') {
+        const raw=b.data.url||'';
+        let valid=false;
+        try { const u=new URL(raw); valid=u.protocol==='https:' && u.hostname==='docs.google.com' && u.pathname.startsWith('/forms/'); } catch {}
+        if(!valid) return '';
+        const url=exportWebUrl(raw);
+        return `<p style="font-family:${ff};"><a href="${url}" rel="noopener noreferrer">📝 ${d.title||'Google Form'} – Formu aç</a></p>`;
+      }
       return '';
     }).map(h=>`<div style="padding:10px 0;">${h}</div>`).join('');
 
-    const toc = showTOC ? `<div style="background:${D.accentColor}11;border-radius:8px;padding:14px 18px;margin-bottom:20px;border:1px solid ${D.accentColor}33;font-family:${D.font};">${blocks.filter(b=>b.type==='title').map(b=>`<div style="color:${D.accentColor};font-size:13px;font-weight:600;margin-bottom:4px;">→ ${b.data.text}</div>`).join('')}</div>` : '';
-    const headerBgStyle = headerImgUrl ? `background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.45)), url(${headerImgUrl}) center/cover no-repeat;` : `background:${D.headerBg};`;
+    const toc = showTOC ? `<div style="background:${D.accentColor}11;border-radius:8px;padding:14px 18px;margin-bottom:20px;border:1px solid ${D.accentColor}33;font-family:${D.font};">${blocks.filter(b=>b.type==='title').map(b=>`<div style="color:${D.accentColor};font-size:13px;font-weight:600;margin-bottom:4px;">→ ${exportEscape(b.data.text)}</div>`).join('')}</div>` : '';
+    const safeHeaderUrl = exportImageUrl(headerImgUrl);
+    const headerBgStyle = safeHeaderUrl ? `background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.45)), url("${safeHeaderUrl}") center/cover no-repeat;` : `background:${D.headerBg};`;
 
-    const embeddedTextToRead = blocks.map(b => (b.type==='title'||b.type==='paragraph'||b.type==='textphoto'||b.type==='event') ? b.data.title||b.data.text||'' : '').filter(Boolean).join('. ');
-    const fullEmbeddedText = `${title}. ${subtitle}. ${embeddedTextToRead}`.replace(/"/g, '\\"').replace(/\n/g, ' ');
-
-    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;"><button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${title}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${subtitle}</p></div><div style="padding:32px 40px;">${toc}${blockHtml}</div><div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
+    return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${exportEscape(title)}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;"><button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${exportEscape(title)}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${exportEscape(subtitle)}</p></div><div id="bulten-body" style="padding:32px 40px;">${toc}${blockHtml}</div><div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
     <script>
-      window.bultenIsSpeaking = false;
-      window.bultenSpeak = function() {
-        if(window.bultenIsSpeaking) { window.speechSynthesis.cancel(); window.bultenIsSpeaking=false; document.getElementById('speakIcon').innerText='🔊'; document.getElementById('speakText').innerText='Dinle'; return; }
-        var u = new SpeechSynthesisUtterance("${fullEmbeddedText}");
-        var targetPrefix = "${lang === 'en' ? 'en' : 'tr'}";
-        u.lang = "${lang === 'en' ? 'en-GB' : 'tr-TR'}";
-        
-        var voices = window.speechSynthesis.getVoices();
-        var matchingVoices = voices.filter(function(v) { return v.lang.toLowerCase().startsWith(targetPrefix); });
-        var bestVoice = matchingVoices[0] || voices[0] || null;
-        var maxScore = -999;
-        var femaleNames = ['zira','aria','sonia','emelie','natasha','samantha','victoria','karen','tessa','kız','kadın','ayda','emine','gizem','derya','meltem','selin','yelda','emel'];
-        var maleNames = ['david','mark','george','arthur','tolga','cem','erkek','ahmet','kemal','hakan','male','man'];
-        matchingVoices.forEach(function(v) {
-          var score = 0;
-          var n = v.name.toLowerCase();
-          if (maleNames.some(function(m){return n.includes(m);})) score -= 100;
-          if (n.includes('female') || n.includes('woman') || femaleNames.some(function(f){return n.includes(f);})) score += 50;
-          if (n.includes('premium') || n.includes('enhanced') || n.includes('natural')) score += 20;
-          if (n.includes('google')) score += 10;
-          if (n.includes('microsoft')) score += 5;
-          if (targetPrefix === 'tr' && n.includes('google') && n.includes('türkçe')) score += 30;
-          if (targetPrefix === 'en' && (n.includes('british') || n.includes('uk')) && n.includes('female')) score += 50;
-          if (targetPrefix === 'en' && n.includes('google') && n.includes('english') && (n.includes('female') || n.includes('uk'))) score += 30;
-          if (score > maxScore) { maxScore = score; bestVoice = v; }
-        });
-        if (bestVoice) { u.voice = bestVoice; }
-
-        u.onend = function() { window.bultenIsSpeaking=false; document.getElementById('speakIcon').innerText='🔊'; document.getElementById('speakText').innerText='Dinle'; };
+      window.bultenIsSpeaking=false;
+      window.bultenSpeak=function(){
+        if(!('speechSynthesis' in window)) return;
+        if(window.bultenIsSpeaking){
+          window.speechSynthesis.cancel(); window.bultenIsSpeaking=false;
+          document.getElementById('speakText').textContent='Dinle';return;
+        }
+        var main=document.getElementById('bulten-body');
+        var heading=document.querySelector('h1');
+        var message=(heading?heading.textContent+'. ':'')+(main?main.textContent:'');
+        var utterance=new SpeechSynthesisUtterance(message);
+        utterance.lang=document.documentElement.lang==='en'?'en-GB':'tr-TR';
+        var reset=function(){window.bultenIsSpeaking=false;document.getElementById('speakText').textContent='Dinle';};
+        utterance.onend=reset;utterance.onerror=reset;
         window.bultenIsSpeaking=true;
-        document.getElementById('speakIcon').innerText='⏸';
-        document.getElementById('speakText').innerText='Durdur';
-        window.speechSynthesis.speak(u);
+        document.getElementById('speakText').textContent='Durdur';
+        window.speechSynthesis.speak(utterance);
       };
     </script>
     </body></html>`;
