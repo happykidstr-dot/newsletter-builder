@@ -123,15 +123,24 @@ export function TemplateGallery({ open, onClose, onApplyDesign, onCreateFromTemp
     return () => cancelAnimationFrame(id);
   }, [open, selected]);
 
+  // Catch Escape at document level: selecting a preview unmounts its focused card,
+  // and focus can momentarily return to <body> before the next frame.
+  useEffect(() => {
+    if (!open) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (selected) setSelected(null);
+      else onClose();
+    };
+    document.addEventListener('keydown', escape, true);
+    return () => document.removeEventListener('keydown', escape, true);
+  }, [open, selected, onClose]);
+
   if (!open) return null;
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
-    if(event.key === 'Escape') {
-      event.preventDefault();
-      if (selected) setSelected(null);
-      else onClose();
-      return;
-    }
     if(event.key !== 'Tab' || !dialogRef.current) return;
     const focusables = [...dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex="0"]')]
       .filter(el => el.getClientRects().length > 0);
