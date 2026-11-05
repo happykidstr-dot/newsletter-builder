@@ -1054,37 +1054,6 @@ export default function BultenReadPage() {
   }, [title, subtitle, design, logoUrl, headerImgUrl, blocks]);
 
   // ── Text-to-Speech ──────────────────────────────────────────────────
-  // ── Notebook Sync ─────────────────────────────────────────────────────
-  // On mount, fetch any payload sent from Google Notebook LM and apply it to the editor state.
-  // This runs only once per page load.
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    fetch('/api/notebook-sync')
-      .then(r => {
-        if (!r.ok) throw new Error('No notebook payload');
-        return r.json();
-      })
-      .then(data => {
-        // Apply payload fields if they exist.
-        if (data.title) setTitle(data.title);
-        if (data.subtitle) setSubtitle(data.subtitle);
-        if (data.design) setDesign(data.design);
-        if (data.logoUrl) setLogoUrl(data.logoUrl);
-        if (data.headerImgUrl) setHeaderImgUrl(data.headerImgUrl);
-        if (Array.isArray(data.blocks) && data.blocks.length) {
-          const safeBlocks = data.blocks.filter((b: any) => b && typeof b === 'object' && b.id);
-          if (safeBlocks.length) {
-             setBlocks(safeBlocks);
-             setSelectedId(safeBlocks[0].id);
-          }
-        }
-      })
-      .catch(err => {
-        // Silently ignore if no payload – normal operation.
-        console.debug('Notebook sync not available:', err.message);
-      });
-  }, []);
-
   const [isSpeaking, setIsSpeaking] = React.useState(false);
   const handleSpeak = () => {
     if (isSpeaking) {
