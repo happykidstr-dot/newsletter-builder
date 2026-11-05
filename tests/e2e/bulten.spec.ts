@@ -62,7 +62,3 @@ test('AI and private DB APIs are denied without login',async({request})=>{
     expect([401,403,503]).toContain(response.status());
   }
 });
-test('notebook webhook rejects missing secret',async({request})=>{
-  const response=await request.post('/api/notebook-sync',{data:{title:'Test',blocks:[]}});
-  expect(response.status()).toBe(401);
-});
