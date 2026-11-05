@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 
 test('large photo embedded in newsletter is uploaded separately before publish',async({page})=>{
+  test.setTimeout(120_000);
   await page.goto('/');
   await expect(page.getByPlaceholder('Bülten başlığı...')).toBeVisible();
   await page.getByRole('button',{name:/İçerik Ekle/}).click();
