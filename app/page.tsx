@@ -484,6 +484,18 @@ const PALETTE: { type: BT; icon: string; label: string; def: Record<string,strin
 ];
 
 
+
+function previewWebUrl(value: unknown): string {
+  if(typeof value !== 'string' || value.length>2048) return '#';
+  try { const u=new URL(value); return ['http:','https:'].includes(u.protocol)?u.toString():'#'; }
+  catch { return '#'; }
+}
+function previewImageUrl(value: unknown): string {
+  if(typeof value!=='string')return '';
+  if(/^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(value))return value;
+  const url=previewWebUrl(value);return url==='#'?'':url;
+}
+
 function exportEscape(value: unknown): string {
   return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -506,7 +518,7 @@ function exportImageUrl(value: unknown): string {
 
 function uid() { return Math.random().toString(36).slice(2,9); }
 
-function ytId(url:string){ const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^&?\s]+)/); return m?m[1]:null; }
+function ytId(url:string){const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([A-Za-z0-9_-]{11})(?:[?&#/\s]|$)/);return m?m[1]:null;}
 
 // ── Canvas block renderer ──────────────────────────────────────────────
 function CanvasBlock({ block, design, selected, onClick, lang }: {
@@ -524,7 +536,7 @@ function CanvasBlock({ block, design, selected, onClick, lang }: {
     const sz = {h1:'28px',h2:'22px',h3:'18px'}[Tag];
     const titleEl = <Tag style={{margin:0,fontFamily:ff,fontSize:sz,fontWeight:800,color:ac,textDecoration:d.url?'underline':'none',textDecorationColor:`${ac}44`}}>{d.text}</Tag>;
     inner = d.url
-      ? <a href={d.url} target="_blank" rel="noreferrer" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>{titleEl}<span style={{fontSize:13,opacity:.5}}>↗️</span></a>
+      ? <a href={previewWebUrl(d.url)} target="_blank" rel="noreferrer" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>{titleEl}<span style={{fontSize:13,opacity:.5}}>↗️</span></a>
       : titleEl;
   } else if(block.type === 'paragraph'){
     inner = <p style={{margin:0,fontFamily:ff,fontSize:15,lineHeight:1.75,color:tc,whiteSpace:'pre-wrap'}}>{d.text}</p>;
@@ -537,7 +549,7 @@ function CanvasBlock({ block, design, selected, onClick, lang }: {
           {items.map((item,i)=>(
             <div key={i} style={{display:'flex',flexDirection:'column',gap:0}}>
               {item.url
-                ? <img src={item.url} alt={item.cap||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
+                ? <img src={previewImageUrl(item.url)} alt={item.cap||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
                 : <div style={{background:'#e2e8f0',borderRadius:8,height:140,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#94a3b8',gap:4,border:'1.5px dashed #cbd5e1'}}>
                     <span style={{fontSize:24}}>+📷</span>
                     <span style={{fontSize:11,fontFamily:ff}}>Görsel Seçin</span>
@@ -552,7 +564,7 @@ function CanvasBlock({ block, design, selected, onClick, lang }: {
       inner = (
         <div>
           {hasUrl
-             ? <img src={d.url} alt={d.caption||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
+             ? <img src={previewImageUrl(d.url)} alt={d.caption||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
              : <div style={{background:'#e2e8f0',borderRadius:8,height:160,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#94a3b8',gap:8}}>
                  <span style={{fontSize:32}}>🖼</span>
                  <span style={{fontSize:13,fontFamily:ff}}>Görsel Seçin</span>
@@ -582,11 +594,11 @@ function CanvasBlock({ block, design, selected, onClick, lang }: {
   } else if(block.type === 'separator'){
     inner = <hr style={{border:'none',borderTop:`2px ${d.style||'solid'} ${ac}`,margin:0}}/>;
   } else if(block.type === 'link'){
-    inner = <a href={d.url||'#'} style={{color:ac,fontFamily:ff,fontSize:14,textDecoration:'underline',fontWeight:600}}>🔗 {d.text||'Bağlantı'}</a>;
+    inner = <a href={previewWebUrl(d.url)} style={{color:ac,fontFamily:ff,fontSize:14,textDecoration:'underline',fontWeight:600}}>🔗 {d.text||'Bağlantı'}</a>;
   } else if(block.type === 'button'){
     const align = d.align||'center';
     inner = <div style={{textAlign:align as 'left'|'center'|'right'}}>
-      <a href={d.url||'#'} style={{display:'inline-block',padding:'12px 28px',background:ac,color:'#fff',borderRadius:30,fontFamily:ff,fontWeight:700,fontSize:14,textDecoration:'none'}}>{d.text||'Tıklayın'}</a>
+      <a href={previewWebUrl(d.url)} style={{display:'inline-block',padding:'12px 28px',background:ac,color:'#fff',borderRadius:30,fontFamily:ff,fontWeight:700,fontSize:14,textDecoration:'none'}}>{d.text||'Tıklayın'}</a>
     </div>;
   } else if(block.type === 'poll'){
     inner = (
@@ -600,7 +612,7 @@ function CanvasBlock({ block, design, selected, onClick, lang }: {
   } else if(block.type === 'attachment'){
     inner = <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',border:`1.5px solid #e2e8f0`,borderRadius:8,fontFamily:ff}}>
       <span style={{fontSize:22}}>📎</span>
-      <a href={d.url||'#'} style={{color:ac,fontWeight:600,fontSize:14,textDecoration:'none'}}>{d.name||'dosya.pdf'}</a>
+      <a href={previewWebUrl(d.url)} style={{color:ac,fontWeight:600,fontSize:14,textDecoration:'none'}}>{d.name||'dosya.pdf'}</a>
     </div>;
   } else if(block.type === 'textphoto'){
     const imgRight = (d.imagePos||'right')==='right';
@@ -612,7 +624,7 @@ function CanvasBlock({ block, design, selected, onClick, lang }: {
         </div>
         <div style={{flexShrink:0,width:180}}>
           {hasImg
-            ? <img src={d.url} alt={d.caption||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
+            ? <img src={previewImageUrl(d.url)} alt={d.caption||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
             : <div style={{width:'100%',height:120,background:'#e2e8f0',borderRadius:8,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#94a3b8',gap:4}}>
                 <span style={{fontSize:24}}>🖼</span>
                 <span style={{fontSize:11,fontFamily:ff}}>{lang==='tr' ? 'Görsel ekleyin' : 'Add a picture'}</span>
@@ -628,7 +640,7 @@ function CanvasBlock({ block, design, selected, onClick, lang }: {
         {slots.map((s,i)=>(
           <div key={i}>
             {s.url
-              ? <img src={s.url} alt={s.cap} style={{width:'100%',borderRadius:8,display:'block'}}/>
+              ? <img src={previewImageUrl(s.url)} alt={s.cap} style={{width:'100%',borderRadius:8,display:'block'}}/>
               : <div style={{background:'#e2e8f0',borderRadius:8,height:120,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#94a3b8',gap:4}}>
                   <span style={{fontSize:24}}>🖼</span>
                   <span style={{fontSize:11,fontFamily:ff}}>{lang==='tr' ? 'Görsel ekleyin' : 'Add a picture'}</span>
@@ -642,7 +654,7 @@ function CanvasBlock({ block, design, selected, onClick, lang }: {
     inner = (
       <div style={{border:`1px solid ${ac}22`,borderRadius:12,padding:'20px',fontFamily:ff,display:'flex',gap:16,alignItems:'flex-start',background:`${ac}06`}}>
         {d.avatar
-          ? <img src={d.avatar} alt={d.name} style={{width:68,height:68,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`3px solid ${ac}`}}/>
+          ? <img src={previewImageUrl(d.avatar)} alt={d.name} style={{width:68,height:68,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`3px solid ${ac}`}}/>
           : <div style={{width:68,height:68,borderRadius:'50%',background:ac,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,flexShrink:0,color:'#fff'}}>👤</div>}
         <div style={{flex:1}}>
           <div style={{fontWeight:800,fontSize:16,color:tc}}>{d.name||'Ad Soyad'}</div>
@@ -652,7 +664,7 @@ function CanvasBlock({ block, design, selected, onClick, lang }: {
             {d.facebook && <a href={`https://facebook.com/${d.facebook}`} style={{color:ac,fontSize:12,textDecoration:'none',fontWeight:600}}>Facebook</a>}
             {d.twitter && <a href={`https://twitter.com/${d.twitter}`} style={{color:ac,fontSize:12,textDecoration:'none',fontWeight:600}}>Twitter</a>}
             {d.instagram && <a href={`https://instagram.com/${d.instagram}`} style={{color:ac,fontSize:12,textDecoration:'none',fontWeight:600}}>Instagram</a>}
-            {d.youtube && <a href={d.youtube} style={{color:ac,fontSize:12,textDecoration:'none',fontWeight:600}}>YouTube</a>}
+            {d.youtube && <a href={previewWebUrl(d.youtube)} style={{color:ac,fontSize:12,textDecoration:'none',fontWeight:600}}>YouTube</a>}
           </div>
         </div>
       </div>
@@ -676,9 +688,14 @@ function CanvasBlock({ block, design, selected, onClick, lang }: {
   } else if(block.type === 'googleform'){
     // Normalize URL: convert /viewform to /viewform?embedded=true
     const rawUrl = d.url || '';
-    const embedUrl = rawUrl
-      ? rawUrl.replace(/\/viewform.*$/, '/viewform?embedded=true')
-      : '';
+    const embedUrl = (() => {
+      try {
+        const u=new URL(rawUrl);
+        if(u.protocol!=='https:' || u.hostname!=='docs.google.com' || !u.pathname.startsWith('/forms/')) return '';
+        u.searchParams.set('embedded','true');
+        return u.toString();
+      } catch { return ''; }
+    })();
     const h = parseInt(d.height||'520');
     inner = (
       <div style={{border:`1.5px solid #4285F4`,borderRadius:12,overflow:'hidden'}}>
@@ -686,11 +703,11 @@ function CanvasBlock({ block, design, selected, onClick, lang }: {
         <div style={{background:'#4285F4',padding:'10px 16px',display:'flex',alignItems:'center',gap:8}}>
           <span style={{fontSize:16}}>📝</span>
           <span style={{color:'#fff',fontWeight:700,fontSize:14,fontFamily:ff}}>{d.title||'Google Form'}</span>
-          {rawUrl && <a href={rawUrl} target="_blank" rel="noreferrer"
+          {rawUrl && <a href={previewWebUrl(rawUrl)} target="_blank" rel="noreferrer"
             style={{marginLeft:'auto',fontSize:11,color:'rgba(255,255,255,.8)',textDecoration:'underline',fontFamily:ff}}>Yeni sekmede aç ↗</a>}
         </div>
         {embedUrl
-          ? <iframe src={embedUrl} width="100%" height={h} frameBorder={0} style={{display:'block'}}/>
+          ? <iframe src={embedUrl} title={d.title||'Google Form'} loading="lazy" width="100%" height={h} frameBorder={0} style={{display:'block'}}/>
           : <div style={{height:160,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#94a3b8',fontFamily:ff,background:'#f8fafc',gap:6}}>
               <span style={{fontSize:28}}>🔗</span>
               <span style={{fontSize:12,fontWeight:600}}>Google Form URL girin</span>
@@ -760,7 +777,7 @@ function ImageUpload({ value, onChange, label }: { value: string; onChange: (url
       }
       {value && (
         <div style={{marginTop:8,position:'relative',display:'inline-block'}}>
-          <img src={value} alt="" style={{height:60,borderRadius:6,boxShadow:'0 1px 6px rgba(0,0,0,.12)',display:'block'}}/>
+          <img src={previewImageUrl(value)} alt="Seçilen görsel önizlemesi" style={{height:60,borderRadius:6,boxShadow:'0 1px 6px rgba(0,0,0,.12)',display:'block'}}/>
           <button type="button" aria-label="Görseli kaldır" onClick={()=>onChange('')}
             style={{position:'absolute',top:-5,right:-5,width:16,height:16,borderRadius:'50%',background:'#ef4444',border:'none',color:'#fff',fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
         </div>
@@ -2105,7 +2122,7 @@ ${text.slice(0,7500)}`;
         <div id="bulten-main" tabIndex={-1} style={{
           overflowY:'auto', padding:32,
           ...(headerImgUrl
-            ? { backgroundImage:`url(${headerImgUrl})`, backgroundSize:'cover', backgroundPosition:'center', backgroundAttachment:'fixed', position:'relative' }
+            ? { backgroundImage:`url(${previewImageUrl(headerImgUrl)})`, backgroundSize:'cover', backgroundPosition:'center', backgroundAttachment:'fixed', position:'relative' }
             : { background:'#f8fafc', backgroundImage:'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)', backgroundSize:'24px 24px' })
         }}>
           {/* TOC */}
@@ -2123,7 +2140,7 @@ ${text.slice(0,7500)}`;
             <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:12,flexWrap:'wrap'}}>
               {logoUrl
                 ? <div style={{position:'relative',display:'inline-block'}}>
-                    <img src={logoUrl} alt="Logo" style={{height:52,borderRadius:8,boxShadow:'0 2px 8px rgba(0,0,0,.15)'}}/>
+                    <img src={previewImageUrl(logoUrl)} alt="Logo" style={{height:52,borderRadius:8,boxShadow:'0 2px 8px rgba(0,0,0,.15)'}}/>
                     <button type="button" aria-label="Logoyu kaldır" onClick={()=>setLogoUrl('')}
                       style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'#ef4444',border:'none',color:'#fff',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
                   </div>
