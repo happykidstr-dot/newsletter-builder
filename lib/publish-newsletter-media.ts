@@ -99,22 +99,24 @@ async function publishSingleImage(original:string,cache:Record<string,string>):P
 
 export async function prepareNewsletterForSharing(
   exportedHtml:string, headerImgUrl:string, onProgress?:Progress,
-):Promise<{html:string,headerImgUrl:string,uploaded:number}> {
+):Promise<{html:string,headerImgUrl:string,uploaded:number,mediaMap:Record<string,string>}> {
   const imageUrls=[...new Set(exportedHtml.match(DATA_IMAGE)||[])];
   if(/^data:image\//i.test(headerImgUrl)&&!imageUrls.includes(headerImgUrl)){
     imageUrls.push(headerImgUrl);
   }
-  if(imageUrls.length===0)return {html:exportedHtml,headerImgUrl,uploaded:0};
+  if(imageUrls.length===0)return {html:exportedHtml,headerImgUrl,uploaded:0,mediaMap:{}};
   let html=exportedHtml,header=headerImgUrl,completed=0;
   const cache=readCache();
+  const mediaMap:Record<string,string>={};
   onProgress?.(0,imageUrls.length);
   // Sequential requests avoid overwhelming mobile devices and Netlify limits.
   for(const source of imageUrls){
     const hosted=await publishSingleImage(source,cache);
+    mediaMap[source]=hosted;
     html=html.split(source).join(hosted);
     if(header===source)header=hosted;
     completed++;
     onProgress?.(completed,imageUrls.length);
   }
-  return {html,headerImgUrl:header,uploaded:completed};
+  return {html,headerImgUrl:header,uploaded:completed,mediaMap};
 }
