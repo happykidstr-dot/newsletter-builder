@@ -10,7 +10,7 @@ Profesyonel e-bültenler oluşturmak için bağımsız web uygulaması.
 - **4 Tasarım Teması** — Modern, Classic, Bold, Minimal
 - **AI İçerik Üretimi** — OpenAI ile metin oluşturma, yeniden yazma, uzatma
 - **Çeviri** — AI ile tek tıkla Türkçe/İngilizce çeviri
-- **PDF & HTML Export** — Bülteni HTML olarak indirme
+- **PDF İndir / Yazdır / HTML** — Bülteni doğrudan indirilebilir A4 PDF dosyası olarak oluşturma; ayrıca bağımsız Yazdır düğmesi ve HTML dışa aktarma. PDF işlemi tarayıcıda çalışır, OpenAI token harcamaz.
 - **E-posta Gönderimi** — Mailing list yönetimi ve toplu gönderim
 - **Erişilebilirlik** — Tam donanımlı a11y toolbar (font boyutu, kontrast, disleksi fontu, büyüteç, vb.)
 - **Clerk Auth** — Güvenli oturum yönetimi
@@ -104,3 +104,13 @@ Clerk oturum açma desteği sağlanmaktadır.
 - npm 9+
 - Clerk hesabı (auth için)
 - OpenAI API anahtarı (AI içerik üretimi için, isteğe bağlı)
+
+
+## 📄 PDF İndirme ve Yazdırma (Kasım 2026)
+
+Üst araç çubuğunda iki ayrı işlem bulunmaktadır:
+
+- **⬇️ PDF İndir:** Bültenin A4 biçiminde, gerekirse birden çok sayfadan oluşan `.pdf` dosyasını bilgisayara indirir. Yazıcıya göndermez ve yazdırma penceresi açmaz.
+- **🖨️ Yazdır:** Bültenin yazdırılabilir görünümünü ayrı pencerede açıp tarayıcının yazdırma iletişim kutusunu gösterir.
+
+PDF üretimi yalnızca tarayıcıda, `html2pdf.js` 0.14.0 kullanılarak yapılır. OpenAI API çağrısı veya token kullanımı yoktur. Bültenin görsel düzeni ve fotoğrafları yüksek çözünürlüklü görüntü olarak aktarılır; dolayısıyla PDF metni her zaman seçilebilir/aranabilir olmayabilir. Harici görsellerin yüklenebilmesi, görsel sunucusunun CORS izinlerine bağlıdır. Video çerçeveleri ise PDF içinde bağlantı metni olarak gösterilir.
