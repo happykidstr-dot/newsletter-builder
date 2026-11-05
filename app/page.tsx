@@ -5,6 +5,7 @@ const SignInButton = null as any;
 const UserButton = null as any;
 import dynamic from 'next/dynamic';
 import { TemplateGallery } from '@/components/TemplateGallery';
+import { downloadNewsletterPdf, printNewsletter } from '@/lib/newsletter-pdf';
 import type { GalleryTemplate } from '@/lib/gallery-templates';
 import { escapeShareHtml, makeShareLinks, normalisePublicNewsletterUrl, readerShareBar, READER_SHARE_RUNTIME, safeReaderImageUrl, safeReaderLinkUrl } from '@/lib/reader-social-share';
 import { useAccessibility } from '@/hooks/useAccessibility';
@@ -1375,16 +1376,27 @@ ${text}`;
     a.download=`${title.replace(/\s+/g,'-').toLowerCase()}.html`; a.click();
   };
 
-  const handlePdfExport = ()=>{
-    const printHtml = generateHTML();
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.open();
-    win.document.write(printHtml);
-    win.document.close();
-    // Give images time to load before printing
-    win.onload = () => { win.print(); };
-    setTimeout(() => { try { win.print(); } catch(e){} }, 1800);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const handlePdfExport = async () => {
+    if(pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      await downloadNewsletterPdf(generateHTML(),title);
+    } catch(error) {
+      console.error('PDF indirme hatası:',error);
+      alert('PDF dosyası oluşturulamadı. Görselleri kontrol edip tekrar deneyin.');
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
+  const handlePrint = () => {
+    try {
+      printNewsletter(generateHTML());
+    } catch(error) {
+      console.error('Yazdırma hatası:',error);
+      alert(error instanceof Error ? error.message : 'Yazdırma penceresi açılamadı.');
+    }
   };
 
   // ── Styles ──
@@ -1442,8 +1454,16 @@ ${text}`;
             <span style={{fontSize:15}}>⬇️</span> HTML
           </button>
           
-          <button onClick={handlePdfExport} title="PDF Olarak Al" style={{display:'flex',alignItems:'center',gap:6,background:'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:'pointer',padding:'8px 14px',borderRadius:8,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#f8fafc';(e.currentTarget as HTMLElement).style.color='#0f172a'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='#ffffff';(e.currentTarget as HTMLElement).style.color='#475569'}}>
-            <span style={{fontSize:15}}>📄</span> PDF
+          <button type="button" onClick={handlePdfExport} disabled={pdfBusy}
+            title="PDF dosyasını indir — yazdırma penceresi açılmaz"
+            aria-label={pdfBusy ? 'PDF hazırlanıyor' : 'PDF indir'}
+            style={{display:'flex',alignItems:'center',gap:6,background:pdfBusy?'#f1f5f9':'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:pdfBusy?'progress':'pointer',padding:'8px 14px',borderRadius:8,opacity:pdfBusy?0.7:1,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}}>
+            <span aria-hidden="true" style={{fontSize:15}}>{pdfBusy?'⏳':'⬇️'}</span> {pdfBusy?'PDF hazırlanıyor…':'PDF İndir'}
+          </button>
+
+          <button type="button" onClick={handlePrint} title="Yazdırma penceresini aç" aria-label="Bülteni yazdır"
+            style={{display:'flex',alignItems:'center',gap:6,background:'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:'pointer',padding:'8px 14px',borderRadius:8,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}}>
+            <span aria-hidden="true" style={{fontSize:15}}>🖨️</span> Yazdır
           </button>
 
           <div style={{width:1,height:24,background:'#e2e8f0',margin:'0 4px'}}/>
