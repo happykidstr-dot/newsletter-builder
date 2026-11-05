@@ -1569,7 +1569,7 @@ ${text}`;
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 60px)',fontFamily:'Inter,system-ui,sans-serif',background:'#f1f5f9'}}>
 
       {/* ── Top Bar ── */}
-      <div style={{background:'#ffffff',borderBottom:'1px solid #e2e8f0',padding:'0 24px',height:68,display:'flex',alignItems:'center',gap:8,flexShrink:0,boxShadow:'0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',zIndex:10}}>
+      <div style={{background:'#ffffff',borderBottom:'1px solid #e2e8f0',padding:'8px 16px',minHeight:68,display:'flex',flexWrap:'wrap',alignItems:'center',gap:8,flexShrink:0,boxShadow:'0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',zIndex:10}}>
         
         {/* Brand */}
         <div style={{display:'flex',alignItems:'center',gap:10,marginRight:16}}>
@@ -1595,7 +1595,7 @@ ${text}`;
         <div style={{flex:1}} />
 
         {/* Compact Actions */}
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',flexWrap:'wrap',gap:8}}>
           <div style={{display:'flex',background:'#f1f5f9',borderRadius:10,padding:4,border:'1px solid #e2e8f0',marginRight:8}}>
             <button onClick={()=>setPreviewMode('desktop')}
               style={{background:previewMode==='desktop'?'#fff':'transparent',border:'none',borderRadius:6,padding:'6px 12px',fontSize:12,fontWeight:700,color:previewMode==='desktop'?'#0f172a':'#64748b',cursor:'pointer',boxShadow:previewMode==='desktop'?'0 1px 3px rgba(0,0,0,0.1)':'none',transition:'all .2s'}}>💻 Masaüstü</button>
