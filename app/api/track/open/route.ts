@@ -1,52 +1,20 @@
+import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key);
-}
-
-// 1x1 transparent GIF pixel
-const PIXEL = Buffer.from(
-  'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
-  'base64'
-);
-
-export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const campaignId = searchParams.get('c');
-    const encodedEmail = searchParams.get('e');
-
-    if (campaignId && encodedEmail) {
-      const email = Buffer.from(encodedEmail, 'base64').toString('ascii');
-      const supabase = getSupabase();
-      if (supabase) {
-        // Log to database asynchronously without blocking the response
-        supabase.from('campaign_analytics').insert({
-          id: Math.random().toString(36).slice(2, 11),
-          campaign_id: campaignId,
-          event_type: 'open',
-          email: email,
-          created_at: new Date().toISOString()
-        }).then(({ error }) => {
-          if (error) console.error('Tracking insert error:', error);
-        });
-      }
-    }
-
-    // Always return the 1x1 pixel with correct headers to prevent caching
-    return new NextResponse(PIXEL, {
-      headers: {
-        'Content-Type': 'image/gif',
-        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-        'Pragma': 'no-cache',
-      },
-    });
-  } catch (error) {
-    // If anything fails, still return the pixel so we don't break the email
-    return new NextResponse(PIXEL, { headers: { 'Content-Type': 'image/gif' } });
+import { adminDb } from '@/lib/server-security';
+const PIXEL=Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7','base64');
+function pixel(){return new NextResponse(PIXEL,{headers:{'Content-Type':'image/gif','Cache-Control':'no-store, no-cache, max-age=0'}});}
+export async function GET(req:NextRequest){
+  const url=new URL(req.url),token=url.searchParams.get('t')||'',sig=url.searchParams.get('s')||'';
+  const secret=process.env.TRACKING_SIGNING_SECRET;
+  if(!secret||secret.length<24||!/^[a-f0-9]{36}$/.test(token)||!/^[a-f0-9]{64}$/.test(sig))return pixel();
+  const expected=createHmac('sha256',secret).update(token+'|open').digest('hex');
+  if(!timingSafeEqual(Buffer.from(expected),Buffer.from(sig)))return pixel();
+  const db=adminDb();if(!db)return pixel();
+  const {data:recipient}=await db.from('campaign_recipients').select('user_id,campaign_id,email,unsubscribed_at')
+    .eq('token',token).maybeSingle();
+  if(recipient&&!recipient.unsubscribed_at){
+    await db.from('campaign_analytics').insert({id:randomUUID(),user_id:recipient.user_id,campaign_id:recipient.campaign_id,
+      email:recipient.email,recipient_token:token,event_type:'open',created_at:new Date().toISOString()});
   }
+  return pixel();
 }

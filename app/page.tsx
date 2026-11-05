@@ -1,8 +1,6 @@
 'use client';
 import React, { useState, useCallback } from 'react';
-// Note: Clerk auth is handled in layout.tsx - these are placeholder no-ops for SSR safety
-const SignInButton = null as any;
-const UserButton = null as any;
+import { AuthBar } from '@/components/AuthBar';
 import dynamic from 'next/dynamic';
 import { useAccessibility } from '@/hooks/useAccessibility';
 import { AccessibilityToolbar } from '@/components/AccessibilityToolbar';
@@ -21,6 +19,7 @@ const T = {
     // block types
     title:'Title', paragraph:'Paragraph', photos:'Photos', video:'Video',
     event:'Event', separator:'Separator', link:'Link', button:'Button', poll:'Poll', attachment:'Attachment',
+    textphoto:'Text + image', photogrid:'Photo grid', author:'Author', form:'Form', googleform:'Google Form',
     // editors
     titleText:'Title Text', size:'Size', h1:'H1 — Large', h2:'H2 — Medium', h3:'H3 — Small',
     text:'Text', chars:'characters', imageUrl:'Image URL', caption:'Caption',
@@ -42,6 +41,7 @@ const T = {
     // block types
     title:'Başlık', paragraph:'Metin', photos:'Görsel', video:'Video',
     event:'Etkinlik', separator:'Ayırıcı', link:'Bağlantı', button:'Buton', poll:'Anket', attachment:'Ek Dosya',
+    textphoto:'Metin + görsel', photogrid:'Fotoğraf ızgarası', author:'Yazar', form:'Form', googleform:'Google Form',
     // editors
     titleText:'Başlık Metni', size:'Boyut', h1:'H1 — Büyük', h2:'H2 — Orta', h3:'H3 — Küçük',
     text:'Metin', chars:'karakter', imageUrl:'Görsel URL', caption:'Alt Yazı',
@@ -78,7 +78,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:'b1', type:'title' as BT, data:{text:'Bu Hafta Okulumuzda Neler Oldu?',size:'h2'} },
       { id:'b2', type:'paragraph' as BT, data:{text:'Değerli velilerimiz ve öğrencilerimiz,\n\nBu hafta bilim fuarımızda öğrencilerimizin ürettiği harika projeleri inceleme fırsatı bulduk...'} },
       { id:'b3', type:'photos' as BT, data:{url:'https://images.unsplash.com/photo-1511629091441-ee46146481b6?w=640&q=80',caption:'Bilim fuarından kareler'} },
-      { id:'b4', type:'event' as BT, data:{title:'Veli Toplantısı',date:'2026-03-28',time:'13:00',location:'Konferans Salonu'} },
+      { id:'b4', type:'event' as BT, data:{title:'Veli Toplantısı',date:'',time:'13:00',location:'Konferans Salonu'} },
       { id:'b5', type:'button' as BT, data:{text:'Not Çizelgesini İndir',url:'#'} }
     ]
   },
@@ -88,7 +88,7 @@ const NEWSLETTER_TEMPLATES = [
     blocks: [
       { id:'b1', type:'title' as BT, data:{text:'Geleneksel Bahar Şenliği',size:'h1'} },
       { id:'b2', type:'paragraph' as BT, data:{text:'Müzik, dans, yemek ve eğlenceye hazır mısınız? Bu yıl baharı harika bir festivalle karşılıyoruz.'} },
-      { id:'b3', type:'event' as BT, data:{title:'Bahar Festivali 2026',date:'2026-05-15',time:'10:00 - 22:00',location:'Merkez Kampüs Etkinlik Alanı'} },
+      { id:'b3', type:'event' as BT, data:{title:'Bahar Festivali (örnek)',date:'',time:'10:00 - 22:00',location:'Merkez Kampüs Etkinlik Alanı'} },
       { id:'b4', type:'googleform' as BT, data:{url:'',height:'400'} },
       { id:'b5', type:'button' as BT, data:{text:'LCV Lütfen (Buraya Tıklayın)',url:'#'} }
     ]
@@ -144,7 +144,7 @@ const NEWSLETTER_TEMPLATES = [
     blocks: [
       { id:'b1', type:'title' as BT, data:{text:'Erasmus+ KA2 Proje Yazım Atölyesi',size:'h2'} },
       { id:'b2', type:'paragraph' as BT, data:{text:'Kendi projenizi yazmak hiç bu kadar kolay olmamıştı. 2 günlük yoğun uygulamalı eğitimimize davetlisiniz.'} },
-      { id:'b3', type:'event' as BT, data:{title:'Proje Atölyesi',date:'2026-06-10',time:'09:00',location:'Zoom (Online)'} },
+      { id:'b3', type:'event' as BT, data:{title:'Proje Atölyesi',date:'',time:'09:00',location:'Zoom (Online)'} },
       { id:'b4', type:'button' as BT, data:{text:'Kayıt Ol',url:'#'} }
     ]
   },
@@ -175,7 +175,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:'b1', type:'title' as BT, data:{text:'2. Ünite Değerlendirme Ödevi',size:'h2'} },
       { id:'b2', type:'paragraph' as BT, data:{text:'Öğrencilerimizin üslü sayılar konusunu pekiştirmesi için hazırlanan föyleri perşembe gününe kadar tamamlamaları gerekmektedir.'} },
       { id:'b3', type:'attachment' as BT, data:{fileName:'Uslu_Sayilar_Foy_3.pdf',url:'#'} },
-      { id:'b4', type:'event' as BT, data:{title:'Ödev Son Teslim Tarihi',date:'2026-03-26',time:'08:30',location:'Matematik Sınıfı'} }
+      { id:'b4', type:'event' as BT, data:{title:'Ödev Son Teslim Tarihi',date:'',time:'08:30',location:'Matematik Sınıfı'} }
     ]
   },
   {
@@ -189,7 +189,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'title' as BT, data:{text:'Proje Hedeflerimiz Neler?',size:'h2'} },
       { id:uid(), type:'paragraph' as BT, data:{text:'1. Yenilikçi müfredat oluşturmak\n2. Dijital platform entegrasyonu sağlamak\n3. Ulusötesi eğitim hareketliliklerini artırmak'} },
       { id:uid(), type:'photogrid' as BT, data:{cols:'3', url1:'https://images.unsplash.com/photo-1552664730-d307ca884978?w=320', cap1:'İspanya Ekibi', url2:'https://images.unsplash.com/photo-1558403194-611308249d50?w=320', cap2:'İtalya Ekibi', url3:'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=320', cap3:'Türkiye Ekibi'} },
-      { id:uid(), type:'event' as BT, data:{title:'Sıradaki Çevrimiçi Toplantı',date:'2026-10-15',time:'14:00',location:'Zoom / Teams'} },
+      { id:uid(), type:'event' as BT, data:{title:'Sıradaki Çevrimiçi Toplantı',date:'',time:'14:00',location:'Zoom / Teams'} },
       { id:uid(), type:'poll' as BT, data:{question:'Sizce en kritik proje hedefimiz hangisi?',opt1:'Dijitalleşme',opt2:'Kapsayıcılık',opt3:'Yeşil Beceriler'} },
       { id:uid(), type:'button' as BT, data:{text:'Proje Web Sitesini Ziyaret Et',url:'#'} }
     ]
@@ -274,7 +274,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'title' as BT, data:{text:'Ulaşımda Yeni Dönem',size:'h2'} },
       { id:uid(), type:'paragraph' as BT, data:{text:'Elektrikli otobüs filomuz bugün itibariyle seferlere başladı. Yeni hat güzergah haritasını aşağıdan indirebilirsiniz.'} },
       { id:uid(), type:'attachment' as BT, data:{name:'Yeni_Otobus_Hatlari_2026.pdf',url:'#'} },
-      { id:uid(), type:'event' as BT, data:{title:'Halk Buluşması',date:'2026-10-15',time:'19:00',location:'Belediye Kültür Merkezi'} },
+      { id:uid(), type:'event' as BT, data:{title:'Halk Buluşması',date:'',time:'19:00',location:'Belediye Kültür Merkezi'} },
       { id:uid(), type:'poll' as BT, data:{question:'Sıradaki projemiz ne olmalı?',opt1:'Yeni Kütüphane',opt2:'Spor Kompleksi',opt3:'Gençlik Merkezi'} },
       { id:uid(), type:'button' as BT, data:{text:'Tüm Projeleri İncele',url:'#'} }
     ]
@@ -294,7 +294,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'separator' as BT, data:{style:'dotted'} },
       { id:uid(), type:'author' as BT, data:{name:'Caner Tekin',title:'Teknoloji Editörü',bio:'Gelecek koda yazıldı. Teknoloji dünyasındaki gelişmeleri sizin için sadeleştiriyoruz.',avatar:'https://images.unsplash.com/photo-1581382575275-97901c2635b7?w=128'} },
       { id:uid(), type:'poll' as BT, data:{question:'Yapay zeka işinizi nasıl etkileyecek?',opt1:'Verimliliğimi artıracak',opt2:'İş yapış şeklimi tamamen değiştirecek',opt3:'Pek etki etmeyecek'} },
-      { id:uid(), type:'event' as BT, data:{title:'Webinar: AI Araçları Kullanımı',date:'2026-11-05',time:'20:00',location:'YouTube Live'} },
+      { id:uid(), type:'event' as BT, data:{title:'Webinar: AI Araçları Kullanımı',date:'',time:'20:00',location:'YouTube Live'} },
       { id:uid(), type:'button' as BT, data:{text:'Gelecek Haftaki Sayıya Abone Ol',url:'#'} }
     ]
   },
@@ -309,7 +309,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'title' as BT, data:{text:'Ayın Gönüllüsü: Zeynep Kaya',size:'h2'} },
       { id:uid(), type:'textphoto' as BT, data:{text:'Zeynep Hanım, projedeki üstün gayreti ve pozitif enerjisiyle bu ay "Ayın Gönüllüsü" seçildi. Kendisi mülteci çocukların entegrasyonu için haftada 15 saatini feda ediyor.', url:'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=640&q=80', imagePos:'right'} },
       { id:uid(), type:'author' as BT, data:{name:'Zeynep Kaya',title:'Gönüllü Eğitmen',bio:'Bir çocuğun hayatına dokunmak, dünyanın yönünü değiştirmek demektir.',avatar:'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=128'} },
-      { id:uid(), type:'event' as BT, data:{title:'Aralık Ayı Dayanışma Kermesi',date:'2026-12-10',time:'10:00',location:'Merkez Şehir Meydanı'} },
+      { id:uid(), type:'event' as BT, data:{title:'Aralık Ayı Dayanışma Kermesi',date:'',time:'10:00',location:'Merkez Şehir Meydanı'} },
       { id:uid(), type:'poll' as BT, data:{question:'Sıradaki kampanyamız hangi alanda olmalı?',opt1:'Çocuk Eğitimi',opt2:'Kadın İstihdamı',opt3:'Çevre ve İklim'} },
       { id:uid(), type:'attachment' as BT, data:{name:'STK_Aylik_Faaliyet_Raporu.pdf',url:'#'} },
       { id:uid(), type:'button' as BT, data:{text:'Gönüllü Başvuru Formu',url:'#'} }
@@ -357,7 +357,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'title' as BT, data:{text:'Desteklenen Proje Kategorileri',size:'h2'} },
       { id:uid(), type:'paragraph' as BT, data:{text:'• Akıllı Şehir Uygulamaları\n• Kültür ve Sanat İnisiyatifleri\n• Sosyal Medya İçerik Üretimi\n• Sıfır Atık / Ekoloji'} },
       { id:uid(), type:'textphoto' as BT, data:{text:'Proje başına 50.000 TL hibe desteği sağlanacaktır. Tüm katılımcılar ayrıca belediyemizin kuluçka merkezindeki paylaşımlı ofis alanından 6 ay ücretsiz yararlanacaktır.', url:'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=640&q=80', imagePos:'left'} },
-      { id:uid(), type:'event' as BT, data:{title:'Açılış Lansmanı ve Soru-Cevap',date:'2026-11-25',time:'18:00',location:'Büyükşehir Gençlik Merkezi'} },
+      { id:uid(), type:'event' as BT, data:{title:'Açılış Lansmanı ve Soru-Cevap',date:'',time:'18:00',location:'Büyükşehir Gençlik Merkezi'} },
       { id:uid(), type:'attachment' as BT, data:{name:'Genc_Girisimci_Fon_Rehberi.pdf',url:'#'} },
       { id:uid(), type:'button' as BT, data:{text:'Hemen Fikrini Gönder',url:'#'} }
     ]
@@ -373,7 +373,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'textphoto' as BT, data:{text:'Marmara Teknokent bünyesinde faaliyet gösteren BioPlast A.Ş., bitkisel atıklardan 100% çözünebilir plastik üreten yeni patentiyle 2 Milyon Dolar yatırım aldı.', url:'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=640&q=80', imagePos:'right'} },
       { id:uid(), type:'author' as BT, data:{name:'Dr. Aslı Demir',title:'Genel Müdür (CEO)',bio:'Dünyayı yaşanabilir kılmak için doğadan ilham alan inovasyonlar şart.',avatar:'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=128'} },
       { id:uid(), type:'poll' as BT, data:{question:'Firmanızın Ar-Ge harcamaları ne yönde?',opt1:'Artıyor',opt2:'Aynı Kaldı',opt3:'Düşüyor'} },
-      { id:uid(), type:'event' as BT, data:{title:'Üniversite - Sanayi Çöpçatanlık Etkinliği',date:'2026-12-01',time:'09:00',location:'Kongre Merkezimiz'} },
+      { id:uid(), type:'event' as BT, data:{title:'Üniversite - Sanayi Çöpçatanlık Etkinliği',date:'',time:'09:00',location:'Kongre Merkezimiz'} },
       { id:uid(), type:'button' as BT, data:{text:'İkili Görüşmelere (B2B) Kayıt',url:'#'} }
     ]
   },
@@ -388,7 +388,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'title' as BT, data:{text:'Program Detayları',size:'h2'} },
       { id:uid(), type:'textphoto' as BT, data:{text:'1. Modül: Sorun Analizi ve LFM Tablosu\n2. Modül: Ortak Bulma ve Ön Başvuru\n3. Modül: Bütçe Yazımı ve Kalemler\n4. Modül: Son Okuma ve Dış Etki Anketi', url:'https://images.unsplash.com/photo-1513128034602-7814ccaddd4e?w=640&q=80', imagePos:'left'} },
       { id:uid(), type:'author' as BT, data:{name:'Can Yılmaz',title:'Kıdemli Proje Uzmanı',bio:'15 yılda 40\'tan fazla onaylanmış KA2 projesi referansıyla yanınızdayım.',avatar:'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=128'} },
-      { id:uid(), type:'event' as BT, data:{title:'Canlı Online İlk Ders',date:'2026-11-10',time:'20:00',location:'Zoom (Adresinize Link Gelecektir)'} },
+      { id:uid(), type:'event' as BT, data:{title:'Canlı Online İlk Ders',date:'',time:'20:00',location:'Zoom (Adresinize Link Gelecektir)'} },
       { id:uid(), type:'attachment' as BT, data:{name:'PCM_Egitim_Mufredati.pdf',url:'#'} },
       { id:uid(), type:'button' as BT, data:{text:'Eğitime Kayıt Ol (%20 İndirimli)',url:'#'} }
     ]
@@ -418,7 +418,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'textphoto' as BT, data:{text:'• 1-on-1 (Birebir) Haftalık Koçluk Görüşmeleri\n• Pazar Büyüklüğü (TAM/SAM/SOM) Analizleri\n• Rakip Analizi ve SWOT Çıkarımı\n• Pitch Deck (Yatırımcı Sunumu) Tasarımı\n• Birebir Yatırımcı (Angel Investor) Simulasyonları', url:'https://images.unsplash.com/photo-1553877522-43269d4ea984?w=640&q=80', imagePos:'left'} },
       { id:uid(), type:'video' as BT, data:{url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', caption:'Mezun girişimcilerimizin başarı hikayeleri'} },
       { id:uid(), type:'author' as BT, data:{name:'Selin Doğan',title:'Melek Yatırımcı & Mentör',bio:'Harika ürünler değil, harika takımlar yatırım alır. O takım siz olabilirsiniz.',avatar:'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=128'} },
-      { id:uid(), type:'event' as BT, data:{title:'Açık Seçim Günü (Pitch Day)',date:'2026-12-20',time:'09:00',location:'Galata İnovasyon Merkezi'} },
+      { id:uid(), type:'event' as BT, data:{title:'Açık Seçim Günü (Pitch Day)',date:'',time:'09:00',location:'Galata İnovasyon Merkezi'} },
       { id:uid(), type:'attachment' as BT, data:{name:'Basvuru_Sartnamesi.pdf',url:'#'} },
       { id:uid(), type:'button' as BT, data:{text:'Mentorluk Başvurusunu Tamamla',url:'#'} }
     ]
@@ -435,7 +435,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'textphoto' as BT, data:{text:'Katılımcılar atölye sonunda kendi kurumlarının AI tabanlı proje şablonlarını (Prompt Matrix) oluşturabilecek ve hibe değerlendirme algoritmalarının nasıl çalıştığını (3 Lens Sistemi) anlayacaklardır.', url:'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=640&q=80', imagePos:'right'} },
       { id:uid(), type:'link' as BT, data:{text:'Kullanılacak Eğitim Materyallerine Göz Atın',url:'#'} },
       { id:uid(), type:'poll' as BT, data:{question:'ChatGPT/AI araçlarını işinizde sık kullanıyor musunuz?',opt1:'Her gün',opt2:'Haftada birkaç kez',opt3:'Hiç kullanmadım'} },
-      { id:uid(), type:'event' as BT, data:{title:'1 Günlük Hackathon/Atölye',date:'2026-11-28',time:'10:00',location:'Teknopark Konferans Salonu'} },
+      { id:uid(), type:'event' as BT, data:{title:'1 Günlük Hackathon/Atölye',date:'',time:'10:00',location:'Teknopark Konferans Salonu'} },
       { id:uid(), type:'button' as BT, data:{text:'Atölye Biletini Al',url:'#'} }
     ]
   },
@@ -450,7 +450,7 @@ const NEWSLETTER_TEMPLATES = [
       { id:uid(), type:'textphoto' as BT, data:{text:'Avrupa Komisyonu veritabanlarında (FTOP) profilinizi öne çıkarma, LinkedIn üzerinden Avrupalı proje sahiplerine erişme, Brüksel InfoDay etkinliklerinde etkili elevator-pitch yapma teknikleri gibi kritik yetkinlikler.', url:'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=640&q=80', imagePos:'left'} },
       { id:uid(), type:'attachment' as BT, data:{name:'Networking_Checklist.pdf',url:'#'} },
       { id:uid(), type:'author' as BT, data:{name:'Mehmet Çelik',title:'Uluslararası İlişkiler Direktörü',bio:'Büyük projeler kağıt üzerinde değil, kahve molalarında lobi yapılarak kazanılır.',avatar:'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=128'} },
-      { id:uid(), type:'event' as BT, data:{title:'Stratejik Ortaklıklar Semineri',date:'2026-12-05',time:'13:30',location:'Ankara Hilton Otel'} },
+      { id:uid(), type:'event' as BT, data:{title:'Stratejik Ortaklıklar Semineri',date:'',time:'13:30',location:'Ankara Hilton Otel'} },
       { id:uid(), type:'button' as BT, data:{text:'Rezervasyon Yap (! Son 5 Kontenjan !)',url:'#'} }
     ]
   }
@@ -483,13 +483,46 @@ const PALETTE: { type: BT; icon: string; label: string; def: Record<string,strin
   { type:'attachment', icon:'📎',  label:'Attachment',  def:{ name:'dosya.pdf', url:'#' } },
 ];
 
+
+
+function previewWebUrl(value: unknown): string {
+  if(typeof value !== 'string' || value.length>2048) return '#';
+  try { const u=new URL(value); return ['http:','https:'].includes(u.protocol)?u.toString():'#'; }
+  catch { return '#'; }
+}
+function previewImageUrl(value: unknown): string {
+  if(typeof value!=='string')return '';
+  if(/^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(value))return value;
+  const url=previewWebUrl(value);return url==='#'?'':url;
+}
+
+function exportEscape(value: unknown): string {
+  return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function exportWebUrl(value: unknown): string {
+  if(typeof value !== 'string' || value.length>2048) return '#';
+  try {
+    const parsed = new URL(value);
+    if(!['https:','http:'].includes(parsed.protocol)) return '#';
+    return exportEscape(parsed.toString());
+  }catch{return '#';}
+}
+function exportImageUrl(value: unknown): string {
+  if(typeof value !== 'string') return '';
+  // Local image upload data URLs must be actual raster image data, never SVG or HTML.
+  if(/^data:image\/(?:png|jpeg|gif|webp);base64,[a-zA-Z0-9+/=]+$/.test(value)) return value;
+  const safe=exportWebUrl(value);
+  return safe === '#' ? '' : safe;
+}
+
 function uid() { return Math.random().toString(36).slice(2,9); }
 
-function ytId(url:string){ const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^&?\s]+)/); return m?m[1]:null; }
+function ytId(url:string){const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([A-Za-z0-9_-]{11})(?:[?&#/\s]|$)/);return m?m[1]:null;}
 
 // ── Canvas block renderer ──────────────────────────────────────────────
-function CanvasBlock({ block, design, selected, onClick }: {
-  block: Block; design: DesignConfig; selected: boolean; onClick: ()=>void;
+function CanvasBlock({ block, design, selected, onClick, lang }: {
+  block: Block; design: DesignConfig; selected: boolean; onClick: ()=>void; lang: Lang;
 }) {
   const d = block.data;
   const ac = design.accentColor;
@@ -503,7 +536,7 @@ function CanvasBlock({ block, design, selected, onClick }: {
     const sz = {h1:'28px',h2:'22px',h3:'18px'}[Tag];
     const titleEl = <Tag style={{margin:0,fontFamily:ff,fontSize:sz,fontWeight:800,color:ac,textDecoration:d.url?'underline':'none',textDecorationColor:`${ac}44`}}>{d.text}</Tag>;
     inner = d.url
-      ? <a href={d.url} target="_blank" rel="noreferrer" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>{titleEl}<span style={{fontSize:13,opacity:.5}}>↗️</span></a>
+      ? <a href={previewWebUrl(d.url)} target="_blank" rel="noreferrer" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>{titleEl}<span style={{fontSize:13,opacity:.5}}>↗️</span></a>
       : titleEl;
   } else if(block.type === 'paragraph'){
     inner = <p style={{margin:0,fontFamily:ff,fontSize:15,lineHeight:1.75,color:tc,whiteSpace:'pre-wrap'}}>{d.text}</p>;
@@ -516,7 +549,7 @@ function CanvasBlock({ block, design, selected, onClick }: {
           {items.map((item,i)=>(
             <div key={i} style={{display:'flex',flexDirection:'column',gap:0}}>
               {item.url
-                ? <img src={item.url} alt={item.cap||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
+                ? <img src={previewImageUrl(item.url)} alt={item.cap||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
                 : <div style={{background:'#e2e8f0',borderRadius:8,height:140,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#94a3b8',gap:4,border:'1.5px dashed #cbd5e1'}}>
                     <span style={{fontSize:24}}>+📷</span>
                     <span style={{fontSize:11,fontFamily:ff}}>Görsel Seçin</span>
@@ -531,7 +564,7 @@ function CanvasBlock({ block, design, selected, onClick }: {
       inner = (
         <div>
           {hasUrl
-             ? <img src={d.url} alt={d.caption||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
+             ? <img src={previewImageUrl(d.url)} alt={d.caption||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
              : <div style={{background:'#e2e8f0',borderRadius:8,height:160,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#94a3b8',gap:8}}>
                  <span style={{fontSize:32}}>🖼</span>
                  <span style={{fontSize:13,fontFamily:ff}}>Görsel Seçin</span>
@@ -561,11 +594,11 @@ function CanvasBlock({ block, design, selected, onClick }: {
   } else if(block.type === 'separator'){
     inner = <hr style={{border:'none',borderTop:`2px ${d.style||'solid'} ${ac}`,margin:0}}/>;
   } else if(block.type === 'link'){
-    inner = <a href={d.url||'#'} style={{color:ac,fontFamily:ff,fontSize:14,textDecoration:'underline',fontWeight:600}}>🔗 {d.text||'Bağlantı'}</a>;
+    inner = <a href={previewWebUrl(d.url)} style={{color:ac,fontFamily:ff,fontSize:14,textDecoration:'underline',fontWeight:600}}>🔗 {d.text||'Bağlantı'}</a>;
   } else if(block.type === 'button'){
     const align = d.align||'center';
     inner = <div style={{textAlign:align as 'left'|'center'|'right'}}>
-      <a href={d.url||'#'} style={{display:'inline-block',padding:'12px 28px',background:ac,color:'#fff',borderRadius:30,fontFamily:ff,fontWeight:700,fontSize:14,textDecoration:'none'}}>{d.text||'Tıklayın'}</a>
+      <a href={previewWebUrl(d.url)} style={{display:'inline-block',padding:'12px 28px',background:ac,color:'#fff',borderRadius:30,fontFamily:ff,fontWeight:700,fontSize:14,textDecoration:'none'}}>{d.text||'Tıklayın'}</a>
     </div>;
   } else if(block.type === 'poll'){
     inner = (
@@ -579,7 +612,7 @@ function CanvasBlock({ block, design, selected, onClick }: {
   } else if(block.type === 'attachment'){
     inner = <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',border:`1.5px solid #e2e8f0`,borderRadius:8,fontFamily:ff}}>
       <span style={{fontSize:22}}>📎</span>
-      <a href={d.url||'#'} style={{color:ac,fontWeight:600,fontSize:14,textDecoration:'none'}}>{d.name||'dosya.pdf'}</a>
+      <a href={previewWebUrl(d.url)} style={{color:ac,fontWeight:600,fontSize:14,textDecoration:'none'}}>{d.name||'dosya.pdf'}</a>
     </div>;
   } else if(block.type === 'textphoto'){
     const imgRight = (d.imagePos||'right')==='right';
@@ -591,10 +624,10 @@ function CanvasBlock({ block, design, selected, onClick }: {
         </div>
         <div style={{flexShrink:0,width:180}}>
           {hasImg
-            ? <img src={d.url} alt={d.caption||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
+            ? <img src={previewImageUrl(d.url)} alt={d.caption||''} style={{width:'100%',borderRadius:8,display:'block'}}/>
             : <div style={{width:'100%',height:120,background:'#e2e8f0',borderRadius:8,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#94a3b8',gap:4}}>
                 <span style={{fontSize:24}}>🖼</span>
-                <span style={{fontSize:11,fontFamily:ff}}>Add a Picture</span>
+                <span style={{fontSize:11,fontFamily:ff}}>{lang==='tr' ? 'Görsel ekleyin' : 'Add a picture'}</span>
               </div>}
         </div>
       </div>
@@ -607,10 +640,10 @@ function CanvasBlock({ block, design, selected, onClick }: {
         {slots.map((s,i)=>(
           <div key={i}>
             {s.url
-              ? <img src={s.url} alt={s.cap} style={{width:'100%',borderRadius:8,display:'block'}}/>
+              ? <img src={previewImageUrl(s.url)} alt={s.cap} style={{width:'100%',borderRadius:8,display:'block'}}/>
               : <div style={{background:'#e2e8f0',borderRadius:8,height:120,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#94a3b8',gap:4}}>
                   <span style={{fontSize:24}}>🖼</span>
-                  <span style={{fontSize:11,fontFamily:ff}}>Add a Picture</span>
+                  <span style={{fontSize:11,fontFamily:ff}}>{lang==='tr' ? 'Görsel ekleyin' : 'Add a picture'}</span>
                 </div>}
             {s.cap && <p style={{margin:'4px 0 0',fontSize:11,color:'#64748b',fontFamily:ff,textAlign:'center'}}>{s.cap}</p>}
           </div>
@@ -621,7 +654,7 @@ function CanvasBlock({ block, design, selected, onClick }: {
     inner = (
       <div style={{border:`1px solid ${ac}22`,borderRadius:12,padding:'20px',fontFamily:ff,display:'flex',gap:16,alignItems:'flex-start',background:`${ac}06`}}>
         {d.avatar
-          ? <img src={d.avatar} alt={d.name} style={{width:68,height:68,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`3px solid ${ac}`}}/>
+          ? <img src={previewImageUrl(d.avatar)} alt={d.name} style={{width:68,height:68,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`3px solid ${ac}`}}/>
           : <div style={{width:68,height:68,borderRadius:'50%',background:ac,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,flexShrink:0,color:'#fff'}}>👤</div>}
         <div style={{flex:1}}>
           <div style={{fontWeight:800,fontSize:16,color:tc}}>{d.name||'Ad Soyad'}</div>
@@ -631,7 +664,7 @@ function CanvasBlock({ block, design, selected, onClick }: {
             {d.facebook && <a href={`https://facebook.com/${d.facebook}`} style={{color:ac,fontSize:12,textDecoration:'none',fontWeight:600}}>Facebook</a>}
             {d.twitter && <a href={`https://twitter.com/${d.twitter}`} style={{color:ac,fontSize:12,textDecoration:'none',fontWeight:600}}>Twitter</a>}
             {d.instagram && <a href={`https://instagram.com/${d.instagram}`} style={{color:ac,fontSize:12,textDecoration:'none',fontWeight:600}}>Instagram</a>}
-            {d.youtube && <a href={d.youtube} style={{color:ac,fontSize:12,textDecoration:'none',fontWeight:600}}>YouTube</a>}
+            {d.youtube && <a href={previewWebUrl(d.youtube)} style={{color:ac,fontSize:12,textDecoration:'none',fontWeight:600}}>YouTube</a>}
           </div>
         </div>
       </div>
@@ -655,9 +688,14 @@ function CanvasBlock({ block, design, selected, onClick }: {
   } else if(block.type === 'googleform'){
     // Normalize URL: convert /viewform to /viewform?embedded=true
     const rawUrl = d.url || '';
-    const embedUrl = rawUrl
-      ? rawUrl.replace(/\/viewform.*$/, '/viewform?embedded=true')
-      : '';
+    const embedUrl = (() => {
+      try {
+        const u=new URL(rawUrl);
+        if(u.protocol!=='https:' || u.hostname!=='docs.google.com' || !u.pathname.startsWith('/forms/')) return '';
+        u.searchParams.set('embedded','true');
+        return u.toString();
+      } catch { return ''; }
+    })();
     const h = parseInt(d.height||'520');
     inner = (
       <div style={{border:`1.5px solid #4285F4`,borderRadius:12,overflow:'hidden'}}>
@@ -665,11 +703,11 @@ function CanvasBlock({ block, design, selected, onClick }: {
         <div style={{background:'#4285F4',padding:'10px 16px',display:'flex',alignItems:'center',gap:8}}>
           <span style={{fontSize:16}}>📝</span>
           <span style={{color:'#fff',fontWeight:700,fontSize:14,fontFamily:ff}}>{d.title||'Google Form'}</span>
-          {rawUrl && <a href={rawUrl} target="_blank" rel="noreferrer"
+          {rawUrl && <a href={previewWebUrl(rawUrl)} target="_blank" rel="noreferrer"
             style={{marginLeft:'auto',fontSize:11,color:'rgba(255,255,255,.8)',textDecoration:'underline',fontFamily:ff}}>Yeni sekmede aç ↗</a>}
         </div>
         {embedUrl
-          ? <iframe src={embedUrl} width="100%" height={h} frameBorder={0} style={{display:'block'}}/>
+          ? <iframe src={embedUrl} title={d.title||'Google Form'} loading="lazy" width="100%" height={h} frameBorder={0} style={{display:'block'}}/>
           : <div style={{height:160,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#94a3b8',fontFamily:ff,background:'#f8fafc',gap:6}}>
               <span style={{fontSize:28}}>🔗</span>
               <span style={{fontSize:12,fontWeight:600}}>Google Form URL girin</span>
@@ -681,7 +719,12 @@ function CanvasBlock({ block, design, selected, onClick }: {
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      aria-label={`${lang==='tr' ? 'Bloğu seç' : 'Select block'}: ${PALETTE.find(p=>p.type===block.type)?.label||block.type}`}
       onClick={onClick}
+      onKeyDown={e=>{ if(e.target===e.currentTarget && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); onClick(); } }}
       style={{
         padding:'12px 0', cursor:'pointer',
         outline: selected ? `2px solid ${ac}` : '2px solid transparent',
@@ -734,8 +777,8 @@ function ImageUpload({ value, onChange, label }: { value: string; onChange: (url
       }
       {value && (
         <div style={{marginTop:8,position:'relative',display:'inline-block'}}>
-          <img src={value} alt="" style={{height:60,borderRadius:6,boxShadow:'0 1px 6px rgba(0,0,0,.12)',display:'block'}}/>
-          <button onClick={()=>onChange('')}
+          <img src={previewImageUrl(value)} alt="Seçilen görsel önizlemesi" style={{height:60,borderRadius:6,boxShadow:'0 1px 6px rgba(0,0,0,.12)',display:'block'}}/>
+          <button type="button" aria-label="Görseli kaldır" onClick={()=>onChange('')}
             style={{position:'absolute',top:-5,right:-5,width:16,height:16,borderRadius:'50%',background:'#ef4444',border:'none',color:'#fff',fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
         </div>
       )}
@@ -950,8 +993,8 @@ export default function BultenReadPage() {
   const a11y = useAccessibility({ storagePrefix: 'bulten_a11y_' });
   const dragTypeRef = React.useRef<BT|null>(null);
   const [dropIndicator, setDropIndicator] = React.useState<number|null>(null);
-  const [title,    setTitle]    = useState('The Weekly Update');
-  const [subtitle, setSubtitle] = useState('#1  •  March 24th, 2026');
+  const [title,    setTitle]    = useState('Project Factory Bülteni');
+  const [subtitle, setSubtitle] = useState('Sayı 1 • Tarih ekleyin');
   const [design,        setDesign]        = useState<Design>('modern');
   const [showTOC,       setShowTOC]       = useState(true);
   const [logoUrl,       setLogoUrl]       = useState('');
@@ -960,11 +1003,11 @@ export default function BultenReadPage() {
   const draggedBlockIdRef = React.useRef<string|null>(null);
 
   const [blocks,        _setBlocks]       = useState<Block[]>([
-    { id:uid(), type:'title',     data:{ text:'Use titles for easy scanning', size:'h2'} },
-    { id:uid(), type:'paragraph', data:{ text:'You can use a paragraph block to write a welcome message, explain assignments, or share an inspiration for the week.\n\nThe more your readers know about what\'s happening, the better they can support your goals.' } },
-    { id:uid(), type:'photos',    data:{ url:'', caption:'Add a photo to personalize your newsletter!' } },
+    { id:uid(), type:'title',     data:{ text:'Bülteninizin ana başlığı', size:'h2'} },
+    { id:uid(), type:'paragraph', data:{ text:'Bu bölüme bülteninizin giriş metnini yazın. Projenizdeki gelişmeleri, etkinlikleri ve okuyucularınızla paylaşmak istediğiniz haberleri anlatın.' } },
+    { id:uid(), type:'photos',    data:{ url:'', caption:'Bülteninize görsel ekleyin' } },
     { id:uid(), type:'separator', data:{ style:'solid' } },
-    { id:uid(), type:'event',     data:{ title:'Proje Toplantısı', date:'2026-04-01', time:'14:00', location:'Online — Zoom' } },
+    { id:uid(), type:'event',     data:{ title:'Örnek etkinlik (tarih belirleyin)', date:'', time:'', location:'Çevrim içi' } },
   ]);
 
   const historyRef = React.useRef<{ past: Block[][], future: Block[][] }>({ past: [], future: [] });
@@ -1025,6 +1068,7 @@ export default function BultenReadPage() {
 
   // ── Auto-save / Restore logic ───────────────────────────────────────
   const DRAFT_KEY = 'bulten_draft_v1';
+  const [draftReady, setDraftReady] = React.useState(false);
   
   // On mount: Restore
   React.useEffect(() => {
@@ -1038,53 +1082,27 @@ export default function BultenReadPage() {
           setDesign(data.design || 'modern');
           setLogoUrl(data.logoUrl || '');
           setHeaderImgUrl(data.headerImgUrl || '');
+          setShowTOC(data.showTOC !== false);
           const safeBlocks = data.blocks.filter((b: any) => b && typeof b === 'object' && b.id);
           if (safeBlocks.length) {
              setBlocks(safeBlocks);
              setSelectedId(safeBlocks[0].id);
           }
         }
-      } catch(e) {}
+      } catch(e) { console.warn('Saved draft could not be read', e); }
     }
+    setDraftReady(true);
   }, []);
 
-  // On change: Save
+  // Autosave starts only after draft restoration to avoid overwriting old work.
   React.useEffect(() => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, subtitle, design, logoUrl, headerImgUrl, blocks }));
-  }, [title, subtitle, design, logoUrl, headerImgUrl, blocks]);
+    if (!draftReady) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, subtitle, design, logoUrl, headerImgUrl, blocks, showTOC }));
+    } catch (e) { console.warn('Local draft storage unavailable', e); }
+  }, [draftReady, title, subtitle, design, logoUrl, headerImgUrl, blocks, showTOC]);
 
   // ── Text-to-Speech ──────────────────────────────────────────────────
-  // ── Notebook Sync ─────────────────────────────────────────────────────
-  // On mount, fetch any payload sent from Google Notebook LM and apply it to the editor state.
-  // This runs only once per page load.
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    fetch('/api/notebook-sync')
-      .then(r => {
-        if (!r.ok) throw new Error('No notebook payload');
-        return r.json();
-      })
-      .then(data => {
-        // Apply payload fields if they exist.
-        if (data.title) setTitle(data.title);
-        if (data.subtitle) setSubtitle(data.subtitle);
-        if (data.design) setDesign(data.design);
-        if (data.logoUrl) setLogoUrl(data.logoUrl);
-        if (data.headerImgUrl) setHeaderImgUrl(data.headerImgUrl);
-        if (Array.isArray(data.blocks) && data.blocks.length) {
-          const safeBlocks = data.blocks.filter((b: any) => b && typeof b === 'object' && b.id);
-          if (safeBlocks.length) {
-             setBlocks(safeBlocks);
-             setSelectedId(safeBlocks[0].id);
-          }
-        }
-      })
-      .catch(err => {
-        // Silently ignore if no payload – normal operation.
-        console.debug('Notebook sync not available:', err.message);
-      });
-  }, []);
-
   const [isSpeaking, setIsSpeaking] = React.useState(false);
   const handleSpeak = () => {
     if (isSpeaking) {
@@ -1145,15 +1163,12 @@ export default function BultenReadPage() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // ── IP-based language detection (on mount) ──────────────────────────
+  // Respect the language chosen previously; do not infer it from IP location.
   React.useEffect(() => {
-    fetch('https://ipapi.co/json/')
-      .then(r=>r.json())
-      .then(data=>{
-        if(data.country_code && data.country_code!=='TR') setLang('en');
-        else setLang('tr');
-      })
-      .catch(()=>{}); // silently fallback
+    try {
+      const preferred = window.localStorage.getItem('bulten_ui_language');
+      if (preferred === 'tr' || preferred === 'en') setLang(preferred);
+    } catch { /* Local storage may be unavailable in restricted browsers. */ }
   }, []);
 
   // ── Translate blocks via OpenAI ──────────────────────────────────────
@@ -1184,8 +1199,8 @@ export default function BultenReadPage() {
           maxTokens: 2000
         })
       });
-      if(!res.ok) return;
-      const data = await res.json();
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.error||'Çeviri servisi kullanılamıyor.');
       try {
         const translated: {id:string; fields:Record<string,string>}[] = JSON.parse(data.result.replace(/```json|```/g,'').trim());
         
@@ -1201,13 +1216,17 @@ export default function BultenReadPage() {
           return { ...b, data: { ...b.data, ...tr.fields } };
         }));
       } catch(e){
-        console.error('Translation JSON parse error:', e, data.result);
+        console.error('Translation JSON parse error:', e);
+        throw new Error('Çeviri yanıtı beklenen biçimde değil; mevcut içerik korundu.');
       }
+    } catch(e:any) {
+      alert(e?.message||'Çeviri tamamlanamadı; orijinal bülten içeriği korunur.');
     } finally { setTranslating(false); }
   }, [blocks, title, subtitle]);
 
   const handleLangSwitch = (l: Lang) => {
     setLang(l);
+    try { window.localStorage.setItem('bulten_ui_language', l); } catch {}
     translateBlocks(l);
   };
 
@@ -1219,18 +1238,19 @@ export default function BultenReadPage() {
 
   const handleSave = async () => {
     const entry: SavedNL = { id:uid(), title, subtitle, design, blocks, logoUrl, headerImgUrl, showTOC, savedAt:new Date().toISOString() };
-    const next = [entry,...savedList].slice(0,20);
-    setSavedList(next);
-    setSaveSuccess(true); setTimeout(()=>setSaveSuccess(false),2000);
     try {
-      await fetch('/api/db/newsletters', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch('/api/db/newsletters', {
+        method: 'POST', headers: { 'Content-Type':'application/json' },
         body: JSON.stringify(entry)
       });
-    } catch(e) {
-      console.error('Failed to save to DB:', e);
-      alert('Bülten kaydedilemedi. Lütfen giriş yaptığınızdan emin olun.');
+      const body = await response.json().catch(()=>({}));
+      if (!response.ok || !body.success) throw new Error(body.error||'Bülten kaydedilemedi.');
+      setSavedList(prev=>[body.newsletter||entry,...prev].slice(0,200));
+      setSaveSuccess(true); setTimeout(()=>setSaveSuccess(false),2000);
+      return true;
+    } catch(e:any) {
+      alert((e?.message||'Kaydetme başarısız.')+' Yerel otomatik taslağınız korunur.');
+      return false;
     }
   };
 
@@ -1241,11 +1261,12 @@ export default function BultenReadPage() {
   };
 
   const handleDelete = async (id:string) => {
-    const next = savedList.filter(s=>s.id!==id);
-    setSavedList(next);
     try {
-      await fetch(`/api/db/newsletters?id=${id}`, { method: 'DELETE' });
-    } catch(e) {}
+      const response = await fetch(`/api/db/newsletters?id=${encodeURIComponent(id)}`, { method:'DELETE' });
+      const body = await response.json().catch(()=>({}));
+      if (!response.ok || !body.success) throw new Error(body.error||'Silme başarısız.');
+      setSavedList(prev=>prev.filter(s=>s.id!==id));
+    } catch(e:any) { alert(e?.message||'Kayıt silinemedi.'); }
   };
 
   const [showShareModal, setShowShareModal] = React.useState(false);
@@ -1263,7 +1284,7 @@ export default function BultenReadPage() {
         views: data.totalOpens || 0,
         opens: data.uniqueOpens || 0,
         clicks: data.totalClicks || 0,
-        lastWeek: data.uniqueOpens || 0
+        lastWeek: data.lastWeekOpens || 0
       });
     } catch(e) {}
     setShowAnalyticsModal(true);
@@ -1308,25 +1329,29 @@ export default function BultenReadPage() {
   const [testEmail, setTestEmail] = React.useState('');
 
   const saveLists = async (lists: MailingList[]) => {
-    setMailingLists(lists);
     try {
-      await fetch('/api/db/mailing-lists', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lists)
+      const response = await fetch('/api/db/mailing-lists', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(lists)
       });
-    } catch(e) {}
+      const data=await response.json().catch(()=>({}));
+      if (!response.ok||!data.success) throw new Error(data.error||'Liste kaydedilemedi.');
+      setMailingLists(lists);
+      return true;
+    } catch(e:any) {
+      setMlError(e?.message||'Liste kaydedilemedi; önceki liste korunuyor.');
+      return false;
+    }
   };
   const activeList = mailingLists.find(l=>l.id===activeListId)||null;
   const filteredContacts = (activeList?.contacts||[]).filter(c=>
     c.email.toLowerCase().includes(mlSearch.toLowerCase())||
     c.name.toLowerCase().includes(mlSearch.toLowerCase())
   );
-  const createList = () => {
+  const createList = async () => {
     if(!newListName.trim()) return;
     const nl:MailingList = {id:uid(),name:newListName.trim(),contacts:[],createdAt:new Date().toISOString()};
     const next=[...mailingLists,nl];
-    saveLists(next); setActiveListId(nl.id); setNewListName('');
+    if (await saveLists(next)) { setActiveListId(nl.id); setNewListName(''); }
   };
   const addContact = () => {
     if(!activeList) return;
@@ -1377,6 +1402,8 @@ export default function BultenReadPage() {
       const parseRes = await fetch('/api/parse-file', { method: 'POST', body: fd });
       if (!parseRes.ok) throw new Error('Dosya okunamadı. Lütfen desteklenen bir format (PDF, DOCX, TXT) yükleyin.');
       const { text } = await parseRes.json();
+      if(typeof text!=='string'||!text.trim())throw new Error('Belgede okunabilir metin bulunamadı.');
+      if(text.length>7500)alert('Belge uzun olduğundan ilk 7500 karakteri AI bülteni için kullanılacak.');
       
       // 2. Generate Newsletter JSON via AI
       const prompt = `Aşağıdaki belge metninden profesyonel, ilgi çekici ve zengin içerikli bir e-bülten tasarla. 
@@ -1398,13 +1425,14 @@ Geçerli blok tipleri: title, paragraph, photos, textphoto, photogrid, author, f
 Önemli Notlar: Metnin içeriğine göre en uygun blokları (özellikle görsel ve etkileşimli blokları) gerçekçi placeholder Unsplash resimleriyle hayal et. Hedef kitleye (paydaşlar, ortaklar) seslenen profesyonel bir dil kullan. Yalnızca JSON objesini yaz, başında veya sonunda markdown karakterleri kullanma.
 
 BELGE METNİ:
-${text}`;
+${text.slice(0,7500)}`;
 
       const aiRes = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
       });
       const data = await aiRes.json();
+      if(!aiRes.ok)throw new Error(data.error||'AI belge üretimi başarısız.');
       let rawJson = data.reply || '';
       rawJson = rawJson.replace(/```json\n?/g, '').replace(/```/g, '').trim();
       const generated = JSON.parse(rawJson);
@@ -1454,15 +1482,18 @@ ${text}`;
           subject: '[TEST] ' + title,
           html: htmlContent,
           customMsg: customMsg,
-          contacts: [{ email: testEmail, name: 'Test Kullanıcısı' }]
+          isTest: true,
+          testEmail: testEmail
         };
       } else {
         if(!activeList||activeList.contacts.length===0) return;
+        if(activeList.contacts.length>50) { setMlError('Bir gönderimde en fazla 50 alıcıya izin verilir. Listeyi bölün.'); return; }
         payload = {
           subject: title,
           html: htmlContent,
           customMsg: customMsg,
-          contacts: activeList.contacts
+          isTest: false,
+          listId: activeList.id
         };
       }
 
@@ -1644,16 +1675,28 @@ ${text}`;
     try {
       const res = await fetch('/api/ai-generate',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({ prompt, maxTokens:800, systemPrompt: 'You are an expert newsletter copywriter. Return ONLY the requested text without markdown formatting or introductory words.' })});
-      if(res.ok){ const d=await res.json(); const t=d.result||''; if(t && !t.includes('kullanılamıyor')) updateBlock(selectedBlock.id,{...selectedBlock.data,text:t}); }
-    } catch {
-      updateBlock(selectedBlock.id,{...selectedBlock.data,text:'AI içerik üretimi şu an kullanılamıyor. Lütfen API anahtarınızı kontrol edin.'});
+      const d=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(d.error||'AI metin üretimi başarısız.');
+      if(typeof d.result!=='string'||!d.result.trim()) throw new Error('AI boş yanıt verdi.');
+      updateBlock(selectedBlock.id,{...selectedBlock.data,text:d.result});
+    } catch(e:any) {
+      alert(e?.message||'AI metin üretilemedi. Mevcut metin korunuyor.');
     } finally { setAiLoading(false); }
   },[selectedBlock,updateBlock]);
 
   // HTML export
   const generateHTML = useCallback(()=>{
     const blockHtml = blocks.map(b=>{
-      const d=b.data; const ac=D.accentColor; const tc=D.textColor; const ff=D.font;
+      const d: Record<string,string> = Object.fromEntries(Object.entries(b.data).map(([k,v])=>{
+        if (k==='size') return [k,['h1','h2','h3'].includes(v)?v:'h2'];
+        if (k==='cols') return [k,String(Math.max(1,Math.min(4,parseInt(v)||2)))];
+        if (k==='style') return [k,['solid','dashed','dotted'].includes(v)?v:'solid'];
+        if (k==='align') return [k,['left','center','right'].includes(v)?v:'center'];
+        if (k==='avatar' || (k.startsWith('url') && ['photos','photogrid','textphoto'].includes(b.type))) return [k,exportImageUrl(v)];
+        if (k==='url') return [k,exportWebUrl(v)];
+        return [k,exportEscape(v)];
+      }));
+      const ac=D.accentColor; const tc=D.textColor; const ff=D.font;
       if(b.type==='title'){const sz={h1:'28px',h2:'22px',h3:'18px'}[d.size||'h2'];return `<${d.size||'h2'} style="color:${ac};font-size:${sz};font-family:${ff};font-weight:800;margin:0 0 8px;">${d.text}</${d.size||'h2'}>`;}
       if(b.type==='paragraph') return `<p style="color:${tc};font-size:15px;line-height:1.75;font-family:${ff};margin:0 0 8px;white-space:pre-wrap;">${d.text}</p>`;
       if(b.type==='photos') {
@@ -1686,50 +1729,43 @@ ${text}`;
       if(b.type==='author') {
         return `<div style="border:1px solid ${ac}22;border-radius:12px;padding:20px;font-family:${ff};display:flex;gap:16px;align-items:flex-start;background:${ac}06;">${d.avatar?`<img src="${d.avatar}" style="width:68px;height:68px;border-radius:50%;object-fit:cover;flex-shrink:0;border:3px solid ${ac};"/>`:''}<div style="flex:1;"><div style="font-weight:800;font-size:16px;color:${tc};">${d.name||''}</div>${d.title?`<div style="font-size:13px;color:${ac};font-weight:600;margin-bottom:4px;">${d.title}</div>`:''}${d.bio?`<p style="font-size:13px;color:${tc};line-height:1.6;margin:6px 0 0;">${d.bio}</p>`:''}</div></div>`;
       }
+      if(b.type==='form') {
+        return `<section style="padding:16px;border:1px solid ${ac};border-radius:8px;font-family:${ff};"><h2>${d.title||'Form'}</h2><p>Bu form yalnızca önizlemedir; başvuru toplamak için bir Google Form bağlantısı ekleyin.</p></section>`;
+      }
+      if(b.type==='googleform') {
+        const raw=b.data.url||'';
+        let valid=false;
+        try { const u=new URL(raw); valid=u.protocol==='https:' && u.hostname==='docs.google.com' && u.pathname.startsWith('/forms/'); } catch {}
+        if(!valid) return '';
+        const url=exportWebUrl(raw);
+        return `<p style="font-family:${ff};"><a href="${url}" rel="noopener noreferrer">📝 ${d.title||'Google Form'} – Formu aç</a></p>`;
+      }
       return '';
     }).map(h=>`<div style="padding:10px 0;">${h}</div>`).join('');
 
-    const toc = showTOC ? `<div style="background:${D.accentColor}11;border-radius:8px;padding:14px 18px;margin-bottom:20px;border:1px solid ${D.accentColor}33;font-family:${D.font};">${blocks.filter(b=>b.type==='title').map(b=>`<div style="color:${D.accentColor};font-size:13px;font-weight:600;margin-bottom:4px;">→ ${b.data.text}</div>`).join('')}</div>` : '';
-    const headerBgStyle = headerImgUrl ? `background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.45)), url(${headerImgUrl}) center/cover no-repeat;` : `background:${D.headerBg};`;
+    const toc = showTOC ? `<div style="background:${D.accentColor}11;border-radius:8px;padding:14px 18px;margin-bottom:20px;border:1px solid ${D.accentColor}33;font-family:${D.font};">${blocks.filter(b=>b.type==='title').map(b=>`<div style="color:${D.accentColor};font-size:13px;font-weight:600;margin-bottom:4px;">→ ${exportEscape(b.data.text)}</div>`).join('')}</div>` : '';
+    const safeHeaderUrl = exportImageUrl(headerImgUrl);
+    const headerBgStyle = safeHeaderUrl ? `background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.45)), url("${safeHeaderUrl}") center/cover no-repeat;` : `background:${D.headerBg};`;
 
-    const embeddedTextToRead = blocks.map(b => (b.type==='title'||b.type==='paragraph'||b.type==='textphoto'||b.type==='event') ? b.data.title||b.data.text||'' : '').filter(Boolean).join('. ');
-    const fullEmbeddedText = `${title}. ${subtitle}. ${embeddedTextToRead}`.replace(/"/g, '\\"').replace(/\n/g, ' ');
-
-    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;"><button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${title}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${subtitle}</p></div><div style="padding:32px 40px;">${toc}${blockHtml}</div><div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
+    return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${exportEscape(title)}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;"><button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${exportEscape(title)}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${exportEscape(subtitle)}</p></div><div id="bulten-body" style="padding:32px 40px;">${toc}${blockHtml}</div><div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
     <script>
-      window.bultenIsSpeaking = false;
-      window.bultenSpeak = function() {
-        if(window.bultenIsSpeaking) { window.speechSynthesis.cancel(); window.bultenIsSpeaking=false; document.getElementById('speakIcon').innerText='🔊'; document.getElementById('speakText').innerText='Dinle'; return; }
-        var u = new SpeechSynthesisUtterance("${fullEmbeddedText}");
-        var targetPrefix = "${lang === 'en' ? 'en' : 'tr'}";
-        u.lang = "${lang === 'en' ? 'en-GB' : 'tr-TR'}";
-        
-        var voices = window.speechSynthesis.getVoices();
-        var matchingVoices = voices.filter(function(v) { return v.lang.toLowerCase().startsWith(targetPrefix); });
-        var bestVoice = matchingVoices[0] || voices[0] || null;
-        var maxScore = -999;
-        var femaleNames = ['zira','aria','sonia','emelie','natasha','samantha','victoria','karen','tessa','kız','kadın','ayda','emine','gizem','derya','meltem','selin','yelda','emel'];
-        var maleNames = ['david','mark','george','arthur','tolga','cem','erkek','ahmet','kemal','hakan','male','man'];
-        matchingVoices.forEach(function(v) {
-          var score = 0;
-          var n = v.name.toLowerCase();
-          if (maleNames.some(function(m){return n.includes(m);})) score -= 100;
-          if (n.includes('female') || n.includes('woman') || femaleNames.some(function(f){return n.includes(f);})) score += 50;
-          if (n.includes('premium') || n.includes('enhanced') || n.includes('natural')) score += 20;
-          if (n.includes('google')) score += 10;
-          if (n.includes('microsoft')) score += 5;
-          if (targetPrefix === 'tr' && n.includes('google') && n.includes('türkçe')) score += 30;
-          if (targetPrefix === 'en' && (n.includes('british') || n.includes('uk')) && n.includes('female')) score += 50;
-          if (targetPrefix === 'en' && n.includes('google') && n.includes('english') && (n.includes('female') || n.includes('uk'))) score += 30;
-          if (score > maxScore) { maxScore = score; bestVoice = v; }
-        });
-        if (bestVoice) { u.voice = bestVoice; }
-
-        u.onend = function() { window.bultenIsSpeaking=false; document.getElementById('speakIcon').innerText='🔊'; document.getElementById('speakText').innerText='Dinle'; };
+      window.bultenIsSpeaking=false;
+      window.bultenSpeak=function(){
+        if(!('speechSynthesis' in window)) return;
+        if(window.bultenIsSpeaking){
+          window.speechSynthesis.cancel(); window.bultenIsSpeaking=false;
+          document.getElementById('speakText').textContent='Dinle';return;
+        }
+        var main=document.getElementById('bulten-body');
+        var heading=document.querySelector('h1');
+        var message=(heading?heading.textContent+'. ':'')+(main?main.textContent:'');
+        var utterance=new SpeechSynthesisUtterance(message);
+        utterance.lang=document.documentElement.lang==='en'?'en-GB':'tr-TR';
+        var reset=function(){window.bultenIsSpeaking=false;document.getElementById('speakText').textContent='Dinle';};
+        utterance.onend=reset;utterance.onerror=reset;
         window.bultenIsSpeaking=true;
-        document.getElementById('speakIcon').innerText='⏸';
-        document.getElementById('speakText').innerText='Durdur';
-        window.speechSynthesis.speak(u);
+        document.getElementById('speakText').textContent='Durdur';
+        window.speechSynthesis.speak(utterance);
       };
     </script>
     </body></html>`;
@@ -1737,21 +1773,32 @@ ${text}`;
 
   const handleExport = ()=>{
     const html=generateHTML();
+    const url=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
     const a=document.createElement('a');
-    a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
-    a.download=`${title.replace(/\s+/g,'-').toLowerCase()}.html`; a.click();
+    a.href=url;a.download=`${(title.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ-]+/g,'-')||'bulten').toLowerCase()}.html`;
+    document.body.appendChild(a);a.click();a.remove();
+    window.setTimeout(()=>URL.revokeObjectURL(url),3000);
   };
 
   const handlePdfExport = ()=>{
     const printHtml = generateHTML();
     const win = window.open('', '_blank');
-    if (!win) return;
+    if (!win) {
+      alert('PDF yazdırma penceresi engellendi. Lütfen açılır pencerelere izin verin.');
+      return;
+    }
+    let printed = false;
+    const printOnce = () => {
+      if (printed || win.closed) return;
+      printed = true;
+      try { win.focus(); win.print(); } catch(e) { console.error('PDF print failed', e); }
+    };
+    win.addEventListener('load', printOnce, {once:true});
     win.document.open();
     win.document.write(printHtml);
     win.document.close();
-    // Give images time to load before printing
-    win.onload = () => { win.print(); };
-    setTimeout(() => { try { win.print(); } catch(e){} }, 1800);
+    // Fallback for browsers that do not dispatch load for document.write().
+    setTimeout(printOnce, 1800);
   };
 
   // ── Styles ──
@@ -1761,10 +1808,11 @@ ${text}`;
 
   return (
     <>
+    <a href="#bulten-main" className="a11y-skip-link">Ana içeriğe geç</a>
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 60px)',fontFamily:'Inter,system-ui,sans-serif',background:'#f1f5f9'}}>
 
       {/* ── Top Bar ── */}
-      <div style={{background:'#ffffff',borderBottom:'1px solid #e2e8f0',padding:'0 24px',height:68,display:'flex',alignItems:'center',gap:8,flexShrink:0,boxShadow:'0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',zIndex:10}}>
+      <div className="br-topbar" style={{background:'#ffffff',borderBottom:'1px solid #e2e8f0',padding:'0 24px',minHeight:68,display:'flex',alignItems:'center',gap:8,flexShrink:0,boxShadow:'0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',zIndex:10}}>
         
         {/* Brand */}
         <div style={{display:'flex',alignItems:'center',gap:10,marginRight:16}}>
@@ -1803,8 +1851,8 @@ ${text}`;
             <span style={{fontSize:15}}>⬇️</span> HTML
           </button>
           
-          <button onClick={handlePdfExport} title="PDF Olarak Al" style={{display:'flex',alignItems:'center',gap:6,background:'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:'pointer',padding:'8px 14px',borderRadius:8,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#f8fafc';(e.currentTarget as HTMLElement).style.color='#0f172a'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='#ffffff';(e.currentTarget as HTMLElement).style.color='#475569'}}>
-            <span style={{fontSize:15}}>📄</span> PDF
+          <button onClick={handlePdfExport} title="Tarayıcıda PDF olarak yazdır" style={{display:'flex',alignItems:'center',gap:6,background:'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:'pointer',padding:'8px 14px',borderRadius:8,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#f8fafc';(e.currentTarget as HTMLElement).style.color='#0f172a'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='#ffffff';(e.currentTarget as HTMLElement).style.color='#475569'}}>
+            <span style={{fontSize:15}}>📄</span> PDF Yazdır
           </button>
 
           <div style={{width:1,height:24,background:'#e2e8f0',margin:'0 4px'}}/>
@@ -1836,7 +1884,7 @@ ${text}`;
               style={{background:'transparent',border:'none',color:'#0ea5e9',fontSize:13,fontWeight:800,cursor:'pointer',padding:'6px 14px',borderRadius:6,transition:'all .2s'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#e0f2fe'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='transparent'}}>
               📂 Aç
             </button>
-            <button onClick={()=>{ handleSave(); setBlocks([]); setTitle('Yeni Bülten'); setSubtitle('#1  •  ' + new Date().toLocaleDateString('tr-TR')); setHeaderImgUrl(''); setLogoUrl(''); }} title="Yeni boş bülten aç"
+            <button onClick={async()=>{ if(blocks.length && !(await handleSave())) return; setBlocks([]); setSelectedId(null); setTitle('Yeni Bülten'); setSubtitle('#1  •  ' + new Date().toLocaleDateString('tr-TR')); setHeaderImgUrl(''); setLogoUrl(''); }} title="Yeni boş bülten aç"
               style={{background:'transparent',border:'none',color:'#10b981',fontSize:13,fontWeight:800,cursor:'pointer',padding:'6px 14px',borderRadius:6,transition:'all .2s'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#d1fae5'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='transparent'}}>
               ✨ Yeni
             </button>
@@ -1848,15 +1896,15 @@ ${text}`;
 
           <div style={{width:1,height:24,background:'#e2e8f0',margin:'0 4px'}}/>
           
-          {/* Auth button — Clerk keys required for full login functionality */}
-          <button style={{padding:'8px 16px',borderRadius:8,border:'1px solid #e2e8f0',background:'#fff',color:'#475569',fontWeight:700,fontSize:13,cursor:'default',opacity:0.6}} title="Giriş yapmak için Clerk API anahtarları gerekli">
-            👤 Hesap
-          </button>
+          {/* Authentication status */}
+          {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+            ? <AuthBar />
+            : <span style={{fontSize:11,color:'#64748b'}} title="Bulut kaydı ve gönderim için güvenli oturum gerekir">Yerel taslak modu</span>}
         </div>
       </div>
 
       {/* ── 3-Panel ── */}
-      <div style={{flex:1,display:'grid',gridTemplateColumns:'240px 1fr 280px',overflow:'hidden'}}>
+      <div className="br-editor-grid" style={{flex:1,display:'grid',gridTemplateColumns:'240px minmax(0,1fr) 280px',overflow:'hidden'}}>
 
         {/* LEFT — palette + design */}
         <div style={{background:'#fff',borderRight:'1px solid #e2e8f0',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'4px 0 16px rgba(0,0,0,0.02)',zIndex:5}}>
@@ -1895,10 +1943,11 @@ ${text}`;
               {/* TOC toggle */}
               <div style={{padding:'12px 14px',borderTop:'1px solid #e5e7eb',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <span style={{fontSize:12,fontWeight:600,color:'#374151'}}>{t.toc}</span>
-                <div onClick={()=>setShowTOC(x=>!x)}
-                  style={{width:40,height:22,borderRadius:11,background:showTOC?D.accentColor:'#d1d5db',cursor:'pointer',position:'relative',transition:'background .2s'}}>
-                  <div style={{position:'absolute',top:3,left:showTOC?20:3,width:16,height:16,borderRadius:'50%',background:'#fff',transition:'left .2s'}}/>
-                </div>
+                <button type="button" role="switch" aria-checked={showTOC} aria-label={t.toc}
+                  onClick={()=>setShowTOC(x=>!x)}
+                  style={{width:40,height:22,border:0,borderRadius:11,background:showTOC?D.accentColor:'#d1d5db',cursor:'pointer',position:'relative',transition:'background .2s'}}>
+                  <span aria-hidden="true" style={{position:'absolute',top:3,left:showTOC?20:3,width:16,height:16,borderRadius:'50%',background:'#fff',transition:'left .2s'}}/>
+                </button>
               </div>
 
               {/* Block list */}
@@ -2032,16 +2081,16 @@ ${text}`;
         </div>
 
         {/* CENTER — canvas */}
-        <div style={{
+        <div id="bulten-main" tabIndex={-1} style={{
           overflowY:'auto', padding:32,
           ...(headerImgUrl
-            ? { backgroundImage:`url(${headerImgUrl})`, backgroundSize:'cover', backgroundPosition:'center', backgroundAttachment:'fixed', position:'relative' }
+            ? { backgroundImage:`url(${previewImageUrl(headerImgUrl)})`, backgroundSize:'cover', backgroundPosition:'center', backgroundAttachment:'fixed', position:'relative' }
             : { background:'#f8fafc', backgroundImage:'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)', backgroundSize:'24px 24px' })
         }}>
           {/* TOC */}
           {showTOC && blocks.some(b=>b.type==='title') && (
             <div style={{maxWidth:previewMode==='mobile'?375:640,margin:'0 auto 12px',background:'#fff',borderRadius:8,padding:'10px 16px',border:`1px solid ${D.accentColor}33`,transition:'max-width 0.3s ease'}}>
-              <div style={{fontSize:10,fontWeight:800,letterSpacing:1,textTransform:'uppercase',color:'#9ca3af',marginBottom:6}}>Contents</div>
+              <div style={{fontSize:10,fontWeight:800,letterSpacing:1,textTransform:'uppercase',color:'#9ca3af',marginBottom:6}}>{t.toc}</div>
               {blocks.filter(b=>b.type==='title').map(b=>(
                 <div key={b.id} style={{fontSize:12,color:D.accentColor,fontWeight:600,marginBottom:2,fontFamily:D.font}}>→ {b.data.text}</div>
               ))}
@@ -2053,8 +2102,8 @@ ${text}`;
             <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:12,flexWrap:'wrap'}}>
               {logoUrl
                 ? <div style={{position:'relative',display:'inline-block'}}>
-                    <img src={logoUrl} alt="Logo" style={{height:52,borderRadius:8,boxShadow:'0 2px 8px rgba(0,0,0,.15)'}}/>
-                    <button onClick={()=>setLogoUrl('')}
+                    <img src={previewImageUrl(logoUrl)} alt="Logo" style={{height:52,borderRadius:8,boxShadow:'0 2px 8px rgba(0,0,0,.15)'}}/>
+                    <button type="button" aria-label="Logoyu kaldır" onClick={()=>setLogoUrl('')}
                       style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'#ef4444',border:'none',color:'#fff',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
                   </div>
                 : (
@@ -2193,7 +2242,7 @@ ${text}`;
                     onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='1'}
                     onMouseLeave={e=>{ if(!(insertMenuOpen && insertAtIdx===idx)) (e.currentTarget as HTMLElement).style.opacity='0'; }}>
                     <div style={{ position:'absolute', left:0, right:0, top:'50%', borderTop:'2px dashed #10b981', opacity:.4 }}/>
-                    <button
+                    <button type="button" aria-label="Buraya yeni içerik bloğu ekle"
                       onClick={e=>{ e.stopPropagation(); const same = insertMenuOpen && insertAtIdx===idx; setInsertAtIdx(idx); setInsertMenuOpen(!same); }}
                       style={{ position:'relative', zIndex:2, width:28, height:28, borderRadius:'50%', background:'#10b981', border:'none', color:'#fff', fontSize:18, lineHeight:'1', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 8px rgba(16,185,129,.4)', flexShrink:0 }}>
                       +
@@ -2239,7 +2288,7 @@ ${text}`;
                         <InsertDivider idx={i}/>
                         {dropIndicator===i && <div style={{height:3,background:D.accentColor,borderRadius:2,margin:'2px 0'}}/>}
                         <div style={{cursor:'grab'}}>
-                          <CanvasBlock block={b} design={D} selected={selectedId===b.id} onClick={()=>setSelectedId(b.id)}/>
+                          <CanvasBlock block={b} design={D} selected={selectedId===b.id} onClick={()=>setSelectedId(b.id)} lang={lang}/>
                         </div>
                       </div>
                     ))}
@@ -2794,7 +2843,7 @@ ${text}`;
       </div>
     )}
 
-    <AccessibilityToolbar {...a11y} lang={lang}/>
+    <AccessibilityToolbar {...a11y} lang={lang} showSkipLink={false}/>
 
     </>
   );

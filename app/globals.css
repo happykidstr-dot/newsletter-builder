@@ -117,3 +117,52 @@ body {
   body { background: #fff !important; }
   .wk-a11y-fab { display: none !important; }
 }
+
+
+/* Clearly visible focus indicator for keyboard navigation. */
+:where(button, a, input, select, textarea, [role="button"], [role="switch"], [tabindex]):focus-visible {
+  outline: 3px solid #0d9488 !important;
+  outline-offset: 3px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Responsive editing—not only a narrow preview of the newsletter. */
+.br-editor-grid { min-height:0; }
+.br-editor-grid > * { min-width:0; }
+@media(max-width:960px) {
+  .br-topbar {
+    height:auto !important; min-height:68px !important; flex-wrap:wrap;
+    padding:10px 12px !important; gap:6px !important;
+  }
+  .br-topbar > div { max-width:100% !important; }
+  .br-editor-grid {
+    grid-template-columns:minmax(0,1fr) !important;
+    overflow-y:auto !important; overflow-x:hidden !important;
+    align-content:start;
+  }
+  .br-editor-grid > div { min-width:0; }
+  .br-editor-grid > div:nth-child(1) {
+    min-height:250px; max-height:350px; overflow-y:auto !important;
+    border-right:0 !important; border-bottom:1px solid #e2e8f0;
+  }
+  .br-editor-grid > div:nth-child(2) {
+    min-height:420px; overflow:visible !important;
+    padding:12px !important;
+  }
+  .br-editor-grid > div:nth-child(3) {
+    min-height:280px; max-height:440px; overflow-y:auto !important;
+    border-left:0 !important; border-top:1px solid #e2e8f0;
+  }
+}
+@media(max-width:480px) {
+  .br-topbar input { max-width:100%; }
+  .br-topbar button { min-height:36px; }
+  .br-editor-grid img,.br-editor-grid iframe { max-width:100%; }
+}

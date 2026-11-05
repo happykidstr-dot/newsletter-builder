@@ -10,9 +10,9 @@ try {
 } catch {}
 
 export const metadata: Metadata = {
-  title: 'Newsletter Builder | Project Factory',
-  description: 'Profesyonel e-bültenler oluşturun — Sürükle & Bırak, AI içerik üretimi, NotebookLM entegrasyonu',
-  keywords: 'newsletter, bülten, e-bülten, builder, editor, AI, NotebookLM',
+  title: 'BÜLTEN READ | Project Factory',
+  description: 'Profesyonel e-bültenler oluşturun — Sürükle & Bırak, AI içerik üretimi ve erişilebilir bülten hazırlama',
+  keywords: 'newsletter, bülten, e-bülten, builder, editor, AI, erişilebilirlik',
 };
 
 export default function RootLayout({
