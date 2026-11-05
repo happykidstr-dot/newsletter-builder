@@ -53,20 +53,25 @@ try {
     });
   }
 
+  const webhookSecret = process.env.NOTEBOOK_SYNC_SECRET;
+  if (!webhookSecret || webhookSecret.length < 24) {
+    console.error('NOTEBOOK_SYNC_SECRET ortam değişkeni tanımlı değil veya çok kısa.');
+    process.exit(1);
+  }
   console.log(`📤 Yükleniyor... Hedef: ${targetUrl}`);
   console.log(`Bülten Başlığı: "${payload.title || 'İsimsiz'}"`);
   console.log(`Blok Sayısı: ${payload.blocks?.length || 0}`);
 
   fetch(targetUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-notebook-secret': webhookSecret },
     body: JSON.stringify(payload)
   })
     .then(async (res) => {
       const data = await res.json();
       if (res.ok) {
         console.log('✅ BAŞARILI: Bülten taslağı Bülten READ aracına gönderildi!');
-        console.log('Hemen http://localhost:3000 adresini açarak bülteninizi görüntüleyebilirsiniz.');
+        console.log('Hedef kullanıcı hesabı ile BÜLTEN READ editörünü açın.');
       } else {
         console.error('❌ HATA:', data.error || data);
       }
