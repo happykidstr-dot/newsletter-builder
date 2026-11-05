@@ -2,11 +2,15 @@ import {test,expect} from '@playwright/test';
 
 test('large photo embedded in newsletter is uploaded separately before publish',async({page})=>{
   await page.goto('/');
+  await expect(page.getByPlaceholder('Bülten başlığı...')).toBeVisible();
+  await page.getByRole('button',{name:/İçerik Ekle/}).click();
+  await page.locator('#block-palette button').filter({hasText:'Görsel'}).first().click();
+  await page.getByRole('button',{name:/Yanyana Sütunlar/}).click();
   // Construct a real raster image whose data URL is much larger than a
   // lightweight social-share document. The user draft retains the original.
   const dataUrl=await page.evaluate(()=>{
     const canvas=document.createElement('canvas');
-    canvas.width=1300; canvas.height=1300;
+    canvas.width=800; canvas.height=800;
     const ctx=canvas.getContext('2d')!;
     const row=ctx.createImageData(canvas.width,canvas.height);
     for(let i=0;i<row.data.length;i+=4){
@@ -18,11 +22,12 @@ test('large photo embedded in newsletter is uploaded separately before publish',
     ctx.putImageData(row,0,0);
     return canvas.toDataURL('image/png');
   });
-  expect(dataUrl.length).toBeGreaterThan(5_500_000);
-  // Enter the large photo through the visible editor, not localStorage:
-  // browser storage has its own quota and must not limit publishing.
-  await page.locator('#block-palette button').filter({hasText:'Görsel'}).first().click();
-  await page.getByPlaceholder('https://site.com/gorsel.png').fill(dataUrl);
+  expect(dataUrl.length).toBeGreaterThan(2_000_000);
+  // Two visible columns reference the same raster. The exported newsletter
+  // exceeds a single Netlify request, but the image uploads only once.
+  await page.getByPlaceholder('https://site.com/gorsel.png').nth(0).fill(dataUrl);
+  await page.getByPlaceholder('https://site.com/gorsel.png').nth(1).fill(dataUrl);
+  await page.waitForTimeout(150);
   const title=page.getByPlaceholder('Bülten başlığı...');
   await title.fill('Büyük Fotoğraflı Bülten');
   await expect(title).toHaveValue('Büyük Fotoğraflı Bülten');
@@ -44,6 +49,7 @@ test('large photo embedded in newsletter is uploaded separately before publish',
   await page.getByRole('button',{name:'Bülteni yayınla'}).click();
   await expect(page.getByRole('dialog',{name:'Bu Bülteni Paylaş'})).toBeVisible({timeout:60000});
   expect(uploads).toBe(1);
+  expect(dataUrl.length*2).toBeGreaterThan(5_500_000);
   expect(published?.html).toContain('/media/AQIDBAUGBwgJCgsMDQ4PEA');
   expect(published?.html).not.toContain('data:image/png;base64');
   expect(JSON.stringify(published).length).toBeLessThan(150_000);
