@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:gallery": "node --test tests/gallery.contract.test.mjs",
+    "test:gallery": "node --test tests/*.contract.test.mjs",
     "test:gallery:e2e": "playwright test"
   },
   "dependencies": {
