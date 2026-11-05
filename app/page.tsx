@@ -584,6 +584,11 @@ export default function BultenReadPage() {
   const [logoUrl,       setLogoUrl]       = useState('');
   const [headerImgUrl,  setHeaderImgUrl]  = useState('');
   const [publicNewsletterUrl, setPublicNewsletterUrl] = useState('');
+  type PublicationInfo = { slug:string; editToken:string; url:string; revision:number; publishedAt:string };
+  const [publication, setPublication] = useState<PublicationInfo|null>(null);
+  const [activeNewsletterId, setActiveNewsletterId] = useState<string>(()=>uid());
+  const [draftReady, setDraftReady] = useState(false);
+  const SAVED_KEY = 'bulten_saved_newsletters_v2';
   const [previewMode,   setPreviewMode]   = useState<'desktop'|'mobile'>('desktop');
   const draggedBlockIdRef = React.useRef<string|null>(null);
 
@@ -641,7 +646,7 @@ export default function BultenReadPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleUndo, handleRedo]);
 
-  const [selectedId,    setSelectedId]    = useState<string|null>(blocks[0].id);
+  const [selectedId,    setSelectedId]    = useState<string|null>(blocks[0]?.id ?? null);
   const [aiLoading,     setAiLoading]     = useState(false);
   const [published,     setPublished]     = useState(false);
   const [activeTab,     setActiveTab]     = useState<'design'|'content'>('content');
@@ -653,34 +658,40 @@ export default function BultenReadPage() {
 
   // ── Auto-save / Restore logic ───────────────────────────────────────
   const DRAFT_KEY = 'bulten_draft_v1';
-  
-  // On mount: Restore
+
   React.useEffect(() => {
-    const saved = localStorage.getItem(DRAFT_KEY);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        if (data && data.blocks && data.blocks.length > 0) {
-          setTitle(data.title || 'Yeni Bülten');
-          setSubtitle(data.subtitle || '');
-          setDesign(data.design || 'modern');
-          setLogoUrl(data.logoUrl || '');
-          setHeaderImgUrl(data.headerImgUrl || '');
-          setPublicNewsletterUrl(typeof data.publicNewsletterUrl==='string' ? data.publicNewsletterUrl : '');
-          const safeBlocks = data.blocks.filter((b: any) => b && typeof b === 'object' && b.id);
-          if (safeBlocks.length) {
-             setBlocks(safeBlocks);
-             setSelectedId(safeBlocks[0].id);
-          }
+    try {
+      const saved=window.localStorage.getItem(DRAFT_KEY);
+      if(saved){
+        const data=JSON.parse(saved);
+        if(data && Array.isArray(data.blocks) && data.blocks.length){
+          setTitle(data.title||'Yeni Bülten');
+          setSubtitle(data.subtitle||'');
+          setDesign(data.design||'modern');
+          setLogoUrl(data.logoUrl||'');
+          setHeaderImgUrl(data.headerImgUrl||'');
+          setShowTOC(data.showTOC!==false);
+          setActiveNewsletterId(typeof data.activeNewsletterId==='string'?data.activeNewsletterId:uid());
+          setPublication(data.publication&&typeof data.publication.editToken==='string'?data.publication:null);
+          setPublicNewsletterUrl(data.publication?.url||data.publicNewsletterUrl||'');
+          lastSharedSnapshot.current=typeof data.publishedSnapshot==='string'?data.publishedSnapshot:'';
+          const safeBlocks=data.blocks.filter((b:any)=>b&&typeof b==='object'&&typeof b.id==='string');
+          if(safeBlocks.length){setBlocks(safeBlocks);setSelectedId(safeBlocks[0].id);}
         }
-      } catch(e) {}
-    }
+      }
+    }catch(error){console.warn('Taslak okunamadı:',error);}
+    setDraftReady(true);
   }, []);
 
-  // On change: Save
   React.useEffect(() => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, subtitle, design, logoUrl, headerImgUrl, blocks, publicNewsletterUrl }));
-  }, [title, subtitle, design, logoUrl, headerImgUrl, blocks, publicNewsletterUrl]);
+    if(!draftReady)return;
+    try{
+      window.localStorage.setItem(DRAFT_KEY,JSON.stringify({
+        activeNewsletterId,title,subtitle,design,logoUrl,headerImgUrl,blocks,
+        showTOC,publicNewsletterUrl,publication,publishedSnapshot:lastSharedSnapshot.current,
+      }));
+    }catch(error){console.warn('Yerel otomatik taslak kaydı yapılamadı:',error);}
+  },[draftReady,activeNewsletterId,title,subtitle,design,logoUrl,headerImgUrl,blocks,showTOC,publicNewsletterUrl,publication]);
 
   // ── Text-to-Speech ──────────────────────────────────────────────────
   const [isSpeaking, setIsSpeaking] = React.useState(false);
@@ -809,41 +820,92 @@ export default function BultenReadPage() {
     translateBlocks(l);
   };
 
-  type SavedNL = { id:string; title:string; subtitle:string; design:Design; blocks:Block[]; logoUrl:string; headerImgUrl:string; showTOC:boolean; savedAt:string; publicNewsletterUrl?:string; };
+  type SavedNL = {
+    id:string; title:string; subtitle:string; design:Design; blocks:Block[];
+    logoUrl:string; headerImgUrl:string; showTOC:boolean; savedAt:string;
+    publicNewsletterUrl?:string; publication?:PublicationInfo|null;
+    publishedSnapshot?:string;
+  };
 
-  const [showSavedModal, setShowSavedModal] = React.useState(false);
-  const [savedList, setSavedList] = React.useState<SavedNL[]>([]);
-  const [saveSuccess, setSaveSuccess] = React.useState(false);
+  const [showSavedModal,setShowSavedModal]=React.useState(false);
+  const [savedList,setSavedList]=React.useState<SavedNL[]>([]);
+  const [saveSuccess,setSaveSuccess]=React.useState(false);
+  const [savedSearch,setSavedSearch]=React.useState('');
 
-  const handleSave = async () => {
-    const entry: SavedNL = { id:uid(), title, subtitle, design, blocks, logoUrl, headerImgUrl, showTOC, publicNewsletterUrl, savedAt:new Date().toISOString() };
-    const next = [entry,...savedList].slice(0,20);
-    setSavedList(next);
-    setSaveSuccess(true); setTimeout(()=>setSaveSuccess(false),2000);
+  const persistSavedLocally = (entry:SavedNL):boolean => {
     try {
-      await fetch('/api/db/newsletters', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entry)
+      const next=[entry,...savedList.filter(x=>x.id!==entry.id)].slice(0,30);
+      window.localStorage.setItem(SAVED_KEY,JSON.stringify(next));
+      setSavedList(next);
+      return true;
+    }catch(error){
+      console.error('Bültenin yerel kaydı başarısız:',error);
+      alert('Bülten kaydedilemedi. Tarayıcı depolama alanını kontrol edin; büyük fotoğrafları küçültmeyi deneyin.');
+      return false;
+    }
+  };
+  const currentSnapshot=()=>JSON.stringify({title,subtitle,design,blocks,headerImgUrl,logoUrl,showTOC});
+  const savedEntry=(override?:PublicationInfo|null,snapshot?:string):SavedNL=>({
+    id:activeNewsletterId,title,subtitle,design,blocks:blocks.map(b=>({...b,data:{...b.data}})),
+    logoUrl,headerImgUrl,showTOC,savedAt:new Date().toISOString(),
+    publicNewsletterUrl:override?.url||publicNewsletterUrl,
+    publication:override===undefined?publication:override,
+    publishedSnapshot:snapshot===undefined?(publication?lastSharedSnapshot.current:''):snapshot,
+  });
+
+  const handleSave=async ():Promise<boolean>=>{
+    const entry=savedEntry();
+    if(!persistSavedLocally(entry))return false;
+    setSaveSuccess(true);window.setTimeout(()=>setSaveSuccess(false),2200);
+    // Server storage is optional. Never send the owner-only edit token to a
+    // cloud record; local browser storage is the source of edit permission.
+    const {publication:secret,publishedSnapshot,...cloudRecord}=entry;
+    try {
+      const response=await fetch('/api/db/newsletters',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(cloudRecord),
       });
-    } catch(e) {
-      console.error('Failed to save to DB:', e);
-      alert('Bülten kaydedilemedi. Lütfen giriş yaptığınızdan emin olun.');
+      if(!response.ok)console.info('Bulut kaydı yapılandırılmamış, bülten bu tarayıcıda saklandı.');
+    }catch{console.info('Bulut bağlantısı yok, yerel bülten kaydı korundu.');}
+    return true;
+  };
+
+  const handleLoad=(record:SavedNL)=>{
+    if(!record || !Array.isArray(record.blocks))return;
+    const existing=savedList.find(x=>x.id===activeNewsletterId);
+    const storedSnapshot=existing?JSON.stringify({
+      title:existing.title,subtitle:existing.subtitle,design:existing.design,
+      blocks:existing.blocks,headerImgUrl:existing.headerImgUrl,logoUrl:existing.logoUrl,showTOC:existing.showTOC,
+    }):'';
+    const changed=currentSnapshot()!==storedSnapshot;
+    if(changed && activeNewsletterId===record.id){
+      if(!window.confirm('Bu kaydın üzerindeki henüz kaydedilmemiş değişiklikler geri alınacak. Kayıtlı sürümü açmak istiyor musunuz?'))return;
+    }else if(changed && activeNewsletterId!==record.id && blocks.length){
+      // Keep work-in-progress before loading another newsletter.
+      if(!persistSavedLocally(savedEntry()))return;
+    }
+    setActiveNewsletterId(record.id);
+    setTitle(record.title||'Yeni Bülten');setSubtitle(record.subtitle||'');
+    setDesign(record.design||'modern');setBlocks(record.blocks.map(b=>({...b,data:{...b.data}})));
+    setLogoUrl(record.logoUrl||'');setHeaderImgUrl(record.headerImgUrl||'');
+    setShowTOC(record.showTOC!==false);
+    setPublication(record.publication?.editToken?record.publication:null);
+    setPublicNewsletterUrl(record.publication?.url||record.publicNewsletterUrl||'');
+    lastSharedSnapshot.current=record.publishedSnapshot||'';
+    setSelectedId(null);setShowSavedModal(false);setShowShareModal(false);
+    if(typeof window!=='undefined'&&window.location.search.includes('edit=')){
+      window.history.replaceState(null,'',window.location.pathname);
     }
   };
 
-  const handleLoad = (s:SavedNL) => {
-    setTitle(s.title); setSubtitle(s.subtitle); setDesign(s.design);
-    setBlocks(s.blocks); setLogoUrl(s.logoUrl||''); setHeaderImgUrl(s.headerImgUrl||'');
-    setShowTOC(s.showTOC); setPublicNewsletterUrl(s.publicNewsletterUrl||''); setSelectedId(null); setShowSavedModal(false);
-  };
-
-  const handleDelete = async (id:string) => {
-    const next = savedList.filter(s=>s.id!==id);
-    setSavedList(next);
-    try {
-      await fetch(`/api/db/newsletters?id=${id}`, { method: 'DELETE' });
-    } catch(e) {}
+  const handleDelete=async(id:string)=>{
+    if(!window.confirm('Bu bülteni kayıtlı listeden silmek istiyor musunuz? Yayımlanmış internet bağlantısı silinmez.'))return;
+    const next=savedList.filter(s=>s.id!==id);
+    try{
+      window.localStorage.setItem(SAVED_KEY,JSON.stringify(next));
+      setSavedList(next);
+    }catch{alert('Silme işlemi bu tarayıcıda kaydedilemedi.');return;}
+    try{await fetch('/api/db/newsletters?id='+encodeURIComponent(id),{method:'DELETE'});}catch{}
   };
 
   const [showShareModal, setShowShareModal] = React.useState(false);
@@ -897,16 +959,52 @@ export default function BultenReadPage() {
   const [showMailModal, setShowMailModal] = React.useState(false);
   const [mailingLists, setMailingLists] = React.useState<MailingList[]>([]);
   
-  React.useEffect(() => {
-    // Load newsletters and mailing lists from DB
-    fetch('/api/db/newsletters').then(r=>r.json()).then(d=>{
-      if(Array.isArray(d)) setSavedList(d);
+  const [savedReady,setSavedReady]=React.useState(false);
+  React.useEffect(()=>{
+    try{
+      const local=JSON.parse(window.localStorage.getItem(SAVED_KEY)||'[]');
+      if(Array.isArray(local))setSavedList(local.filter((v:any)=>v&&typeof v.id==='string'&&Array.isArray(v.blocks)).slice(0,30));
+    }catch(error){console.warn('Kayıtlı bülten listesi açılamadı:',error);}
+    setSavedReady(true);
+    // Optional account-backed records are merged, never allowed to overwrite the
+    // same record (or private owner token) saved on this browser.
+    fetch('/api/db/newsletters').then(r=>r.ok?r.json():[]).then((remote:unknown)=>{
+      if(!Array.isArray(remote))return;
+      setSavedList(previous=>{
+        const known=new Set(previous.map(v=>v.id));
+        const imported=remote.filter((v:any)=>
+          v&&typeof v.id==='string'&&Array.isArray(v.blocks)&&!known.has(v.id))
+          .map((v:any)=>({
+            id:v.id,title:v.title||'Başlıksız Bülten',subtitle:v.subtitle||'',
+            design:v.design||'modern',blocks:v.blocks,logoUrl:v.logoUrl||'',
+            headerImgUrl:v.headerImgUrl||v.header_img_url||'',showTOC:v.showTOC!==false,
+            savedAt:v.savedAt||v.created_at||new Date().toISOString(),
+            publicNewsletterUrl:v.publicNewsletterUrl||'',
+          }));
+        const merged=[...previous,...imported].slice(0,30);
+        return merged;
+      });
     }).catch(()=>{});
+    fetch('/api/db/mailing-lists').then(r=>r.ok?r.json():[]).then(d=>{
+      if(Array.isArray(d))setMailingLists(d);
+    }).catch(()=>{});
+  },[]);
 
-    fetch('/api/db/mailing-lists').then(r=>r.json()).then(d=>{
-      if(Array.isArray(d)) setMailingLists(d);
-    }).catch(()=>{});
-  }, []);
+  React.useEffect(()=>{
+    if(!savedReady)return;
+    const slug=new URLSearchParams(window.location.search).get('edit');
+    if(!slug)return;
+    if(!/^[A-Za-z0-9_-]{16}$/.test(slug)){
+      window.history.replaceState(null,'',window.location.pathname);return;
+    }
+    const own=savedList.find(s=>s.publication?.slug===slug&&Boolean(s.publication.editToken));
+    if(own){handleLoad(own);return;}
+    if(!window.localStorage.getItem('bulten_edit_attempt_'+slug)){
+      window.localStorage.setItem('bulten_edit_attempt_'+slug,'1');
+      alert('Bu yayını düzenlemek için bültenin yayımlandığı tarayıcıda kayıtlı sürümünü açmanız gerekir. Düzenleme anahtarı bu tarayıcıda bulunamadı.');
+    }
+    window.history.replaceState(null,'',window.location.pathname);
+  },[savedReady,savedList]);
   const [activeListId, setActiveListId] = React.useState<string|null>(null);
   const [newListName, setNewListName] = React.useState('');
   const [newContactEmail, setNewContactEmail] = React.useState('');
@@ -1380,35 +1478,55 @@ ${text}`;
    */
   const handleShareCurrent = async () => {
     if(shareBusy)return;
-    const snapshot = JSON.stringify({title,subtitle,design,blocks,headerImgUrl,logoUrl,showTOC});
-    const ownPublishedUrl = publishedShareUrl.startsWith(window.location.origin+'/b/');
-    if(ownPublishedUrl && lastSharedSnapshot.current === snapshot) {
+    const snapshot=currentSnapshot();
+    if(publication && lastSharedSnapshot.current===snapshot){
       setShareError('');
+      setPublicNewsletterUrl(publication.url);
       setShowShareModal(true);
       return;
     }
-    if(!window.confirm('Açık olan bültenin tamamı herkese açık bir web adresinde yayımlanacak. Bağlantıya sahip herkes bülteni okuyabilir ve paylaşabilir. Devam edilsin mi?'))return;
-    setShareBusy(true);
-    setShareError('');
-    try {
+    const updating=Boolean(publication?.editToken);
+    const confirmText=updating
+      ? 'Bu bültenin yayımlanmış sürümü aynı bağlantıda güncellenecek. Okuyucular yeni içeriği görecek. Devam edilsin mi?'
+      : 'Açık olan bültenin tamamı herkese açık bir web adresinde yayımlanacak. Bağlantıya sahip herkes okuyabilir ve paylaşabilir. Devam edilsin mi?';
+    if(!window.confirm(confirmText))return;
+    setShareBusy(true);setShareError('');
+    try{
+      const body={
+        title,subtitle,headerImgUrl,html:generateHTML(),
+        ...(updating?{
+          slug:publication!.slug,editToken:publication!.editToken,
+          expectedRevision:publication!.revision,
+        }:{}),
+      };
       const response=await fetch('/api/publish',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({title,subtitle,headerImgUrl,html:generateHTML()}),
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body),
       });
       const result=await response.json().catch(()=>({}));
-      if(!response.ok || typeof result.slug!=='string' || !/^[A-Za-z0-9_-]{16}$/.test(result.slug)){
+      if(!response.ok || typeof result.slug!=='string' ||
+         !/^[A-Za-z0-9_-]{16}$/.test(result.slug))
         throw new Error(result.error||'Bülten yayımlanamadı.');
-      }
+      const editToken=updating?publication!.editToken:result.editToken;
+      if(typeof editToken!=='string'||! /^[A-Za-z0-9_-]{43}$/.test(editToken))
+        throw new Error('Yayın oluşturuldu ancak düzenleme anahtarı alınamadı. Teknik destekle iletişime geçin.');
       const url=new URL('/b/'+result.slug,window.location.origin).toString();
+      const updatedPublication:PublicationInfo={
+        slug:result.slug,editToken,url,revision:Number(result.revision)||1,
+        publishedAt:new Date().toISOString(),
+      };
+      setPublication(updatedPublication);
       setPublicNewsletterUrl(url);
       lastSharedSnapshot.current=snapshot;
+      if(!persistSavedLocally(savedEntry(updatedPublication,snapshot))){
+        alert('Bülten yayımlandı ancak düzenleme anahtarı bu tarayıcıda saklanamadı. Bu sayfayı kapatmadan önce içerik yedeği alın.');
+      }
       setShowShareModal(true);
     }catch(error){
-      const message=error instanceof Error?error.message:'Paylaşım bağlantısı oluşturulamadı.';
+      const message=error instanceof Error?error.message:'Yayınlama başarısız.';
       setShareError(message);
-      alert(message+' Henüz herkese açık bir paylaşım bağlantısı oluşturulmadı.');
-    }finally {setShareBusy(false);}
+      alert(message+' Mevcut bülten taslağı korunuyor.');
+    }finally{setShareBusy(false);}
   };
 
   const handleExport = ()=>{
@@ -1451,7 +1569,7 @@ ${text}`;
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 60px)',fontFamily:'Inter,system-ui,sans-serif',background:'#f1f5f9'}}>
 
       {/* ── Top Bar ── */}
-      <div style={{background:'#ffffff',borderBottom:'1px solid #e2e8f0',padding:'0 24px',height:68,display:'flex',alignItems:'center',gap:8,flexShrink:0,boxShadow:'0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',zIndex:10}}>
+      <div style={{background:'#ffffff',borderBottom:'1px solid #e2e8f0',padding:'8px 16px',minHeight:68,display:'flex',flexWrap:'wrap',alignItems:'center',gap:8,flexShrink:0,boxShadow:'0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',zIndex:10}}>
         
         {/* Brand */}
         <div style={{display:'flex',alignItems:'center',gap:10,marginRight:16}}>
@@ -1477,7 +1595,7 @@ ${text}`;
         <div style={{flex:1}} />
 
         {/* Compact Actions */}
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',flexWrap:'wrap',gap:8}}>
           <div style={{display:'flex',background:'#f1f5f9',borderRadius:10,padding:4,border:'1px solid #e2e8f0',marginRight:8}}>
             <button onClick={()=>setPreviewMode('desktop')}
               style={{background:previewMode==='desktop'?'#fff':'transparent',border:'none',borderRadius:6,padding:'6px 12px',fontSize:12,fontWeight:700,color:previewMode==='desktop'?'#0f172a':'#64748b',cursor:'pointer',boxShadow:previewMode==='desktop'?'0 1px 3px rgba(0,0,0,0.1)':'none',transition:'all .2s'}}>💻 Masaüstü</button>
@@ -1485,7 +1603,20 @@ ${text}`;
               style={{background:previewMode==='mobile'?'#fff':'transparent',border:'none',borderRadius:6,padding:'6px 12px',fontSize:12,fontWeight:700,color:previewMode==='mobile'?'#0f172a':'#64748b',cursor:'pointer',boxShadow:previewMode==='mobile'?'0 1px 3px rgba(0,0,0,0.1)':'none',transition:'all .2s'}}>📱 Mobil</button>
           </div>
           
-          {/* Publication/share settings — the editor URL is never treated as the newsletter URL. */}
+          {/* Smore-style publication controls: Edit -> Publish/Update -> Share. */}
+          <button type="button" onClick={()=>{
+            document.querySelector<HTMLInputElement>('input[placeholder="Bülten başlığı..."]')?.focus();
+            setShowShareModal(false);
+          }} title="Bültenin içeriğini düzenle"
+            style={{display:'flex',alignItems:'center',gap:6,background:'#fff',border:'1px solid #cbd5e1',color:'#334155',fontSize:13,fontWeight:800,cursor:'pointer',padding:'8px 12px',borderRadius:8}}>
+            ✎ Düzenle
+          </button>
+          <button type="button" onClick={handleShareCurrent} disabled={shareBusy}
+            aria-label={publication?'Yayını güncelle':'Bülteni yayınla'} title={publication?'Aynı bağlantıdaki yayını güncelle':'Açık bülteni yeni bağlantıda yayınla'}
+            style={{display:'flex',alignItems:'center',gap:6,background:'#0e7490',border:'1px solid #0e7490',color:'#fff',fontSize:13,fontWeight:800,cursor:shareBusy?'progress':'pointer',padding:'8px 14px',borderRadius:8,opacity:shareBusy?.7:1}}>
+            {shareBusy?'⏳':publication?'↻':'🚀'} {shareBusy?'Yayımlanıyor…':publication?'Güncelle':'Yayınla'}
+          </button>
+          {/* Share the currently open newsletter, publishing changes if needed. */}
           <button type="button" onClick={handleShareCurrent} disabled={shareBusy}
             title="Açık bülteni yayımla ve paylaş"
             aria-label={shareBusy?'Bülten yayımlanıyor':'Mevcut bülteni paylaş'}
@@ -1539,7 +1670,7 @@ ${text}`;
               style={{background:'transparent',border:'none',color:'#0ea5e9',fontSize:13,fontWeight:800,cursor:'pointer',padding:'6px 14px',borderRadius:6,transition:'all .2s'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#e0f2fe'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='transparent'}}>
               📂 Aç
             </button>
-            <button onClick={()=>{ handleSave(); setBlocks([]); setTitle('Yeni Bülten'); setSubtitle('#1  •  ' + new Date().toLocaleDateString('tr-TR')); setHeaderImgUrl(''); setLogoUrl(''); setPublicNewsletterUrl(''); }} title="Yeni boş bülten aç"
+            <button onClick={async()=>{ if(!(await handleSave()))return; setActiveNewsletterId(uid());setPublication(null);lastSharedSnapshot.current='';setSelectedId(null);setBlocks([]);setTitle('Yeni Bülten');setSubtitle('#1  •  '+new Date().toLocaleDateString('tr-TR'));setHeaderImgUrl('');setLogoUrl('');setPublicNewsletterUrl(''); }} title="Yeni boş bülten aç"
               style={{background:'transparent',border:'none',color:'#10b981',fontSize:13,fontWeight:800,cursor:'pointer',padding:'6px 14px',borderRadius:6,transition:'all .2s'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#d1fae5'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='transparent'}}>
               ✨ Yeni
             </button>
@@ -1990,47 +2121,6 @@ ${text}`;
       </div>
     </div>
 
-    {/* Saved Newsletters Modal */}
-    {showSavedModal && (
-      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}
-           onClick={()=>setShowSavedModal(false)}>
-        <div style={{background:'#fff',borderRadius:14,width:560,maxHeight:'80vh',display:'flex',flexDirection:'column',boxShadow:'0 16px 48px rgba(0,0,0,.25)',overflow:'hidden'}}
-             onClick={e=>e.stopPropagation()}>
-          <div style={{padding:'16px 20px',borderBottom:'1px solid #e5e7eb',display:'flex',justifyContent:'space-between',alignItems:'center',background:'linear-gradient(135deg,#003366,#0066cc)'}}>
-            <div style={{fontWeight:800,fontSize:15,color:'#fff'}}>📂 Kaydedilmiş Bültenler</div>
-            <button onClick={()=>setShowSavedModal(false)} style={{background:'none',border:'none',color:'rgba(255,255,255,.7)',fontSize:20,cursor:'pointer',lineHeight:1}}>✕</button>
-          </div>
-          <div style={{overflowY:'auto',flex:1,padding:'12px'}}>
-            {savedList.length===0
-              ? <div style={{textAlign:'center',padding:'50px 0',color:'#9ca3af'}}>
-                  <div style={{fontSize:36,marginBottom:10}}>📭</div>
-                  <p style={{fontWeight:600}}>Henüz kaydedilmiş bülten yok</p>
-                  <p style={{fontSize:12,marginTop:4}}>"💾 Kaydet" butonuyla bülteni buraya kaydedin</p>
-                </div>
-              : savedList.map(s=>(
-                <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px',borderRadius:10,border:'1px solid #e5e7eb',marginBottom:8,background:'#fafafa'}}
-                     onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='#f0f9ff'}
-                     onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='#fafafa'}>
-                  <div style={{width:44,height:44,borderRadius:10,background:DESIGNS[s.design].headerBg,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>📰</div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:700,fontSize:14,color:'#1a1a2e',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div>
-                    <div style={{fontSize:12,color:'#6b7280'}}>{s.subtitle}</div>
-                    <div style={{fontSize:11,color:'#9ca3af',marginTop:2}}>
-                      {new Date(s.savedAt).toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})} · {s.blocks.length} blok
-                    </div>
-                  </div>
-                  <div style={{display:'flex',gap:6,flexShrink:0}}>
-                    <button onClick={()=>handleLoad(s)} style={{padding:'6px 14px',borderRadius:8,border:'1px solid #0066cc',background:'#eff6ff',color:'#0066cc',fontSize:12,fontWeight:700,cursor:'pointer'}}>Yükle</button>
-                    <button onClick={()=>handleDelete(s.id)} style={{padding:'6px 10px',borderRadius:8,border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',fontSize:12,fontWeight:700,cursor:'pointer'}}>🗑</button>
-                  </div>
-                </div>
-              ))}
-          </div>
-          {savedList.length>0&&<div style={{padding:'10px 20px',borderTop:'1px solid #e5e7eb',fontSize:11,color:'#9ca3af',textAlign:'center'}}>Maks. 20 kayıt saklanır.</div>}
-        </div>
-      </div>
-    )}
-
     {/* ── Share Modal ── */}
     {showShareModal && (
       <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.65)',zIndex:9999,display:'grid',placeItems:'center',padding:16}}
@@ -2044,7 +2134,7 @@ ${text}`;
           </header>
           <div style={{padding:24,display:'flex',flexDirection:'column',gap:14}}>
             <div role="status" style={{borderRadius:10,background:'#edfaf4',border:'1px solid #a7e2cc',padding:'13px 15px',color:'#16624e',fontSize:13,lineHeight:1.6}}>
-              <strong>✓ Bülten yayımlandı.</strong> Açık olan <strong>{title}</strong> bülteninin paylaşılabilir web adresi oluşturuldu.
+              <strong>✓ {publication?.revision && publication.revision>1?'Bülten güncellendi.':'Bülten yayımlandı.'}</strong> <strong>{title}</strong> · {publication?.revision||1}. sürüm. Aynı bağlantıyı paylaşabilirsiniz.
             </div>
             <label htmlFor="published-newsletter-url" style={{fontSize:13,fontWeight:800,color:'#1e293b'}}>Bu bültenin herkese açık adresi</label>
             <input id="published-newsletter-url" type="url" value={publishedShareUrl} readOnly
@@ -2083,8 +2173,8 @@ ${text}`;
             </div>
             <p style={{fontSize:12,lineHeight:1.6,color:'#64748b',margin:0}}>
               Yayımlanan bağlantı herkese açıktır ve bu sürümün içeriklerini gösterir.
-              Taslağınızı düzenledikten sonra tekrar Paylaş'a basarsanız güncel içeriği taşıyan yeni bir bağlantı oluşturulur.
-              Bülteninizin taslağı ve kayıtları değiştirilmez.
+              Düzenle ile değişiklik yapıp Güncelle'ye bastığınızda mevcut bağlantı korunur ve okuyucular güncel sürümü görür.
+              Düzenleme yetkisi bu tarayıcıda saklanır; taslağınız ayrıca Kayıtlı Bültenler bölümünden açılabilir.
             </p>
           </div>
         </section>
@@ -2451,6 +2541,7 @@ ${text}`;
         setSubtitle(template.subtitle);
         setDesign(template.design as Design);
         setHeaderImgUrl(template.headerImgUrl);
+        setActiveNewsletterId(uid());setPublication(null);lastSharedSnapshot.current='';
         setPublicNewsletterUrl('');
         setBlocks(cloned);
         setSelectedId(null);
@@ -2459,39 +2550,71 @@ ${text}`;
       }}
     />
 
-    {/* ── Saved Newsletters Modal ── */}
+    {/* One searchable saved-newsletter library: OPEN button or double-click. */}
     {showSavedModal && (
-      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}
-           onClick={()=>setShowSavedModal(false)}>
-        <div style={{background:'#fff',borderRadius:16,width:800,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 16px 48px rgba(0,0,0,.25)',overflow:'hidden'}}
-             onClick={e=>e.stopPropagation()}>
-          <div style={{padding:'20px 24px',background:'linear-gradient(135deg,#0284c7,#0369a1)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span style={{fontWeight:800,fontSize:18,color:'#fff'}}>📂 Kayıtlı Bültenlerim</span>
-            <button onClick={()=>setShowSavedModal(false)} style={{background:'none',border:'none',color:'rgba(255,255,255,.7)',fontSize:20,cursor:'pointer'}}>✕</button>
+      <div style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(15,23,42,.65)',display:'grid',placeItems:'center',padding:16}}
+           onMouseDown={e=>{if(e.target===e.currentTarget)setShowSavedModal(false);}}>
+        <section role="dialog" aria-modal="true" aria-labelledby="saved-newsletters-title"
+          style={{background:'#fff',width:'min(920px,100%)',maxHeight:'88dvh',display:'flex',flexDirection:'column',overflow:'hidden',borderRadius:18,boxShadow:'0 24px 70px rgba(0,0,0,.25)'}}>
+          <header style={{background:'linear-gradient(135deg,#17446a,#0e7490)',padding:'21px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+            <div>
+              <h2 id="saved-newsletters-title" style={{fontSize:20,fontWeight:850,color:'#fff',margin:0}}>📂 Kayıtlı Bültenlerim</h2>
+              <p style={{color:'rgba(255,255,255,.82)',fontSize:12,margin:'6px 0 0'}}>Open ile veya bültene çift tıklayarak açın. Yayınlananları düzenleyip aynı bağlantıda güncelleyebilirsiniz.</p>
+            </div>
+            <button type="button" onClick={()=>setShowSavedModal(false)} aria-label="Kayıtlı bültenleri kapat"
+              style={{background:'rgba(255,255,255,.17)',border:'none',color:'#fff',borderRadius:999,fontSize:19,cursor:'pointer',width:38,height:38}}>✕</button>
+          </header>
+          <div style={{padding:'15px 22px',borderBottom:'1px solid #e2e8f0',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+            <label htmlFor="saved-newsletter-search" style={{fontSize:12,fontWeight:800,color:'#334155'}}>Bülten ara</label>
+            <input id="saved-newsletter-search" type="search" placeholder="Başlık veya alt başlık..." value={savedSearch}
+              onChange={e=>setSavedSearch(e.target.value)}
+              style={{flex:1,minWidth:160,padding:'10px 12px',borderRadius:9,border:'1px solid #cbd5e1',color:'#0f172a'}}/>
+            <span style={{fontSize:12,color:'#64748b'}}>{savedList.length} kayıt</span>
           </div>
-          <div style={{padding:24,overflowY:'auto',display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:20,flex:1}}>
-            {savedList.length === 0 ? (
-              <div style={{gridColumn:'1/-1', textAlign:'center', color:'#9ca3af', padding:'40px 0'}}>Henüz kaydedilmiş bir bülteniniz yok.</div>
-            ) : savedList.map(s=>(
-              <div key={s.id} onClick={()=>handleLoad(s)}
-                style={{borderRadius:12,border:'1px solid #e5e7eb',overflow:'hidden',cursor:'pointer',transition:'all .2s',position:'relative'}}
-                onMouseEnter={e=>(e.currentTarget as HTMLElement).style.boxShadow='0 8px 24px rgba(2,132,199,.25)'}
-                onMouseLeave={e=>(e.currentTarget as HTMLElement).style.boxShadow='0 2px 8px rgba(0,0,0,.05)'}>
-                <div style={{height:120,background:s.headerImgUrl?`url(${s.headerImgUrl}) center/cover`:'#e0f2fe',position:'relative'}}>
-                  <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,.3)'}}/>
-                  <div style={{position:'absolute',bottom:12,left:14,right:14}}>
-                    <div style={{color:'#fff',fontWeight:800,fontSize:14,textShadow:'0 1px 4px rgba(0,0,0,.5)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div>
-                    <div style={{color:'rgba(255,255,255,.9)',fontSize:11,textShadow:'0 1px 4px rgba(0,0,0,.5)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.subtitle}</div>
+          <div style={{padding:20,overflowY:'auto',flex:1,display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(235px,1fr))',gap:14,alignContent:'start'}}>
+            {savedList.filter(v=>[v.title,v.subtitle].join(' ').toLocaleLowerCase('tr').includes(savedSearch.toLocaleLowerCase('tr'))).length===0
+              ? <p style={{gridColumn:'1/-1',padding:'35px 0',color:'#64748b',textAlign:'center'}}>
+                  {savedList.length?'Aramanıza uygun bülten bulunamadı.':'Henüz kayıtlı bülteniniz yok. Üstteki Kaydet düğmesine basın.'}
+                </p>
+              : savedList.filter(v=>[v.title,v.subtitle].join(' ').toLocaleLowerCase('tr').includes(savedSearch.toLocaleLowerCase('tr'))).map(record=>(
+                <div key={record.id} data-testid="saved-newsletter-item" onDoubleClick={e=>{
+                  if((e.target as HTMLElement).closest('button,a'))return;
+                  handleLoad(record);
+                }}
+                  title="Çift tıklayarak editörde aç"
+                  style={{border:'1px solid #dce5eb',borderRadius:13,overflow:'hidden',background:'#fff',boxShadow:'0 2px 8px rgba(15,23,42,.05)',minWidth:0}}>
+                  <div style={{height:95,background:`linear-gradient(135deg,${(DESIGNS[record.design]||DESIGNS.modern).headerBg},#245c74)`,position:'relative',padding:14,display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
+                    <span style={{color:'#e2e8f0',fontSize:10,fontWeight:800,letterSpacing:1}}>BÜLTEN READ</span>
+                    <strong style={{color:'#fff',fontSize:15,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{record.title||'Başlıksız Bülten'}</strong>
+                  </div>
+                  <div style={{padding:13,display:'flex',flexDirection:'column',gap:9}}>
+                    <p style={{fontSize:12,color:'#64748b',margin:0,minHeight:30,overflow:'hidden'}}>{record.subtitle}</p>
+                    <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'center'}}>
+                      <span style={{fontSize:10,fontWeight:800,borderRadius:100,padding:'4px 9px',
+                        background:record.publication?.editToken?'#dcfce7':'#f1f5f9',
+                        color:record.publication?.editToken?'#166534':'#475569'}}>
+                        {record.publication?.editToken?'● Yayınlandı':'○ Taslak'}
+                      </span>
+                      <time style={{fontSize:10,color:'#64748b'}}>{new Date(record.savedAt).toLocaleDateString('tr-TR')}</time>
+                    </div>
+                    <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+                      <button type="button" onClick={()=>handleLoad(record)} aria-label={record.title+' Open'}
+                        style={{flex:1,minHeight:36,border:'none',borderRadius:7,background:'#0e7490',color:'#fff',fontSize:12,fontWeight:850,cursor:'pointer'}}>Open</button>
+                      {record.publication?.editToken && <button type="button" onClick={()=>handleLoad(record)}
+                        style={{minHeight:36,padding:'0 10px',border:'1px solid #99d5c5',borderRadius:7,background:'#f0fdfa',color:'#116153',fontSize:12,fontWeight:800,cursor:'pointer'}}>✎ Edit</button>}
+                      <button type="button" onClick={()=>handleDelete(record.id)} aria-label={record.title+' kaydını sil'}
+                        style={{minHeight:36,padding:'0 9px',border:'1px solid #fecaca',borderRadius:7,background:'#fff1f2',color:'#be123c',cursor:'pointer'}}>🗑</button>
+                    </div>
+                    {record.publication?.url && <a href={record.publication.url} target="_blank" rel="noopener noreferrer"
+                      style={{fontSize:11,color:'#0e7490',fontWeight:700,textDecoration:'none'}}>↗ Yayımlanan bülteni görüntüle</a>}
                   </div>
                 </div>
-                <div style={{padding:12,background:'#fafafa',borderTop:'1px solid #e5e7eb',fontSize:11,color:'#6b7280',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <span>{new Date(s.savedAt).toLocaleDateString('tr-TR')}</span>
-                  <button onClick={e=>{e.stopPropagation();handleDelete(s.id);}} style={{background:'none',border:'none',color:'#ef4444',cursor:'pointer',fontWeight:700}}>Sil</button>
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
-        </div>
+          <footer style={{padding:'11px 20px',fontSize:11,color:'#64748b',background:'#f8fafc',borderTop:'1px solid #e2e8f0'}}>
+            Son kayıtlar bu tarayıcıda saklanır. Düzenleme yetkisi ve yayımlama anahtarı başka cihazlara otomatik aktarılmaz.
+          </footer>
+        </section>
       </div>
     )}
 

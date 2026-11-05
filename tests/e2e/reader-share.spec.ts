@@ -41,7 +41,7 @@ test('hosted reader page shares its actual newsletter URL and not the editor hom
 
 test('publisher receives a URL for the current newsletter without manual entry',async({page})=>{
   await page.goto('/');
-  await page.route('**/api/publish',route=>route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM'})}));
+  await page.route('**/api/publish',route=>route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM',editToken:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',revision:1})}));
   page.once('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
   const dialog=page.getByRole('dialog',{name:'Bu Bülteni Paylaş'});
@@ -53,7 +53,7 @@ test('publisher receives a URL for the current newsletter without manual entry',
 
 test('newly published URL becomes static social links in HTML export for email readers',async({page})=>{
   await page.goto('/');
-  await page.route('**/api/publish',route=>route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM'})}));
+  await page.route('**/api/publish',route=>route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM',editToken:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',revision:1})}));
   page.once('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
   await page.getByRole('button',{name:'Paylaşım penceresini kapat'}).click();
