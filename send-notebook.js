@@ -10,18 +10,23 @@ const payload = {
     { "id":"b2", "type":"paragraph", "data": {"text":"Birçok başvuru kötü yazıldığı için değil, 'mantık zinciri kurulmadığı' için zayıf kalır. Hedef, ilk paragrafta 'biz iyi bir şey yapacağız' demek değil; hangi boşluğu, kimde, hangi gerekçeyle ve hangi değişim iddiasıyla kapattığını gösterebilmektir."} },
     { "id":"b3", "type":"title", "data": {"text":"4 Temel İşaret: İkna Sırası","size":"h2"} },
     { "id":"b4", "type":"paragraph", "data": {"text":"Değerlendirici için ilk paragrafta şu dört işaret üretilmelidir: problem, hedef grup, aciliyet (neden şimdi) ve değişim. Bunlar bir araya gelmeden yazılan her cümle doğru ama genel kalır."} },
-    { "id":"b5", "type":"event", "data": {"title":"Modül 1: Dönüşüm Odaklı Giriş Taslağı Uygulaması","date":"2026-05-01","time":"10:00","location":"Online / Template Lab"} },
+    { "id":"b5", "type":"event", "data": {"title":"Modül 1: Dönüşüm Odaklı Giriş Taslağı Uygulaması","date":"","time":"10:00","location":"Online / Template Lab"} },
     { "id":"b6", "type":"paragraph", "data": {"text":"Şablondaki dört satırı doldur ve tek paragrafta birleştir. İlk paragrafın görevi 'giriş yapmak' değil; metnin geri kalanını taşıyacak bir omurga kurmaktır."} }
   ]
 };
 
-const API_URL = "http://localhost:3000/api/notebook-sync";
+const API_URL = process.env.NOTEBOOK_SYNC_URL || "http://localhost:3000/api/notebook-sync";
+const SECRET = process.env.NOTEBOOK_SYNC_SECRET;
+if (!SECRET || SECRET.length < 24) {
+  console.error('NOTEBOOK_SYNC_SECRET eksik (en az 24 karakter).');
+  process.exit(1);
+}
 
 async function sendPayload() {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8" },
+      headers: { "Content-Type": "application/json; charset=utf-8", "x-notebook-secret": SECRET },
       body: JSON.stringify(payload)
     });
     if (res.ok) {
