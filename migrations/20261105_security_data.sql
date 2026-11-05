@@ -11,12 +11,6 @@ ALTER TABLE campaign_analytics ADD COLUMN IF NOT EXISTS user_id TEXT;
 ALTER TABLE campaign_analytics ADD COLUMN IF NOT EXISTS recipient_token TEXT;
 CREATE INDEX IF NOT EXISTS campaign_analytics_owner_time ON campaign_analytics(user_id, created_at DESC);
 
-CREATE TABLE IF NOT EXISTS notebook_payloads (
-  user_id TEXT PRIMARY KEY,
-  payload JSONB NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
 CREATE TABLE IF NOT EXISTS campaign_recipients (
   token TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -42,7 +36,6 @@ CREATE TABLE IF NOT EXISTS action_quotas (
   PRIMARY KEY (user_id,action,window_start)
 );
 
-ALTER TABLE notebook_payloads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaign_recipients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE suppressed_emails ENABLE ROW LEVEL SECURITY;
 ALTER TABLE action_quotas ENABLE ROW LEVEL SECURITY;
@@ -51,7 +44,7 @@ ALTER TABLE action_quotas ENABLE ROW LEVEL SECURITY;
 -- Prevent direct anonymous and client-side Supabase access.
 DROP POLICY IF EXISTS "Everyone can insert analytics" ON campaign_analytics;
 DROP POLICY IF EXISTS "Users can read analytics" ON campaign_analytics;
-REVOKE ALL ON TABLE newsletters, mailing_lists, campaign_analytics, notebook_payloads, campaign_recipients, suppressed_emails, action_quotas FROM anon, authenticated;
+REVOKE ALL ON TABLE newsletters, mailing_lists, campaign_analytics, campaign_recipients, suppressed_emails, action_quotas FROM anon, authenticated;
 
 CREATE OR REPLACE FUNCTION consume_action_quota(
   p_user_id TEXT, p_action TEXT, p_maximum INTEGER, p_window_seconds INTEGER
