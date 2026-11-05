@@ -59,7 +59,7 @@ export async function downloadNewsletterPdf(html:string,title:string):Promise<vo
   const module=await import('html2pdf.js');
   const html2pdf=module.default;
   // A4 PDF with generous margins, multi-page handling and colour images.
-  // This generates an application/pdf download; it never invokes window.print().
+  // This creates an application/pdf download without invoking a print dialog.
   await html2pdf()
     .set({
       margin: [9,8,9,8],
