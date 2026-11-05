@@ -9,7 +9,6 @@ export default function middleware(request: NextRequest) {
       const isPublicRoute = createRouteMatcher([
         '/sign-in(.*)',
         '/sign-up(.*)',
-        '/api/notebook-sync(.*)',
       ]);
       return clerkMiddleware(async (auth: any, req: NextRequest) => {
         if (!isPublicRoute(req)) {
