@@ -1722,7 +1722,7 @@ ${text}`;
           {/* Tabs */}
           <div style={{display:'flex',borderBottom:'1px solid #e5e7eb'}}>
             {(['content','design'] as const).map(tab=>(
-              <button key={tab} onClick={()=>setActiveTab(tab)}
+              <button key={tab} data-testid={`editor-tab-${tab}`} onClick={()=>setActiveTab(tab)}
                 style={{flex:1,padding:'10px 0',fontSize:12,fontWeight:700,cursor:'pointer',border:'none',
                   background: activeTab===tab?'#fff':'#f9fafb',
                   color: activeTab===tab?D.accentColor:'#6b7280',
@@ -1736,7 +1736,7 @@ ${text}`;
             <div style={{overflowY:'auto',flex:1}}>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:0}} id="block-palette">
                 {PALETTE.map(p=>(
-                  <button key={p.type}
+                  <button key={p.type} data-testid={`palette-${p.type}`}
                     draggable
                     onDragStart={e=>{ dragTypeRef.current=p.type; e.dataTransfer.effectAllowed='copy'; }}
                     onClick={()=>addBlock(p.type)}
