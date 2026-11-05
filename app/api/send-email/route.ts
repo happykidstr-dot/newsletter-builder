@@ -49,9 +49,11 @@ export async function POST(req:NextRequest){
     if(!actual.length)return NextResponse.json({error:'Gönderilebilecek etkin alıcı bulunamadı.'},{status:400});
     const rate=await limitAction(db,session.userId,'send',20,86400);if(rate)return rate;
     const campaignId=randomUUID();
-    const appUrl=validWebUrl(process.env.NEXT_PUBLIC_APP_URL)||'';
+    const appUrl=(validWebUrl(process.env.NEXT_PUBLIC_APP_URL)||'').replace(/\/+$/,'');
     const signingSecret=process.env.TRACKING_SIGNING_SECRET||'';
-    const trackingEnabled=Boolean(appUrl&&signingSecret.length>=24);
+    if(!appUrl||signingSecret.length<24)
+      return NextResponse.json({error:'Güvenli abonelikten ayrılma ve takip yapılandırılmadı.'},{status:503});
+    const trackingEnabled=true;
     const recipients=actual.map(c=>({token:randomBytes(18).toString('hex'),user_id:session.userId,campaign_id:campaignId,
       email:c.email.toLowerCase().trim()}));
     if(trackingEnabled){
@@ -70,7 +72,7 @@ export async function POST(req:NextRequest){
       }
       if(trackingEnabled){
         personalised=personalised.replace(/(<a\b[^>]*?)href="([^"]+)"([^>]*>)/gi,(match:string,before:string,url:string,after:string)=>{
-          const safe=validWebUrl(url);
+          const safe=validWebUrl(url.replace(/&amp;/gi,'&'));
           if(!safe)return match;
           const dest=`${appUrl}/api/track/click?t=${token}&u=${encodeURIComponent(safe)}&s=${signed(token,safe,signingSecret)}`;
           return `${before}href="${escapeHtml(dest)}"${after}`;
