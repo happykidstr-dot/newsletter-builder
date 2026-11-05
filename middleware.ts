@@ -5,7 +5,9 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)', '/sign-up(.*)', '/api/notebook-sync(.*)', '/api/track(.*)'
 ]);
 const clerkGuard = clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) await auth.protect();
+  // Keep the editor reachable so the Clerk sign-in modal can be opened.
+  // All non-public API routes require login, and sensitive handlers recheck it.
+  if (req.nextUrl.pathname.startsWith('/api/') && !isPublicRoute(req)) await auth.protect();
 });
 
 export default function middleware(req: NextRequest, event: NextFetchEvent) {
