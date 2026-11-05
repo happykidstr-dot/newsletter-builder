@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 test('starts with Turkish newsletter defaults',async({page})=>{
   await page.goto('/');
   await expect(page.getByPlaceholder('Bülten başlığı...')).toHaveValue('Project Factory Bülteni');
-  await expect(page.getByText('Bülteninizin ana başlığı')).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Bülteninizin ana başlığı'})).toBeVisible();
   await expect(page.getByRole('switch',{name:'İçindekiler'})).toHaveAttribute('aria-checked','true');
 });
 test('auto-saved local draft survives a reload',async({page})=>{
