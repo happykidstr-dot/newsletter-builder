@@ -1458,35 +1458,55 @@ ${text}`;
    */
   const handleShareCurrent = async () => {
     if(shareBusy)return;
-    const snapshot = JSON.stringify({title,subtitle,design,blocks,headerImgUrl,logoUrl,showTOC});
-    const ownPublishedUrl = publishedShareUrl.startsWith(window.location.origin+'/b/');
-    if(ownPublishedUrl && lastSharedSnapshot.current === snapshot) {
+    const snapshot=currentSnapshot();
+    if(publication && lastSharedSnapshot.current===snapshot){
       setShareError('');
+      setPublicNewsletterUrl(publication.url);
       setShowShareModal(true);
       return;
     }
-    if(!window.confirm('Açık olan bültenin tamamı herkese açık bir web adresinde yayımlanacak. Bağlantıya sahip herkes bülteni okuyabilir ve paylaşabilir. Devam edilsin mi?'))return;
-    setShareBusy(true);
-    setShareError('');
-    try {
+    const updating=Boolean(publication?.editToken);
+    const confirmText=updating
+      ? 'Bu bültenin yayımlanmış sürümü aynı bağlantıda güncellenecek. Okuyucular yeni içeriği görecek. Devam edilsin mi?'
+      : 'Açık olan bültenin tamamı herkese açık bir web adresinde yayımlanacak. Bağlantıya sahip herkes okuyabilir ve paylaşabilir. Devam edilsin mi?';
+    if(!window.confirm(confirmText))return;
+    setShareBusy(true);setShareError('');
+    try{
+      const body={
+        title,subtitle,headerImgUrl,html:generateHTML(),
+        ...(updating?{
+          slug:publication!.slug,editToken:publication!.editToken,
+          expectedRevision:publication!.revision,
+        }:{}),
+      };
       const response=await fetch('/api/publish',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({title,subtitle,headerImgUrl,html:generateHTML()}),
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body),
       });
       const result=await response.json().catch(()=>({}));
-      if(!response.ok || typeof result.slug!=='string' || !/^[A-Za-z0-9_-]{16}$/.test(result.slug)){
+      if(!response.ok || typeof result.slug!=='string' ||
+         !/^[A-Za-z0-9_-]{16}$/.test(result.slug))
         throw new Error(result.error||'Bülten yayımlanamadı.');
-      }
+      const editToken=updating?publication!.editToken:result.editToken;
+      if(typeof editToken!=='string'||! /^[A-Za-z0-9_-]{43}$/.test(editToken))
+        throw new Error('Yayın oluşturuldu ancak düzenleme anahtarı alınamadı. Teknik destekle iletişime geçin.');
       const url=new URL('/b/'+result.slug,window.location.origin).toString();
+      const updatedPublication:PublicationInfo={
+        slug:result.slug,editToken,url,revision:Number(result.revision)||1,
+        publishedAt:new Date().toISOString(),
+      };
+      setPublication(updatedPublication);
       setPublicNewsletterUrl(url);
       lastSharedSnapshot.current=snapshot;
+      if(!persistSavedLocally(savedEntry(updatedPublication,snapshot))){
+        alert('Bülten yayımlandı ancak düzenleme anahtarı bu tarayıcıda saklanamadı. Bu sayfayı kapatmadan önce içerik yedeği alın.');
+      }
       setShowShareModal(true);
     }catch(error){
-      const message=error instanceof Error?error.message:'Paylaşım bağlantısı oluşturulamadı.';
+      const message=error instanceof Error?error.message:'Yayınlama başarısız.';
       setShareError(message);
-      alert(message+' Henüz herkese açık bir paylaşım bağlantısı oluşturulmadı.');
-    }finally {setShareBusy(false);}
+      alert(message+' Mevcut bülten taslağı korunuyor.');
+    }finally{setShareBusy(false);}
   };
 
   const handleExport = ()=>{
@@ -1563,7 +1583,20 @@ ${text}`;
               style={{background:previewMode==='mobile'?'#fff':'transparent',border:'none',borderRadius:6,padding:'6px 12px',fontSize:12,fontWeight:700,color:previewMode==='mobile'?'#0f172a':'#64748b',cursor:'pointer',boxShadow:previewMode==='mobile'?'0 1px 3px rgba(0,0,0,0.1)':'none',transition:'all .2s'}}>📱 Mobil</button>
           </div>
           
-          {/* Publication/share settings — the editor URL is never treated as the newsletter URL. */}
+          {/* Smore-style publication controls: Edit -> Publish/Update -> Share. */}
+          <button type="button" onClick={()=>{
+            document.querySelector<HTMLInputElement>('input[placeholder="Bülten başlığı..."]')?.focus();
+            setShowShareModal(false);
+          }} title="Bültenin içeriğini düzenle"
+            style={{display:'flex',alignItems:'center',gap:6,background:'#fff',border:'1px solid #cbd5e1',color:'#334155',fontSize:13,fontWeight:800,cursor:'pointer',padding:'8px 12px',borderRadius:8}}>
+            ✎ Düzenle
+          </button>
+          <button type="button" onClick={handleShareCurrent} disabled={shareBusy}
+            aria-label={publication?'Yayını güncelle':'Bülteni yayınla'} title={publication?'Aynı bağlantıdaki yayını güncelle':'Açık bülteni yeni bağlantıda yayınla'}
+            style={{display:'flex',alignItems:'center',gap:6,background:'#0e7490',border:'1px solid #0e7490',color:'#fff',fontSize:13,fontWeight:800,cursor:shareBusy?'progress':'pointer',padding:'8px 14px',borderRadius:8,opacity:shareBusy?.7:1}}>
+            {shareBusy?'⏳':publication?'↻':'🚀'} {shareBusy?'Yayımlanıyor…':publication?'Güncelle':'Yayınla'}
+          </button>
+          {/* Share the currently open newsletter, publishing changes if needed. */}
           <button type="button" onClick={handleShareCurrent} disabled={shareBusy}
             title="Açık bülteni yayımla ve paylaş"
             aria-label={shareBusy?'Bülten yayımlanıyor':'Mevcut bülteni paylaş'}
@@ -2122,7 +2155,7 @@ ${text}`;
           </header>
           <div style={{padding:24,display:'flex',flexDirection:'column',gap:14}}>
             <div role="status" style={{borderRadius:10,background:'#edfaf4',border:'1px solid #a7e2cc',padding:'13px 15px',color:'#16624e',fontSize:13,lineHeight:1.6}}>
-              <strong>✓ Bülten yayımlandı.</strong> Açık olan <strong>{title}</strong> bülteninin paylaşılabilir web adresi oluşturuldu.
+              <strong>✓ {publication?.revision && publication.revision>1?'Bülten güncellendi.':'Bülten yayımlandı.'}</strong> <strong>{title}</strong> · {publication?.revision||1}. sürüm. Aynı bağlantıyı paylaşabilirsiniz.
             </div>
             <label htmlFor="published-newsletter-url" style={{fontSize:13,fontWeight:800,color:'#1e293b'}}>Bu bültenin herkese açık adresi</label>
             <input id="published-newsletter-url" type="url" value={publishedShareUrl} readOnly
@@ -2161,8 +2194,8 @@ ${text}`;
             </div>
             <p style={{fontSize:12,lineHeight:1.6,color:'#64748b',margin:0}}>
               Yayımlanan bağlantı herkese açıktır ve bu sürümün içeriklerini gösterir.
-              Taslağınızı düzenledikten sonra tekrar Paylaş'a basarsanız güncel içeriği taşıyan yeni bir bağlantı oluşturulur.
-              Bülteninizin taslağı ve kayıtları değiştirilmez.
+              Düzenle ile değişiklik yapıp Güncelle'ye bastığınızda mevcut bağlantı korunur ve okuyucular güncel sürümü görür.
+              Düzenleme yetkisi bu tarayıcıda saklanır; taslağınız ayrıca Kayıtlı Bültenler bölümünden açılabilir.
             </p>
           </div>
         </section>
