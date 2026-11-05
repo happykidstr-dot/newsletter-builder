@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -11,12 +11,11 @@ test('sensitive routes check authenticated session', () => {
     assert.match(read(path), /requireUser\(/, path);
   }
 });
-test('notebook writes require a secret and use persistent storage', () => {
-  const s=read('app/api/notebook-sync/route.ts');
-  assert.match(s,/validWebhook\(req\)/);
-  assert.match(s,/timingSafeEqual/);
-  assert.match(s,/notebook_payloads/);
-  assert.doesNotMatch(s,/writeFile|readFile|unlink/);
+test('removed Notebook integration has no runtime entry points', () => {
+  assert.equal(existsSync(new URL('../app/api/notebook-sync/route.ts',import.meta.url)),false);
+  assert.doesNotMatch(read('app/page.tsx'),/notebook/i);
+  assert.doesNotMatch(read('middleware.ts'),/notebook/i);
+  assert.doesNotMatch(read('migrations/20261105_security_data.sql'),/notebook/i);
 });
 test('unsafe public analytics policy and raw events are gone', () => {
   assert.doesNotMatch(read('app/api/db/analytics/route.ts'),/rawEvents:/);
