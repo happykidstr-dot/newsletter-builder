@@ -59,6 +59,8 @@ export async function downloadNewsletterPdf(html:string,title:string):Promise<vo
   const module=await import('html2pdf.js');
   const html2pdf=module.default;
   // A4 PDF with generous margins, multi-page handling and colour images.
+  // html2pdf.js supports pagebreak at runtime but its built-in TS options omit it.
+  const pagebreakConfig = { pagebreak: {mode:['css','legacy'],avoid:['img','h1','h2','h3','figure']} };
   // This creates an application/pdf download without invoking a print dialog.
   await html2pdf()
     .set({
@@ -74,7 +76,7 @@ export async function downloadNewsletterPdf(html:string,title:string):Promise<vo
         logging:false,
       },
       jsPDF: {unit:'mm',format:'a4',orientation:'portrait'},
-      pagebreak: {mode:['css','legacy'],avoid:['img','h1','h2','h3','figure']},
+      ...pagebreakConfig,
     })
     .from(node)
     .save();
