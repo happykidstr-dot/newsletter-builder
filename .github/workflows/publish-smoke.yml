@@ -1,0 +1,20 @@
+name: Public Newsletter Publish Smoke Test
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  netlify-preview-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify actual preview publish and reader URL
+        env:
+          PREVIEW_URL: https://deploy-preview-${{ github.event.pull_request.number }}--bultenoku.netlify.app
+          PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/verify-public-preview.mjs
