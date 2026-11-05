@@ -1,4 +1,5 @@
 import {randomBytes} from 'node:crypto';
+import {matchesEditToken,newPublicationCredential,validPublicationSlug} from '../../lib/publication-edit-credentials';
 import type {Config,Context} from '@netlify/functions';
 import {publicationStore, checkPublishQuota, type PublishedNewsletter} from '../../lib/newsletter-publication-store';
 import {sanitiseNewsletterBody, renderPublishedNewsletter} from '../../lib/public-newsletter-render';
@@ -41,13 +42,34 @@ export default async (req:Request,context:Context):Promise<Response>=>{
         req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'anonymous';
       if(!(await checkPublishQuota(ip,host)))
         return reply({error:'Paylaşım sınırına ulaşıldı. Daha sonra yeniden deneyin.'},429);
-      const slug=randomBytes(12).toString('base64url');
+      const store=publicationStore(host);
+      const editing=body.slug!==undefined && body.slug!==null;
+      if(editing && !validPublicationSlug(body.slug))
+        return reply({error:'Yayın bağlantısı geçersiz.'},400);
+      const slug:string=editing ? body.slug : randomBytes(12).toString('base64url');
+      const previous=editing ? await store.get(slug,{type:'json'}) as PublishedNewsletter|null : null;
+      if(editing && !previous)return reply({error:'Yayınlanmış bülten bulunamadı.'},404);
+      if(editing && !matchesEditToken(body.editToken,previous?.editTokenHash))
+        return reply({error:'Bu yayını değiştirmek için düzenleme yetkisi gerekiyor.'},403);
+      if(editing && Number.isInteger(body.expectedRevision) &&
+         body.expectedRevision!==(previous?.revision||1))
+        return reply({error:'Bu bülten başka bir oturumda güncellenmiş. Son sürümü açıp tekrar deneyin.'},409);
+      const credential=editing ? null : newPublicationCredential();
+      const timestamp=new Date().toISOString();
       const record:PublishedNewsletter={
         version:1,bodyHtml:clean,title:body.title.trim(),subtitle:body.subtitle,
-        headerImgUrl:body.headerImgUrl,createdAt:new Date().toISOString(),
+        headerImgUrl:body.headerImgUrl,
+        createdAt:previous?.createdAt||timestamp,
+        updatedAt:timestamp,
+        revision:(previous?.revision||0)+1,
+        editTokenHash:previous?.editTokenHash||credential!.hash,
       };
-      await publicationStore(host).setJSON(slug,record);
-      return reply({slug,url:new URL('/b/'+slug,origin).toString()},201);
+      await store.setJSON(slug,record);
+      return reply({
+        slug,url:new URL('/b/'+slug,origin).toString(),
+        updated:editing,revision:record.revision,
+        ...(credential ? {editToken:credential.token}:{}),
+      },editing?200:201);
     }catch(error){
       const detail=error instanceof Error?error.message:'Bülten yayımlanamadı.';
       console.error('Netlify publication failed:',detail);
