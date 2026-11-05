@@ -23,8 +23,10 @@ function rateStore() {
 
 export interface PublishedNewsletter {
   version: 1;
-  html: string;
+  bodyHtml: string;
   title: string;
+  subtitle: string;
+  headerImgUrl: string;
   createdAt: string;
 }
 
