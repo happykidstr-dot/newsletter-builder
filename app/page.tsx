@@ -6,7 +6,7 @@ const UserButton = null as any;
 import dynamic from 'next/dynamic';
 import { TemplateGallery } from '@/components/TemplateGallery';
 import type { GalleryTemplate } from '@/lib/gallery-templates';
-import { escapeShareHtml, makeShareLinks, normalisePublicNewsletterUrl, readerShareBar, READER_SHARE_RUNTIME } from '@/lib/reader-social-share';
+import { escapeShareHtml, makeShareLinks, normalisePublicNewsletterUrl, readerShareBar, READER_SHARE_RUNTIME, safeReaderImageUrl, safeReaderLinkUrl } from '@/lib/reader-social-share';
 import { useAccessibility } from '@/hooks/useAccessibility';
 import { AccessibilityToolbar } from '@/components/AccessibilityToolbar';
 const BultenLocationMap = dynamic(() => import('@/components/BultenLocationMap'), { ssr: false, loading: () => <div style={{height:340,display:'flex',alignItems:'center',justifyContent:'center',color:'#94a3b8'}}>Harita yükleniyor...</div> });
@@ -808,14 +808,14 @@ export default function BultenReadPage() {
     translateBlocks(l);
   };
 
-  type SavedNL = { id:string; title:string; subtitle:string; design:Design; blocks:Block[]; logoUrl:string; headerImgUrl:string; showTOC:boolean; savedAt:string; };
+  type SavedNL = { id:string; title:string; subtitle:string; design:Design; blocks:Block[]; logoUrl:string; headerImgUrl:string; showTOC:boolean; savedAt:string; publicNewsletterUrl?:string; };
 
   const [showSavedModal, setShowSavedModal] = React.useState(false);
   const [savedList, setSavedList] = React.useState<SavedNL[]>([]);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
 
   const handleSave = async () => {
-    const entry: SavedNL = { id:uid(), title, subtitle, design, blocks, logoUrl, headerImgUrl, showTOC, savedAt:new Date().toISOString() };
+    const entry: SavedNL = { id:uid(), title, subtitle, design, blocks, logoUrl, headerImgUrl, showTOC, publicNewsletterUrl, savedAt:new Date().toISOString() };
     const next = [entry,...savedList].slice(0,20);
     setSavedList(next);
     setSaveSuccess(true); setTimeout(()=>setSaveSuccess(false),2000);
@@ -834,7 +834,7 @@ export default function BultenReadPage() {
   const handleLoad = (s:SavedNL) => {
     setTitle(s.title); setSubtitle(s.subtitle); setDesign(s.design);
     setBlocks(s.blocks); setLogoUrl(s.logoUrl||''); setHeaderImgUrl(s.headerImgUrl||'');
-    setShowTOC(s.showTOC); setSelectedId(null); setShowSavedModal(false);
+    setShowTOC(s.showTOC); setPublicNewsletterUrl(s.publicNewsletterUrl||''); setSelectedId(null); setShowSavedModal(false);
   };
 
   const handleDelete = async (id:string) => {
@@ -1261,7 +1261,21 @@ ${text}`;
   // HTML export
   const generateHTML = useCallback(()=>{
     const blockHtml = blocks.map(b=>{
-      const d=b.data; const ac=D.accentColor; const tc=D.textColor; const ff=D.font;
+      const d:Record<string,string> = Object.fromEntries(Object.entries(b.data).map(([k,raw])=>{
+        const value=String(raw??'');
+        if(k==='size') return [k,['h1','h2','h3'].includes(value)?value:'h2'];
+        if(k==='cols') return [k,String(Math.max(1,Math.min(4,Number(value)||2)))];
+        if(k==='style') return [k,['solid','dashed','dotted'].includes(value)?value:'solid'];
+        if(k==='align') return [k,['left','center','right'].includes(value)?value:'center'];
+        if(k==='avatar'||k.startsWith('url')){
+          const imageBlock=['photos','textphoto','photogrid','author'].includes(b.type);
+          if(imageBlock) return [k,escapeShareHtml(safeReaderImageUrl(value))];
+          if(b.type==='video') return [k,value];
+          return [k,escapeShareHtml(safeReaderLinkUrl(value))];
+        }
+        return [k,escapeShareHtml(value)];
+      }));
+      const ac=D.accentColor; const tc=D.textColor; const ff=D.font;
       if(b.type==='title'){const sz={h1:'28px',h2:'22px',h3:'18px'}[d.size||'h2'];return `<${d.size||'h2'} style="color:${ac};font-size:${sz};font-family:${ff};font-weight:800;margin:0 0 8px;">${d.text}</${d.size||'h2'}>`;}
       if(b.type==='paragraph') return `<p style="color:${tc};font-size:15px;line-height:1.75;font-family:${ff};margin:0 0 8px;white-space:pre-wrap;">${d.text}</p>`;
       if(b.type==='photos') {
@@ -1274,7 +1288,7 @@ ${text}`;
         return d.url?`<img src="${d.url}" alt="${d.caption||''}" style="width:100%;border-radius:8px;display:block;"/>`:`<div style="height:80px;background:#e2e8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-family:${ff};">🖼 Görsel ekleyin</div>`;
       }
 
-      if(b.type==='video'){const v=ytId(d.url||'');return v?`<div style="position:relative;padding-bottom:56.25%;height:0;"><iframe src="https://www.youtube.com/embed/${v}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe></div>`:``;}
+      if(b.type==='video'){const v=ytId(d.url||'');return v && /^[A-Za-z0-9_-]{11}$/.test(v)?`<div style="position:relative;padding-bottom:56.25%;height:0;"><iframe src="https://www.youtube.com/embed/${v}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe></div>`:``;}
       if(b.type==='event') return `<div style="border-left:4px solid ${ac};padding:8px 16px;font-family:${ff};"><b style="color:${ac};">${d.title}</b>${d.date?`<br/><span style="color:${tc};font-size:13px;">📅 ${d.date} ${d.time}</span>`:''}${d.location?`<br/><span style="color:${tc};font-size:13px;">📍 ${d.location}</span>`:''}</div>`;
       if(b.type==='separator') return `<hr style="border:none;border-top:2px ${d.style} ${ac};margin:8px 0;"/>`;
       if(b.type==='link') return `<a href="${d.url}" style="color:${ac};font-family:${ff};font-weight:600;">🔗 ${d.text}</a>`;
@@ -1297,8 +1311,9 @@ ${text}`;
       return '';
     }).map(h=>`<div style="padding:10px 0;">${h}</div>`).join('');
 
-    const toc = showTOC ? `<div style="background:${D.accentColor}11;border-radius:8px;padding:14px 18px;margin-bottom:20px;border:1px solid ${D.accentColor}33;font-family:${D.font};">${blocks.filter(b=>b.type==='title').map(b=>`<div style="color:${D.accentColor};font-size:13px;font-weight:600;margin-bottom:4px;">→ ${b.data.text}</div>`).join('')}</div>` : '';
-    const headerBgStyle = headerImgUrl ? `background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.45)), url(${headerImgUrl}) center/cover no-repeat;` : `background:${D.headerBg};`;
+    const toc = showTOC ? `<div style="background:${D.accentColor}11;border-radius:8px;padding:14px 18px;margin-bottom:20px;border:1px solid ${D.accentColor}33;font-family:${D.font};">${blocks.filter(b=>b.type==='title').map(b=>`<div style="color:${D.accentColor};font-size:13px;font-weight:600;margin-bottom:4px;">→ ${escapeShareHtml(b.data.text||'')}</div>`).join('')}</div>` : '';
+    const safeHeaderImage = safeReaderImageUrl(headerImgUrl).replace(/["'\\()]/g, s => encodeURIComponent(s));
+    const headerBgStyle = safeHeaderImage ? `background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.45)), url("${safeHeaderImage}") center/cover no-repeat;` : `background:${D.headerBg};`;
 
     const shareBarHtml = readerShareBar(title, publicNewsletterUrl);
     const published = normalisePublicNewsletterUrl(publicNewsletterUrl);
@@ -1308,7 +1323,7 @@ ${text}`;
     const ogImageUrl = normalisePublicNewsletterUrl(headerImgUrl);
     const ogImageMeta = ogImageUrl ? `<meta property="og:image" content="${escapeShareHtml(ogImageUrl)}">` : '';
 
-    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${cleanTitle}</title><meta name="description" content="${cleanSubtitle}"><meta property="og:title" content="${cleanTitle}"><meta property="og:description" content="${cleanSubtitle}"><meta property="og:type" content="article">${canonicalMeta}${ogImageMeta}<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn,#bulten-reader-share{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;"><button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${title}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${subtitle}</p></div><div id="bulten-reading-content" style="padding:32px 40px;">${toc}${blockHtml}</div>${shareBarHtml}<div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
+    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${cleanTitle}</title><meta name="description" content="${cleanSubtitle}"><meta property="og:title" content="${cleanTitle}"><meta property="og:description" content="${cleanSubtitle}"><meta property="og:type" content="article">${canonicalMeta}${ogImageMeta}<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn,#bulten-reader-share{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;"><button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${cleanTitle}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${cleanSubtitle}</p></div><div id="bulten-reading-content" style="padding:32px 40px;">${toc}${blockHtml}</div>${shareBarHtml}<div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
     <script>
       window.bultenIsSpeaking = false;
       window.bultenSpeak = function() {
