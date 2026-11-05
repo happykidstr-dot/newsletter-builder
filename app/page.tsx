@@ -6,6 +6,7 @@ const UserButton = null as any;
 import dynamic from 'next/dynamic';
 import { TemplateGallery } from '@/components/TemplateGallery';
 import { downloadNewsletterPdf, printNewsletter } from '@/lib/newsletter-pdf';
+import {prepareNewsletterForSharing} from '@/lib/publish-newsletter-media';
 import type { GalleryTemplate } from '@/lib/gallery-templates';
 import { escapeShareHtml, makeShareLinks, normalisePublicNewsletterUrl, readerShareBar, READER_SHARE_RUNTIME, safeReaderImageUrl, safeReaderLinkUrl } from '@/lib/reader-social-share';
 import { useAccessibility } from '@/hooks/useAccessibility';
@@ -910,6 +911,7 @@ export default function BultenReadPage() {
 
   const [showShareModal, setShowShareModal] = React.useState(false);
   const [shareBusy, setShareBusy] = React.useState(false);
+  const [shareProgress,setShareProgress] = React.useState('');
   const [shareError, setShareError] = React.useState('');
   const lastSharedSnapshot = React.useRef('');
   const [showAnalyticsModal, setShowAnalyticsModal] = React.useState(false);
@@ -1288,8 +1290,10 @@ ${text}`;
   const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if(!file) return;
-    const url = URL.createObjectURL(file);
-    setHeaderImgUrl(url);
+    const reader=new FileReader();
+    reader.onload=()=>setHeaderImgUrl(String(reader.result||''));
+    reader.onerror=()=>alert('Arka plan görseli okunamadı.');
+    reader.readAsDataURL(file);
   };
 
   const D = DESIGNS[design] || DESIGNS['modern'];
@@ -1491,9 +1495,14 @@ ${text}`;
       : 'Açık olan bültenin tamamı herkese açık bir web adresinde yayımlanacak. Bağlantıya sahip herkes okuyabilir ve paylaşabilir. Devam edilsin mi?';
     if(!window.confirm(confirmText))return;
     setShareBusy(true);setShareError('');
+    setShareProgress('Görseller hazırlanıyor…');
     try{
+      const prepared=await prepareNewsletterForSharing(generateHTML(),headerImgUrl,(done,total)=>{
+        setShareProgress(total>0?`Görseller yükleniyor: ${done}/${total}`:'Bülten hazırlanıyor…');
+      });
+      setShareProgress('Bülten yayınlanıyor…');
       const body={
-        title,subtitle,headerImgUrl,html:generateHTML(),
+        title,subtitle,headerImgUrl:prepared.headerImgUrl,html:prepared.html,
         ...(updating?{
           slug:publication!.slug,editToken:publication!.editToken,
           expectedRevision:publication!.revision,
@@ -1526,7 +1535,7 @@ ${text}`;
       const message=error instanceof Error?error.message:'Yayınlama başarısız.';
       setShareError(message);
       alert(message+' Mevcut bülten taslağı korunuyor.');
-    }finally{setShareBusy(false);}
+    }finally{setShareBusy(false);setShareProgress('');}
   };
 
   const handleExport = ()=>{
@@ -1603,6 +1612,8 @@ ${text}`;
               style={{background:previewMode==='mobile'?'#fff':'transparent',border:'none',borderRadius:6,padding:'6px 12px',fontSize:12,fontWeight:700,color:previewMode==='mobile'?'#0f172a':'#64748b',cursor:'pointer',boxShadow:previewMode==='mobile'?'0 1px 3px rgba(0,0,0,0.1)':'none',transition:'all .2s'}}>📱 Mobil</button>
           </div>
           
+          {shareBusy && <span role="status" aria-live="polite"
+            style={{fontSize:11,fontWeight:700,color:'#0369a1',maxWidth:190}}>{shareProgress}</span>}
           {/* Smore-style publication controls: Edit -> Publish/Update -> Share. */}
           <button type="button" onClick={()=>{
             document.querySelector<HTMLInputElement>('input[placeholder="Bülten başlığı..."]')?.focus();
