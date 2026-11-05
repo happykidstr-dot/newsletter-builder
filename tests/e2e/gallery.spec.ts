@@ -31,9 +31,9 @@ test('preview shows live text blocks and device switching', async ({page}) => {
   await page.getByTestId('template-gallery-card').first().click();
   const preview = page.getByTestId('template-gallery-preview');
   await expect(preview).toContainText('Birlikte Daha Güçlü Bir Avrupa');
-  await page.getByRole('button',{name:/Mobil/}).click();
+  await page.getByRole('group',{name:'Önizleme ekranı'}).getByRole('button',{name:/Mobil/}).click();
   await expect(preview.locator('[data-kind="magazine"]')).toHaveClass(/mobile/);
-  await page.getByRole('button',{name:/Masaüstü/}).click();
+  await page.getByRole('group',{name:'Önizleme ekranı'}).getByRole('button',{name:/Masaüstü/}).click();
   await expect(preview.locator('[data-kind="magazine"]')).not.toHaveClass(/mobile/);
 });
 
