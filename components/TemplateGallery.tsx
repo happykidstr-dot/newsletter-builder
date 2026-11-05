@@ -113,6 +113,16 @@ export function TemplateGallery({ open, onClose, onApplyDesign, onCreateFromTemp
     };
   }, [open]);
 
+  // Focus must remain inside the dialog when swapping the gallery and full-preview views.
+  useEffect(() => {
+    if (!open) { setSelected(null); return; }
+    const id = requestAnimationFrame(() => {
+      const target = selected ? '[data-gallery-back]' : '[data-gallery-close]';
+      dialogRef.current?.querySelector<HTMLButtonElement>(target)?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open, selected]);
+
   if (!open) return null;
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
@@ -183,7 +193,7 @@ export function TemplateGallery({ open, onClose, onApplyDesign, onCreateFromTemp
         </div>
       </> : <>
         <div className={styles.previewTop}>
-          <button type="button" className={styles.backButton} onClick={()=>setSelected(null)}>← Tüm şablonlar</button>
+          <button type="button" data-gallery-back className={styles.backButton} onClick={()=>setSelected(null)}>← Tüm şablonlar</button>
           <div className={styles.deviceControl} role="group" aria-label="Önizleme ekranı">
             <button type="button" aria-pressed={device==='desktop'} className={device==='desktop'?styles.deviceActive:''} onClick={()=>setDevice('desktop')}>▣ Masaüstü</button>
             <button type="button" aria-pressed={device==='mobile'} className={device==='mobile'?styles.deviceActive:''} onClick={()=>setDevice('mobile')}>▯ Mobil</button>
