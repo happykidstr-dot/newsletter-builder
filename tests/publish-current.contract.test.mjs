@@ -52,7 +52,15 @@ test('production store persists across deploys while previews cannot modify it',
 });
 test('API limits uploads and source origin and anonymous publishing frequency',()=>{
   assert.match(api,/MAX_BYTES/);
-  assert.match(api,/origin!==expected/);
+  assert.match(api,/allowedSiteOrigin\(origin\)/);
   assert.match(api,/checkPublishQuota/);
   assert.match(storage,/current\.count >= 12/);
+});
+
+test('Netlify public origins and preview domains are validated before publishing',()=>{
+  const origins=read('lib/publication-origin.ts');
+  assert.match(origins,/SITE_NAME/);
+  assert.match(origins,/PUBLISH_BUILD_PRIME_URL/);
+  assert.match(origins,/x-forwarded-host/);
+  assert.match(read('app/b/[slug]/route.ts'),/publicOriginForRequest\(req\)/);
 });
