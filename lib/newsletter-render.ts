@@ -9,7 +9,7 @@ export type NewsletterRenderOptions = {
   blocks:NewsletterRenderBlock[];D:NewsletterRenderDesign;title:string;subtitle:string;
   showTOC:boolean;headerImgUrl:string;logoUrl:string;lang:'tr'|'en';publicNewsletterUrl:string;
 };
-function videoId(url:string){const m=url.match(/(?:youtu\\.be\\/|youtube\\.com\\/(?:watch\\?v=|embed\\/))([^&?\\s]+)/);return m?m[1]:null;}
+function videoId(url:string){ const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^&?\s]+)/); return m?m[1]:null; }
 export function renderNewsletterHTML({blocks,D,title,subtitle,showTOC,headerImgUrl,logoUrl,lang,publicNewsletterUrl}:NewsletterRenderOptions):string {
     const blockHtml = blocks.map(b=>{
       const d:Record<string,string> = Object.fromEntries(Object.entries(b.data).map(([k,raw])=>{
