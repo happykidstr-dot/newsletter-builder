@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {requireSignedInUser,checkSameOrigin} from '@/lib/security/access';
 
 export async function POST(req: NextRequest) {
+  const identity=await requireSignedInUser();
+  if(identity.error)return identity.error;
+  const originError=checkSameOrigin(req);
+  if(originError)return originError;
+  if(Number(req.headers.get('content-length')||0)>8_000_000)
+    return NextResponse.json({error:'Dosya çok büyük (en fazla 8 MB).'},{status:413});
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -8,6 +15,7 @@ export async function POST(req: NextRequest) {
     if (!file) {
       return NextResponse.json({ error: 'Dosya bulunamadı.' }, { status: 400 });
     }
+    if(file.size>8_000_000)return NextResponse.json({error:'En fazla 8 MB dosya yüklenebilir.'},{status:413});
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const name = file.name.toLowerCase();
@@ -38,7 +46,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Desteklenmeyen dosya formatı. Lütfen TXT, MD, PDF veya DOCX yükleyin.' }, { status: 400 });
     }
 
-    return NextResponse.json({ text: text.trim() });
+    return NextResponse.json({ text: text.trim().slice(0,24_000) },{headers:{'Cache-Control':'no-store'}});
   } catch (error: any) {
     console.error('Parse file error:', error);
     return NextResponse.json({ error: error.message || 'Dosya işlenirken hata oluştu.' }, { status: 500 });
