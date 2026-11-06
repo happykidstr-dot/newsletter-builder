@@ -1564,6 +1564,27 @@ ${text}`;
     }finally{setShareBusy(false);setShareProgress('');}
   };
 
+  const handleUnpublish=async()=>{
+    if(!publication||shareBusy)return;
+    if(!window.confirm('Bu bültenin herkese açık okuyucu bağlantısı kapatılacak. Mevcut bağlantı artık çalışmayacak. Taslağınız bu tarayıcıda korunacak. Devam edilsin mi?'))return;
+    setShareBusy(true);setShareError('');setShareProgress('Yayın kaldırılıyor…');
+    try{
+      const res=await fetch('/api/unpublish',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({slug:publication.slug,editToken:publication.editToken}),
+      });
+      const result=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(result.error||'Yayından kaldırma başarısız.');
+      setPublication(null);setPublicNewsletterUrl('');lastSharedSnapshot.current='';
+      const draft={...savedEntry(null,''),publication:null,publicNewsletterUrl:'',publishedSnapshot:''};
+      persistSavedLocally(draft);
+      setShowShareModal(false);
+      alert('Yayın kaldırıldı. Düzenleme taslağınız kayıtlıdır. Daha önce ayrı yüklenmiş görseller için ayrıca veri silme talebi gerekebilir.');
+    }catch(error){
+      alert(error instanceof Error?error.message:'Yayından kaldırma servisi kullanılamıyor.');
+    }finally{setShareBusy(false);setShareProgress('');}
+  };
+
   const handleExport = ()=>{
     const html=generateHTML();
     const a=document.createElement('a');
@@ -1653,6 +1674,12 @@ ${text}`;
             style={{display:'flex',alignItems:'center',gap:6,background:'#0e7490',border:'1px solid #0e7490',color:'#fff',fontSize:13,fontWeight:800,cursor:shareBusy?'progress':'pointer',padding:'8px 14px',borderRadius:8,opacity:shareBusy?.7:1}}>
             {shareBusy?'⏳':publication?'↻':'🚀'} {shareBusy?'Yayımlanıyor…':publication?'Güncelle':'Yayınla'}
           </button>
+          {publication&&<button type="button" onClick={handleUnpublish} disabled={shareBusy}
+            title="Bu bültenin herkese açık bağlantısını kaldır (taslak korunur)"
+            aria-label="Bülteni yayından kaldır"
+            style={{display:'flex',alignItems:'center',gap:6,background:'#fff1f2',border:'1px solid #fecdd3',color:'#9f1239',fontSize:12,fontWeight:800,cursor:shareBusy?'wait':'pointer',padding:'8px 12px',borderRadius:8}}>
+            <span aria-hidden="true">⊘</span> Yayından Kaldır
+          </button>}
           {/* Share the currently open newsletter, publishing changes if needed. */}
           <button type="button" onClick={handleShareCurrent} disabled={shareBusy}
             title="Açık bülteni yayımla ve paylaş"
