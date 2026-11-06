@@ -9,22 +9,10 @@ async function check(){
   const homepage=await home.text();
   if(home.status!==200)return {ok:false,reason:'Homepage HTTP '+home.status};
   if(!homepage.includes('BÜLTEN') && !homepage.includes('READ'))return {ok:false,reason:'Homepage did not contain BÜLTEN READ branding'};
-  // Previous live versions also served /api/publish. Distinguish the NEW
-  // Edit/Publish/Update interface from the old deployment before reporting success.
-  if(!homepage.includes('Düzenle') || !homepage.includes('Yayınla')){
-    return {ok:false,reason:'Live editor still lacks Smore-style Düzenle / Yayınla controls'};
-  }
-  // Phase 2 acceptance marker: ensure production is no longer serving the
-  // pre-Phase-2 editor, which lacked a responsive mobile panel navigator.
-  if(!homepage.includes('bulten-mobile-nav') || !homepage.includes('Mobil editör panelleri')){
-    return {ok:false,reason:'Phase 2 mobile editor is not yet present in the live homepage'};
-  }
-  // Phase 3: the live site must expose genuine publication preview and
-  // progressive disclosure, not merely pass the old Phase 2 health check.
-  if(!homepage.includes('bulten-palette-mode')||
-     !homepage.includes('Yayın Önizleme')||
-     !homepage.includes('advanced-tools-toggle')){
-    return {ok:false,reason:'Phase 3 editor controls are missing from Netlify production'};
+  // The editor is now private: anonymous homepages intentionally lack
+  // Düzenle, Yayınla, mobile palette and HTML preview controls.
+  if(!homepage.includes('bulten-private-gate')){
+    return {ok:false,reason:'Private publisher editor gate is not deployed'};
   }
   // Supabase Auth rollout marker: before this migration the callback route
   // returned 404. This checks deploy presence without requiring real login.
@@ -42,9 +30,6 @@ async function check(){
     return {ok:false,reason:'Supabase Auth PKCE callback is not deployed yet ('+callback.status+')'};
   // Private editor is an enforced allowlisted workspace. Confirm deployment
   // before sending anonymous same-origin write probes to avoid the old version.
-  if(!homepage.includes('bulten-private-gate')){
-    return {ok:false,reason:'Private publisher editor gate is not yet deployed'};
-  }
   const access=await fetch(base+'/api/editor-access',{cache:'no-store',signal:AbortSignal.timeout(20000)});
   if(![401,403,503].includes(access.status))
     return {ok:false,reason:'Anonymous editor access was granted: HTTP '+access.status};
