@@ -2,8 +2,24 @@ import {test,expect} from '../helpers/authorized-editor-test';
 import {readFileSync} from 'node:fs';
 
 const VIDEO_ID='dQw4w9WgXcQ';
-const SAMPLE_JPEG=Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAASACADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCMAppAAAAAAD//2Q==','base64');
-if(SAMPLE_JPEG.length!==292)throw new Error('Sample JPEG fixture must be 292 bytes.');
+async function createTestJpeg(page:import('@playwright/test').Page):Promise<Buffer>{
+  // Produce a valid, deterministic JPEG in Chromium; avoid fragile copied
+  // base64 fixtures that can lose bytes during source editing.
+  const dataUrl=await page.evaluate(()=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=180;canvas.height=100;
+    const ctx=canvas.getContext('2d');
+    if(!ctx)throw new Error('Test canvas unavailable');
+    ctx.fillStyle='#164e63';ctx.fillRect(0,0,180,100);
+    ctx.fillStyle='#f8fafc';ctx.beginPath();
+    ctx.moveTo(75,25);ctx.lineTo(75,75);ctx.lineTo(116,50);ctx.closePath();ctx.fill();
+    return canvas.toDataURL('image/jpeg',0.82);
+  });
+  const sample=Buffer.from(dataUrl.split(',')[1],'base64');
+  if(sample.length<100||sample[0]!==0xff||sample[1]!==0xd8)
+    throw new Error('Invalid generated JPEG fixture.');
+  return sample;
+}
 
 async function addYoutubeVideo(page:import('@playwright/test').Page){
   await page.goto('/');
@@ -32,10 +48,11 @@ test('downloaded HTML shows a true YouTube still image, watch link and on-page p
 
 test('visual PDF fetches and embeds a video frame thumbnail instead of printing iframe URL',async({page})=>{
   test.setTimeout(60000);
+  const sampleJpeg=await createTestJpeg(page);
   let posterRequests=0;
   await page.route('**/api/video-thumbnail?id='+VIDEO_ID,async route=>{
     posterRequests++;
-    await route.fulfill({status:200,contentType:'image/jpeg',body:SAMPLE_JPEG});
+    await route.fulfill({status:200,contentType:'image/jpeg',body:sampleJpeg});
   });
   await addYoutubeVideo(page);
   const [download]=await Promise.all([
@@ -52,10 +69,11 @@ test('visual PDF fetches and embeds a video frame thumbnail instead of printing 
 
 test('text PDF also embeds a real video still and a readable watch link',async({page})=>{
   test.setTimeout(60000);
+  const sampleJpeg=await createTestJpeg(page);
   let posterRequests=0;
   await page.route('**/api/video-thumbnail?id='+VIDEO_ID,async route=>{
     posterRequests++;
-    await route.fulfill({status:200,contentType:'image/jpeg',body:SAMPLE_JPEG});
+    await route.fulfill({status:200,contentType:'image/jpeg',body:sampleJpeg});
   });
   await addYoutubeVideo(page);
   await page.getByTestId('advanced-tools-toggle').click();
