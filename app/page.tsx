@@ -7,7 +7,8 @@ import {AudioFileField} from '@/components/AudioFileField';
 import {safeReaderLinkUrl} from '@/lib/reader-social-share';
 import {EditorAccessGate} from '@/components/EditorAccessGate';
 import {publisherAuthorizationHeaders} from '@/lib/supabase/client';
-import {youtubeVideoId} from '@/lib/video-thumbnail';
+import {youtubeVideoId,youtubeWatchUrl} from '@/lib/video-thumbnail';
+import {safeNewsletterPreviewHtml} from '@/lib/safe-newsletter-preview';
 import { downloadNewsletterPdf, printNewsletter } from '@/lib/newsletter-pdf';
 import {downloadReadableNewsletterPdf} from '@/lib/newsletter-text-pdf';
 import {prepareNewsletterForSharing} from '@/lib/publish-newsletter-media';
@@ -639,6 +640,7 @@ function BultenReadEditor() {
   const [paletteMode,setPaletteMode] = useState<'basic'|'advanced'>('basic');
   const [advancedToolsOpen,setAdvancedToolsOpen] = useState(false);
   const [showPublicationPreview,setShowPublicationPreview] = useState(false);
+  const [activePreviewVideoId,setActivePreviewVideoId] = useState<string|null>(null);
   const [mobilePanel,setMobilePanel]=React.useState<'content'|'canvas'|'properties'>('canvas');
   const draggedBlockIdRef = React.useRef<string|null>(null);
 
@@ -1644,6 +1646,10 @@ ${text}`;
     }
   };
 
+  const previewVideos=blocks.filter(b=>b.type==='video').map(b=>({
+    id:youtubeVideoId(b.data.url||''),caption:(b.data.caption||'').trim(),
+  })).filter((v):v is {id:string;caption:string}=>v.id!==null);
+
   // ── Styles ──
   const panelHdr: React.CSSProperties = { fontSize:10,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',color:'#9ca3af',padding:'12px 14px 8px',borderBottom:'1px solid #e5e7eb',background:'#f9fafb' };
 
@@ -2588,17 +2594,58 @@ ${text}`;
       </div>
     )}
 
-    {/* Match the actual published HTML rather than approximating with the editing canvas. */}
-    {showPublicationPreview && <div className="bulten-pubpreview-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)setShowPublicationPreview(false);}}>
+    {/* Preview remains script-disabled; approved YouTube playback runs in a
+        separate trusted iframe, never inside user-authored newsletter HTML. */}
+    {showPublicationPreview && <div className="bulten-pubpreview-overlay" onMouseDown={e=>{
+      if(e.target===e.currentTarget){setActivePreviewVideoId(null);setShowPublicationPreview(false);}
+    }}>
       <section role="dialog" aria-modal="true" aria-label="Gerçek yayın önizlemesi"
-        className="bulten-pubpreview-dialog" onKeyDown={e=>{if(e.key==='Escape')setShowPublicationPreview(false);}}>
+        className="bulten-pubpreview-dialog" onKeyDown={e=>{
+          if(e.key==='Escape'){
+            if(activePreviewVideoId)setActivePreviewVideoId(null);
+            else setShowPublicationPreview(false);
+          }
+        }}>
         <header className="bulten-pubpreview-header">
           <div><strong>Yayın Önizleme</strong><p>HTML dışa aktarma ve yayımlanacak sayfanın gerçek görünümü.</p></div>
-          <button autoFocus type="button" className="bulten-action-button"
-            onClick={()=>setShowPublicationPreview(false)} aria-label="Yayın önizlemesini kapat">✕ Kapat</button>
+          <div className="bulten-pubpreview-actions">
+            {previewVideos.map((video,i)=><button
+              key={video.id+'-'+i} type="button"
+              className="bulten-action-button bulten-pubpreview-play"
+              data-testid="preview-play-video"
+              onClick={()=>setActivePreviewVideoId(video.id)}
+              aria-label={(video.caption||'Video '+(i+1))+' videosunu önizlemede oynat'}>
+              ▶ {video.caption||'Videoyu oynat'}
+            </button>)}
+            <button autoFocus type="button" className="bulten-action-button"
+              onClick={()=>{setActivePreviewVideoId(null);setShowPublicationPreview(false);}}
+              aria-label="Yayın önizlemesini kapat">✕ Kapat</button>
+          </div>
         </header>
-        <iframe sandbox="" referrerPolicy="no-referrer" title="Bültenin gerçek yayın HTML'i"
-          data-testid="editor-live-publication-preview" srcDoc={generateHTML()} />
+        <iframe sandbox="allow-popups allow-popups-to-escape-sandbox"
+          referrerPolicy="no-referrer" title="Bültenin gerçek yayın HTML'i"
+          data-testid="editor-live-publication-preview" srcDoc={safeNewsletterPreviewHtml(generateHTML())} />
+        {activePreviewVideoId&&<div className="bulten-pubpreview-video-screen">
+          <section className="bulten-pubpreview-video-dialog" role="dialog" aria-label="YouTube videosunu oynat">
+            <div className="bulten-pubpreview-video-header">
+              <strong>▶ Videoyu oynat</strong>
+              <button type="button" className="bulten-action-button"
+                onClick={()=>setActivePreviewVideoId(null)}
+                aria-label="Video oynatıcıyı kapat">✕ Kapat</button>
+            </div>
+            <div className="bulten-pubpreview-video-ratio">
+              <iframe data-testid="preview-youtube-player"
+                title="YouTube video oynatıcı"
+                loading="eager"
+                src={`https://www.youtube-nocookie.com/embed/${activePreviewVideoId}?autoplay=1`}
+                referrerPolicy="strict-origin-when-cross-origin"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen />
+            </div>
+            <a href={youtubeWatchUrl(activePreviewVideoId)} target="_blank" rel="noopener noreferrer"
+              className="bulten-pubpreview-youtube-link">Oynatılmazsa YouTube'da aç</a>
+          </section>
+        </div>}
       </section>
     </div>}
 
