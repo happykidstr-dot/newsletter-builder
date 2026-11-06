@@ -23,7 +23,7 @@ Supabase'in varsayılan SMTP sistemi yalnızca önceden yetkilendirilmiş ekip e
 
 1. https://console.cloud.google.com/ üzerinde ücretsiz bir Google Cloud projesi oluşturun/seçin.
 2. Google Auth Platform → Branding / Audience / Clients bölümünde uygulama adı **BÜLTEN READ**; erişim tipi genellikle **External**, yetki kapsamları sadece `openid`, `email`, `profile`.
-3. Web application tipinde OAuth Client ID oluşturun.
+3. Web application tipinde OAuth Client ID oluşturun. **Authorized JavaScript origins** alanına `https://bultenoku.netlify.app` yazın (localhost yalnızca geliştirme için).
 4. Google **Authorized redirect URI** olarak Supabase **Authentication → Providers → Google** sayfasındaki geri dönüş URL'sini kopyalayın. Formatı `https://PROJECT_REF.supabase.co/auth/v1/callback` olacaktır. Bu **Netlify** adresi değildir.
 5. Google OAuth Client ID ve Client Secret'ı **Supabase → Authentication → Providers → Google** alanlarına yalnızca orada girin. Google provider'ı etkinleştirin.
 6. Supabase → Authentication → URL Configuration üzerindeki Netlify callback adresini tekrar kontrol edin.
@@ -44,12 +44,12 @@ Project configuration → Environment variables alanına aşağıdaki **isimleri
 
 | Name | Secret? | Scope |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Hayır | Builds |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Hayır | Builds |
+| `NEXT_PUBLIC_SUPABASE_URL` | Hayır | Builds + Functions |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Hayır | Builds + Functions |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Evet** | Functions / server runtime |
 | `NEXT_PUBLIC_APP_URL` | Hayır | Builds / Functions |
 
-**NEXT_PUBLIC_APP_URL = `https://bultenoku.netlify.app`**.
+**NEXT_PUBLIC_APP_URL = `https://bultenoku.netlify.app`**. Anahtarları mümkünse Netlify'nin **All scopes** seçeneğinde tanımlayın; `SUPABASE_SERVICE_ROLE_KEY` hiçbir zaman `NEXT_PUBLIC_` ile başlamamalı ve browser bundle'ına sızmamalıdır.
 
 Aynı projede AI/e-posta toplu gönderimi açılacaksa, bağımsız `OPENAI_API_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL` ve `CAMPAIGN_SECURITY_SECRET` gerekir. Bu servisler ve ücret/limitleri Supabase giriş sistemiyle aynı değildir.
 
@@ -64,7 +64,7 @@ Eski `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` ve `CLERK_SECRET_KEY` değerlerini yeni
 - Çıkış sonrası `/api/db/newsletters`, `/api/db/mailing-lists`, `/api/db/analytics`, `/api/account/privacy`, AI ve e-posta API'leri 401 döndürmeli.
 - Supabase anahtarları ayarlanmamışsa kimliği doğrulayan API'ler 503 döndürmeli; anonim yazma veya gönderim **olmamalı**.
 - Verilerim → JSON dışa aktarma, güncel hesapta yalnızca kendisine ait tüm sayfalı kayıtları ve web görüntülenme kayıtlarını içermeli.
-- Verilerimi Sil → hem Supabase'deki hesap kapsamlı kayıtları hem tarayıcı IndexedDB'yi silmeli; **Public yayınlar** kendi edit token'larıyla ayrı yayından kaldırılmalı.
+- Verilerimi Sil → hem Supabase'deki hesap kapsamlı kayıtları hem tarayıcı IndexedDB'yi silmeli; **Public yayınlar** kendi edit token'larıyla ayrı yayından kaldırılmalı. Bu işlem Supabase Auth kullanıcı hesabını otomatik silmez; hesabın tamamen kapatılması ayrı bir yönetsel işlemdir.
 
 ## Geçiş notları
 
