@@ -145,8 +145,7 @@ function ConfiguredAccount(){
         style={{...buttonStyle,borderColor:'#fecdd3',background:'#fff1f2',color:'#9f1239'}}>Verilerimi Sil</button>
     </div> : <div style={{display:'flex',alignItems:'center',gap:5}}>
       <button type="button" aria-label="Hesaba giriş yap" onClick={()=>show('login')} style={buttonStyle}>Giriş Yap</button>
-      <button type="button" aria-label="Hesap oluştur" onClick={()=>show('signup')}
-        style={{...buttonStyle,borderColor:'#cbd5e1',background:'#fff',color:'#334155'}}>Kayıt Ol</button>
+      <span style={{fontSize:11,color:'#64748b',maxWidth:140}}>Yalnızca izinli yayıncılar</span>
     </div>}
     {privacyStatus&&<span role="status" style={{fontSize:11,color:'#334155',maxWidth:240}}>{privacyStatus}</span>}
     {open&&<div className="bulten-auth-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setOpen(false);}}>
@@ -185,7 +184,7 @@ function ConfiguredAccount(){
         </p>}
         <div className="bulten-auth-links">
           {mode!=='login'&&<button type="button" onClick={()=>show('login')}>Giriş Yap</button>}
-          {mode!=='signup'&&<button type="button" onClick={()=>show('signup')}>Kayıt Ol</button>}
+
           {mode!=='forgot'&&<button type="button" onClick={()=>show('forgot')}>Şifremi Unuttum</button>}
         </div>
       </section>
