@@ -24,7 +24,7 @@ const PRIVATE_TABLES:[OwnerTable,string][]=[
  * A personal data export must not silently omit older records.
  */
 async function fetchOwnerRecords(
-  db:ReturnType<typeof createClient>,table:OwnerTable,sortColumn:string,userId:string
+  db:NonNullable<ReturnType<typeof getDB>>,table:OwnerTable,sortColumn:string,userId:string
 ):Promise<Record<string,unknown>[]>{
   const pageSize=500,maxPages=200;
   const result:Record<string,unknown>[]=[];
@@ -54,7 +54,7 @@ export async function GET(){
  const identity=await requireSignedInUser();if(identity.error)return identity.error;
  try{
    const data=await readAll(identity.userId);
-   return NextResponse.json({exportedAt:new Date().toISOString(),userId:identity.userId,
+   return NextResponse.json({exportedAt:new Date().toISOString(),userId:identity.userId,account:{email:identity.email,verified:identity.emailVerified},
      ...data,note:'Herkese açık yayınlar ayrı düzenleme anahtarı ile yayından kaldırılır.'},{
      headers:{'Cache-Control':'no-store','Content-Disposition':'attachment; filename="bulten-read-kisisel-veriler.json"'}
    });
