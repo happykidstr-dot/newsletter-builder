@@ -30,11 +30,13 @@ test('preview shows live text blocks and device switching', async ({page}) => {
   await openGallery(page);
   await page.getByTestId('template-gallery-card').first().click();
   const preview = page.getByTestId('template-gallery-preview');
-  await expect(preview).toContainText('Birlikte Daha Güçlü Bir Avrupa');
+  const actual=preview.frameLocator('[data-testid="template-gallery-live-preview"]');
+  await expect(actual.locator('h1')).toHaveText('European Project Magazine');
+  await expect(actual.locator('#bulten-reading-content')).toContainText('Birlikte Daha Güçlü Bir Avrupa');
   await page.getByRole('group',{name:'Önizleme ekranı'}).getByRole('button',{name:/Mobil/}).click();
-  await expect(preview.locator('[data-kind="magazine"]')).toHaveClass(/mobile/);
+  await expect(preview.getByTestId('template-gallery-live-preview')).toHaveClass(/publicationIframeMobile/);
   await page.getByRole('group',{name:'Önizleme ekranı'}).getByRole('button',{name:/Masaüstü/}).click();
-  await expect(preview.locator('[data-kind="magazine"]')).not.toHaveClass(/mobile/);
+  await expect(preview.getByTestId('template-gallery-live-preview')).not.toHaveClass(/publicationIframeMobile/);
 });
 
 test('applying a design preserves existing title and blocks', async ({page}) => {
