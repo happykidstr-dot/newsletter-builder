@@ -32,11 +32,20 @@ CREATE TABLE IF NOT EXISTS campaign_analytics (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Permanent e-mail suppression after an unsubscribe request.
+CREATE TABLE IF NOT EXISTS email_suppressions (
+  user_id TEXT NOT NULL,
+  email_hash TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  PRIMARY KEY(user_id,email_hash)
+);
+
 -- 4. RLS: no client access. Clerk identity is checked by Next.js API routes
 -- using a server-only Supabase service-role key.
 ALTER TABLE newsletters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mailing_lists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaign_analytics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_suppressions ENABLE ROW LEVEL SECURITY;
 
 -- No public policies. The service-role API accesses only records where
 -- user_id equals the verified Clerk session ID.
