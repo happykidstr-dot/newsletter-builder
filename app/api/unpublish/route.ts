@@ -2,10 +2,12 @@ import {NextRequest,NextResponse} from 'next/server';
 import {publicationStore,type PublishedNewsletter} from '@/lib/newsletter-publication-store';
 import {matchesEditToken,validPublicationSlug} from '@/lib/publication-edit-credentials';
 import {allowedSiteOrigin,publicOriginForRequest} from '@/lib/publication-origin';
+import {requireAuthorizedPublisher} from '@/lib/security/access';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export async function POST(req:NextRequest){
+  const identity=await requireAuthorizedPublisher();if(identity.error)return identity.error;
   const origin=req.headers.get('origin')||'';
   if(!allowedSiteOrigin(origin))return NextResponse.json({error:'Yayından kaldırma yalnızca editörden yapılabilir.'},{status:403});
   try{
@@ -20,6 +22,8 @@ export async function POST(req:NextRequest){
     const store=publicationStore();
     const record=await store.get(body.slug,{type:'json'}) as PublishedNewsletter|null;
     if(!record)return NextResponse.json({error:'Bülten bulunamadı.'},{status:404});
+    if(record.ownerUserId&&record.ownerUserId!==identity.userId)
+      return NextResponse.json({error:'Bu yayın başka bir hesaba ait.'},{status:403});
     if(!matchesEditToken(body.editToken,record.editTokenHash))
       return NextResponse.json({error:'Düzenleme yetkiniz yok.'},{status:403});
     await store.delete(body.slug);
