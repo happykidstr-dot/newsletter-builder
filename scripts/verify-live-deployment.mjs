@@ -19,6 +19,13 @@ async function check(){
   if(!homepage.includes('bulten-mobile-nav') || !homepage.includes('Mobil editör panelleri')){
     return {ok:false,reason:'Phase 2 mobile editor is not yet present in the live homepage'};
   }
+  // Phase 3: the live site must expose genuine publication preview and
+  // progressive disclosure, not merely pass the old Phase 2 health check.
+  if(!homepage.includes('bulten-palette-mode')||
+     !homepage.includes('Yayın Önizleme')||
+     !homepage.includes('advanced-tools-toggle')){
+    return {ok:false,reason:'Phase 3 editor controls are missing from Netlify production'};
+  }
   // A live Netlify publication endpoint denies cross-site POST with 403.
   // Legacy versions responded 404 or redirected, so this tests new deployment.
   const publish=await fetch(base+'/api/publish',{
