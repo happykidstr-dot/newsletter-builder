@@ -1,16 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 
-// Conditionally import Clerk only if keys are available
-let ClerkProvider: any = null;
-try {
-  if (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
-    ClerkProvider = require('@clerk/nextjs').ClerkProvider;
-  }
-} catch {}
-
 export const metadata: Metadata = {
-  title: 'Newsletter Builder | Project Factory',
+  title: 'BÜLTEN READ | Project Factory',
   description: 'Profesyonel e-bültenler oluşturun — Sürükle & Bırak, AI içerik üretimi ve erişilebilir bülten tasarımı',
   keywords: 'newsletter, bülten, e-bülten, builder, editor, AI, erişilebilirlik',
 };
@@ -20,7 +12,7 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const content = (
+  return (
     <html lang="tr">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -35,11 +27,4 @@ export default function RootLayout({
       </body>
     </html>
   );
-
-  // Wrap with Clerk only if configured
-  if (ClerkProvider) {
-    return <ClerkProvider>{content}</ClerkProvider>;
-  }
-
-  return content;
 }
