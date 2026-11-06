@@ -154,3 +154,12 @@
 @media(max-width:860px){.galleryGrid{grid-template-columns:repeat(2,minmax(0,1fr));}.previewLayout{grid-template-columns:1fr;overflow-y:auto;}.previewStage{min-height:460px;max-height:58vh;}.previewDetails{border-left:0;border-top:1px solid #e9edf0;}.filters{flex:1;}.toolbar{flex-wrap:wrap;}.searchBox{width:100%;max-width:none;}}
 @media(max-width:570px){.backdrop{padding:0;}.modal{width:100%;height:100dvh;border-radius:0;max-height:none;}.modalHeader{padding:18px 16px 14px;}.headerText h2{font-size:24px;}.headerText p{font-size:12px;}.toolbar{padding:11px 14px;gap:8px;}.filters{width:100%;gap:5px;}.filter,.filterActive{padding:9px 11px;font-size:11px;}.galleryScroll{padding:14px 13px 24px;}.galleryGrid{gap:10px;}.cardCanvas{height:240px;min-height:240px;padding:9px 8px 0;}.cardFooter{padding:11px 10px 13px;min-height:120px;}.cardTitle{font-size:14px;}.cardFooter p{font-size:11px;}.previewTop{padding:8px 14px;}.previewStage{padding:22px 12px;}.previewDetails{padding:20px 18px;}.fullDocument{width:100%;}.fullDocument .hero{padding:20px 19px;}.fullDocument .heroCopy h3{font-size:26px;}.fullDocument .documentBody{padding:23px 19px;}.fullDocument .textPhoto{grid-template-columns:1fr;}.fullDocument .textPhoto img{order:0;}}
 @media(prefers-reduced-motion:reduce){.card{transition:none;}.card:hover{transform:none;}}
+
+
+/* The selected preview is the *same* HTML as a published/downloaded page,
+   inside a sandboxed iframe. The compact cards remain design thumbnails. */
+.publicationIframe{display:block;width:min(700px,100%);min-width:0;height:680px;
+ flex:0 0 auto;background:#fff;border:1px solid #d5dee6;border-radius:5px;
+ box-shadow:0 14px 40px rgba(20,37,54,.17);}
+.publicationIframeMobile{width:min(360px,100%);height:670px;}
+@media(max-width:570px){.publicationIframe{height:650px;}.publicationIframeMobile{width:min(350px,100%);}}

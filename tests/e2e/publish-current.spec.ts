@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-test('Paylaş publishes the current unsaved newsletter and opens links to the resulting reader URL',async({page})=>{
+test('Yayınla publishes and Paylaş only opens links to the resulting reader URL',async({page})=>{
   await page.goto('/');
   const title=page.getByPlaceholder('Bülten başlığı...');
   await title.fill('Şu Anda Açık Olan Bülten');
@@ -12,7 +12,7 @@ test('Paylaş publishes the current unsaved newsletter and opens links to the re
     })});
   });
   page.once('dialog',dialog=>dialog.accept());
-  await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
+  await page.getByRole('button',{name:'Bülteni yayınla'}).click();
   const dialog=page.getByRole('dialog',{name:'Bu Bülteni Paylaş'});
   await expect(dialog).toBeVisible();
   expect(requests).toBe(1);
@@ -32,7 +32,7 @@ test('cancelled public publication never sends a publish request',async({page})=
   let requests=0;
   await page.route('**/api/publish',route=>{requests++;return route.abort();});
   page.once('dialog',dialog=>dialog.dismiss());
-  await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
+  await page.getByRole('button',{name:'Bülteni yayınla'}).click();
   expect(requests).toBe(0);
   await expect(page.getByRole('dialog',{name:'Bu Bülteni Paylaş'})).toHaveCount(0);
 });
@@ -43,7 +43,7 @@ test('already published unchanged newsletter reopens share links without republi
   await page.route('**/api/publish',async route=>{requests++;await route.fulfill({status:201,contentType:'application/json',
     body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM',editToken:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',revision:1})});});
   page.once('dialog',dialog=>dialog.accept());
-  await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
+  await page.getByRole('button',{name:'Bülteni yayınla'}).click();
   await expect(page.getByRole('dialog',{name:'Bu Bülteni Paylaş'})).toBeVisible();
   await page.getByRole('button',{name:'Paylaşım penceresini kapat'}).click();
   await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
@@ -64,7 +64,7 @@ test('edited newsletter updates the SAME public URL with its private edit token'
     });
   });
   page.on('dialog',dialog=>dialog.accept());
-  await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
+  await page.getByRole('button',{name:'Bülteni yayınla'}).click();
   await page.getByRole('button',{name:'Paylaşım penceresini kapat'}).click();
   await title.fill('Değiştirilmiş Bülten');
   await page.getByRole('button',{name:'Yayını güncelle'}).click();
@@ -83,6 +83,6 @@ test('server publication failure shows an error but does not claim a public URL 
   await page.route('**/api/publish',route=>route.fulfill({status:503,contentType:'application/json',
     body:JSON.stringify({error:'Yayınlama depolaması kullanılamıyor.'})}));
   page.on('dialog',dialog=>dialog.accept());
-  await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
+  await page.getByRole('button',{name:'Bülteni yayınla'}).click();
   await expect(page.getByRole('dialog',{name:'Bu Bülteni Paylaş'})).toHaveCount(0);
 });

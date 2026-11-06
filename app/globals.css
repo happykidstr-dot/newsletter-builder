@@ -151,3 +151,35 @@ body {
   .bulten-editor-layout textarea,
   .bulten-editor-layout select { max-width: 100%; }
 }
+
+
+/* Phase 3: progressive disclosure without hiding core publication controls. */
+.bulten-action-button{display:inline-flex;align-items:center;gap:6px;border:1px solid #cbd5e1;
+ background:#fff;color:#334155;font:700 13px Inter,system-ui,sans-serif;
+ padding:8px 12px;border-radius:8px;cursor:pointer;min-height:38px;}
+.bulten-action-button:hover{background:#f1f5f9;}
+.bulten-action-button:focus-visible,.bulten-palette-mode button:focus-visible{outline:3px solid #0d9488;outline-offset:2px;}
+.bulten-action-button:disabled{opacity:.55;cursor:progress;}
+.bulten-advanced-tools{display:flex;flex-wrap:wrap;gap:7px;align-items:center;
+ padding:7px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;}
+.bulten-palette-mode{display:flex;padding:8px;gap:6px;border-bottom:1px solid #e2e8f0;background:#f8fafc;}
+.bulten-palette-mode button{border:1px solid #cbd5e1;border-radius:8px;background:#fff;
+ color:#475569;font-size:12px;font-weight:750;cursor:pointer;flex:1;padding:9px 8px;min-height:36px;}
+.bulten-palette-mode button[aria-pressed="true"]{border-color:#0d9488;background:#ccfbf1;color:#115e59;}
+@media(max-width:560px){
+ .bulten-advanced-tools{width:100%;}
+ .bulten-action-button{min-height:40px;}
+}
+
+.bulten-pubpreview-overlay{position:fixed;inset:0;z-index:12500;display:grid;place-items:center;
+ background:rgba(15,23,42,.78);padding:16px;}
+.bulten-pubpreview-dialog{display:flex;flex-direction:column;gap:0;background:#f1f5f9;
+ width:min(790px,100%);height:min(900px,calc(100dvh - 32px));border-radius:16px;overflow:hidden;}
+.bulten-pubpreview-header{padding:14px 18px;display:flex;justify-content:space-between;
+ align-items:center;gap:12px;background:#fff;border-bottom:1px solid #cbd5e1;color:#183047;}
+.bulten-pubpreview-header strong{font-size:16px;}
+.bulten-pubpreview-header p{font-size:12px;color:#475569;margin:5px 0 0;}
+.bulten-pubpreview-dialog iframe{width:100%;height:100%;min-height:0;border:0;background:#fff;}
+@media(max-width:560px){.bulten-pubpreview-overlay{padding:0;}
+ .bulten-pubpreview-dialog{height:100dvh;border-radius:0;width:100%;}
+ .bulten-pubpreview-header{padding:12px;}}
