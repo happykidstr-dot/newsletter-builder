@@ -598,6 +598,7 @@ export default function BultenReadPage() {
   const [previewMode,   setPreviewMode]   = useState<'desktop'|'mobile'>('desktop');
   const [paletteMode,setPaletteMode] = useState<'basic'|'advanced'>('basic');
   const [advancedToolsOpen,setAdvancedToolsOpen] = useState(false);
+  const [showPublicationPreview,setShowPublicationPreview] = useState(false);
   const [mobilePanel,setMobilePanel]=React.useState<'content'|'canvas'|'properties'>('canvas');
   const draggedBlockIdRef = React.useRef<string|null>(null);
 
@@ -1676,6 +1677,8 @@ ${text}`;
           </button>
           <button type="button" onClick={()=>setShowTemplatesModal(true)}
             className="bulten-action-button" aria-label="Şablonlar">🎨 Şablonlar</button>
+          <button type="button" onClick={()=>setShowPublicationPreview(true)}
+            className="bulten-action-button" aria-label="Yayın önizlemesi">👁 Yayın Önizleme</button>
           <button type="button" onClick={()=>setAdvancedToolsOpen(v=>!v)}
             aria-controls="bulten-advanced-tools" aria-expanded={advancedToolsOpen}
             className="bulten-action-button" data-testid="advanced-tools-toggle">
@@ -2532,6 +2535,20 @@ ${text}`;
         </div>
       </div>
     )}
+
+    {/* Match the actual published HTML rather than approximating with the editing canvas. */}
+    {showPublicationPreview && <div className="bulten-pubpreview-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)setShowPublicationPreview(false);}}>
+      <section role="dialog" aria-modal="true" aria-label="Gerçek yayın önizlemesi"
+        className="bulten-pubpreview-dialog" onKeyDown={e=>{if(e.key==='Escape')setShowPublicationPreview(false);}}>
+        <header className="bulten-pubpreview-header">
+          <div><strong>Yayın Önizleme</strong><p>HTML dışa aktarma ve yayımlanacak sayfanın gerçek görünümü.</p></div>
+          <button autoFocus type="button" className="bulten-action-button"
+            onClick={()=>setShowPublicationPreview(false)} aria-label="Yayın önizlemesini kapat">✕ Kapat</button>
+        </header>
+        <iframe sandbox="" referrerPolicy="no-referrer" title="Bültenin gerçek yayın HTML'i"
+          data-testid="editor-live-publication-preview" srcDoc={generateHTML()} />
+      </section>
+    </div>}
 
     {/* Curated, full-page newsletter gallery. Keep existing content unless user explicitly replaces it. */}
     <TemplateGallery
