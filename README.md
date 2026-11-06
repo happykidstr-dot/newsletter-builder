@@ -3,17 +3,25 @@
 Profesyonel e-bültenler oluşturmak için bağımsız web uygulaması.  
 **Project Factory AI** platformunun Bülten READ alt projesinden ayrıştırılmıştır.
 
-## 🔐 Özel Yayıncı Erişimi
+## 🔓 Şifresiz yerel bülten hazırlama (varsayılan)
 
-BÜLTEN READ bülten editörünü yalnızca e-postası Supabase Auth tarafından doğrulanmış
-`happykidstr@gmail.com` ve `projefabrikasitr@gmail.com` hesapları kullanabilir.
-Bülten hazırlama, kaydetme, yayımlama, yayından kaldırma, görsel yükleme ve
-özel yönetim API'leri **sunucu tarafında** denetlenir. Diğer kullanıcılar
-sadece yayımlanmış bültenleri kendi `/b/...` bağlantılarından okuyabilir.
+Canlı **BÜLTEN READ** ana sayfası şimdi doğrudan editörü açar; Supabase,
+şifre, hesap oluşturma veya giriş ekranı gerekmez. Kullanıcılar şablon
+seçebilir, bülten hazırlayabilir, kendi cihazlarında **Kaydet / Aç / Yeni**
+kullanabilir ve **HTML / PDF** dosyalarını indirebilir.
 
-Supabase veya Netlify anahtarları henüz yapılandırılmamışsa editör
-güvenlik için kapalı kalır. Kurulum ve erişim kabul testleri:
-[İki yayıncı kurulum kılavuzu](docs/PRIVATE_PUBLISHERS.md).
+**Güvenlik sınırı:** Şifresiz editör bağlantısını açan herkes yalnızca
+kendi cihazında bülten taslağı oluşturabilir; başka bir kullanıcının yerel
+taslaklarına erişemez. **Sunucuda yayınlama, görsel/ses yükleme, AI, liste
+yönetimi ve toplu e-posta** işlemleri hâlâ Supabase ile doğrulanmış
+`happykidstr@gmail.com` veya `projefabrikasitr@gmail.com` hesaplarına
+özel olup Supabase henüz kurulmadıysa kullanılamaz. Şifre olmadan
+editörü sadece iki kişinin açabilmesini garanti etmek mümkün değildir.
+
+İleride editörün giriş ekranını zorunlu kılmak için Netlify build ortamına
+`NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN=true` girin ve yeniden deploy edin.
+Sonra Supabase Auth ve Google girişi kurulmuş olmalıdır. Daha ayrıntılı
+bilgi: [Özel Yayıncılar](docs/PRIVATE_PUBLISHERS.md).
 
 ## ✨ Özellikler
 

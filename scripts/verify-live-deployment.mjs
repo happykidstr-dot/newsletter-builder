@@ -22,10 +22,12 @@ async function check(){
   if(target.origin!==base||target.pathname!=='/')
     return {ok:false,reason:'Legacy index.html redirects to an unexpected destination'};
 
-  // The editor is now private: anonymous homepages intentionally lack
-  // Düzenle, Yayınla, mobile palette and HTML preview controls.
-  if(!homepage.includes('bulten-private-gate')){
-    return {ok:false,reason:'Private publisher editor gate is not deployed'};
+  // Default local editor is passwordless and must be visible even when
+  // Supabase Auth has not yet been configured. Cloud operations remain locked.
+  if(!homepage.includes('bulten-editor-layout')||
+     !homepage.includes('Şifresiz')||
+     homepage.includes('bulten-private-gate')){
+    return {ok:false,reason:'Passwordless local editor is not deployed'};
   }
   // Supabase Auth rollout marker: before this migration the callback route
   // returned 404. This checks deploy presence without requiring real login.

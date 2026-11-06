@@ -3,22 +3,26 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 
-test('only the two explicitly approved, verified mailboxes can edit',()=>{
+test('only the two explicitly approved, verified mailboxes can use protected cloud publisher APIs',()=>{
   const allowed=read('lib/security/publisher-allowlist.ts');
   assert.deepEqual([...allowed.matchAll(/'[a-z0-9._%+-]+@[a-z0-9.-]+'+/g)].map(m=>m[0].replaceAll("'","")).sort(),
     ['happykidstr@gmail.com','projefabrikasitr@gmail.com']);
   assert.match(allowed,/verified===true/);
   assert.match(allowed,/trim\(\)\.toLowerCase\(\)/);
 });
-test('the editor is never mounted until server authorization grants access',()=>{
+test('default editor is passwordless, while optional private mode retains its access gate',()=>{
   const page=read('app/page.tsx');
   const gate=read('components/EditorAccessGate.tsx');
   const access=read('app/api/editor-access/route.ts');
+  const account=read('components/AccountAction.tsx');
+  assert.match(page,/NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN==='true'/);
+  assert.match(page,/return <BultenReadEditor\/>/);
   assert.match(page,/<EditorAccessGate><BultenReadEditor\/><\/EditorAccessGate>/);
+  assert.match(page,/Bülten bu cihazda kaydedildi/);
+  assert.match(account,/NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN!=='true'/);
   assert.match(gate,/status==='allowed'/);
   assert.match(gate,/fetch\('\/api\/editor-access'/);
   assert.match(access,/requireAuthorizedPublisher\(\)/);
-  assert.match(gate,/Bu hesap için bülten hazırlama veya yayımlama yetkisi verilmemiştir/);
 });
 test('all billable and owner-only API routes require the publisher allowlist',()=>{
   for(const path of [

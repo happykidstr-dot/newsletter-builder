@@ -921,6 +921,10 @@ function BultenReadEditor() {
     const entry=savedEntry();
     if(!await persistSavedLocally(entry))return false;
     setSaveSuccess(true);window.setTimeout(()=>setSaveSuccess(false),2200);
+    if(process.env.NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN!=='true'){
+      setCloudSaveStatus('Bülten bu cihazda kaydedildi. HTML veya PDF yedeğini de indirebilirsiniz.');
+      return true;
+    }
     // The public publication edit token stays on this device, never in Supabase.
     const {publication:secret,publishedSnapshot,...cloudRecord}=entry;
     const payload=JSON.stringify(cloudRecord);
@@ -1780,7 +1784,11 @@ ${text}`;
 
           <div style={{width:1,height:24,background:'#e2e8f0',margin:'0 4px'}}/>
           
-          {/* Authenticated account and real sign-in controls, never a fake button. */}
+          {process.env.NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN!=='true' &&
+            <span title="Şifresiz: yalnızca bu tarayıcıda kaydedilen taslaklar. Yayımlama ve sunucu yüklemeleri için yetkili hesap gerekir."
+              style={{fontSize:11,color:'#475569',padding:'5px 9px',border:'1px solid #cbd5e1',borderRadius:7,whiteSpace:'nowrap'}}>
+              🔓 Şifresiz · Yerel düzenleme
+            </span>}
           <AccountAction/>
         </div>
       </div>
@@ -2702,8 +2710,14 @@ ${text}`;
   );
 }
 
-// Public HTML readers are separate; / is an editorial workspace that requires
-// the server to approve the current account before editor hooks are mounted.
+// Passwordless local mode is the default: everyone can create, edit, save
+// locally and export HTML/PDF without Supabase setup or a login dialog.
+// To make the editor private later, opt in explicitly via the Netlify build
+// environment variable NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN=true and redeploy.
+// All remote write APIs remain protected independently on the server.
 export default function BultenReadPage(){
-  return <EditorAccessGate><BultenReadEditor/></EditorAccessGate>;
+  if(process.env.NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN==='true'){
+    return <EditorAccessGate><BultenReadEditor/></EditorAccessGate>;
+  }
+  return <BultenReadEditor/>;
 }

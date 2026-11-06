@@ -193,6 +193,10 @@ function ConfiguredAccount(){
 }
 
 export function AccountAction(){
+  // Do not display a login warning in the default passwordless editor.
+  // A password/account UI becomes relevant only when the owner enables the
+  // explicit private-mode setting later.
+  if(process.env.NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN!=='true')return null;
   if(!browserAuthConfigured())return <span
     role="status" title="Supabase URL ve publishable key Netlify ortam değişkenlerine eklenmeli."
     style={{fontSize:11,color:'#64748b',padding:'6px 8px',border:'1px dashed #cbd5e1',borderRadius:7}}>

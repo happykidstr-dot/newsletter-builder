@@ -23,6 +23,18 @@ async function ready(){
 }
 
 await ready();
+const editableHome=await fetch(BASE+'/',{
+  headers:{'User-Agent':'Mozilla/5.0 (Linux; Android 16) Chrome/130.0 Mobile'},
+  signal:AbortSignal.timeout(20000),
+});
+const editorMarkup=await editableHome.text();
+assert.equal(editableHome.status,200,'Passwordless newsletter editor homepage returned an error.');
+assert.ok(editorMarkup.includes('bulten-editor-layout'),
+  'Local editor is not directly rendered to guest visitors.');
+assert.ok(!editorMarkup.includes('bulten-private-gate'),
+  'Old Supabase gate still blocks the passwordless editor.');
+console.log('PASS: local newsletter editor is available without signup or Supabase keys.');
+
 
 // Netlify Next.js has / as the homepage. Legacy /index.html bookmarks must
 // redirect, rather than showing the stock Next.js 404 seen on mobile.
