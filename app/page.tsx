@@ -5,6 +5,7 @@ import { TemplateGallery } from '@/components/TemplateGallery';
 import {AccountAction} from '@/components/AccountAction';
 import { downloadNewsletterPdf, printNewsletter } from '@/lib/newsletter-pdf';
 import {prepareNewsletterForSharing} from '@/lib/publish-newsletter-media';
+import {saveLocalDraft,loadLocalDraft,saveLocalNewsletter,listLocalNewsletters} from '@/lib/local-newsletter-db';
 import type { GalleryTemplate } from '@/lib/gallery-templates';
 import { escapeShareHtml, makeShareLinks, normalisePublicNewsletterUrl, readerShareBar, READER_SHARE_RUNTIME, safeReaderImageUrl, safeReaderLinkUrl } from '@/lib/reader-social-share';
 import { useAccessibility } from '@/hooks/useAccessibility';
@@ -98,7 +99,7 @@ const PALETTE: { type: BT; icon: string; label: string; def: Record<string,strin
   { type:'textphoto',  icon:'🗒',  label:'Text+Photo',  def:{ text:'Metin buraya...', url:'', imagePos:'right' } },
   { type:'photogrid',  icon:'🗳',  label:'Photo Grid',  def:{ cols:'2', url1:'', cap1:'', url2:'', cap2:'', url3:'' , cap3:'' } },
   { type:'author',     icon:'👤',  label:'Author',      def:{ name:'Ad Soyad', title:'Moderator', avatar:'', bio:'', facebook:'', twitter:'', instagram:'', youtube:'' } },
-  { type:'form',       icon:'📋',  label:'Form',        def:{ title:'Geri Bildirim', field1:'Ad Soyad', field2:'E-posta', field3:'Mesaj', submit:'Gönder' } },
+  { type:'form',       icon:'📋',  label:'Form',        def:{ title:'Geri Bildirim', field1:'Ad Soyad', field2:'E-posta', field3:'Mesaj', submit:'Forma Git', actionUrl:'' } },
   { type:'googleform', icon:'📝',  label:'Google Form', def:{ url:'', title:'Form', height:'520' } },
   { type:'video',      icon:'►',   label:'Video',       def:{ url:'', caption:'' } },
   { type:'event',      icon:'📅',  label:'Event',       def:{ title:'Etkinlik', date:'', time:'', location:'' } },
@@ -553,7 +554,10 @@ function BlockEditor({ block, onChange, onAI, aiLoading }: {
       {['field1','field2','field3'].map((k,i)=>(
         <div key={k} style={row}><label style={lbl}>Alan {i+1}</label><input style={inp} value={block.data[k]||''} onChange={e=>set(k,e.target.value)} placeholder={`Alan ${i+1} etiketi...`}/></div>
       ))}
-      <div style={row}><label style={lbl}>Buton Metni</label><input style={inp} value={block.data.submit||''} onChange={e=>set('submit',e.target.value)} placeholder="Gönder"/></div>
+      <div style={row}><label style={lbl}>Harici Form Bağlantısı (HTTPS)</label><input style={inp} value={block.data.actionUrl||''} onChange={e=>set('actionUrl',e.target.value)} placeholder="https://..."/>
+        <p style={{fontSize:11,color:'#64748b'}}>Yanıtlar seçtiğiniz harici form sağlayıcısında toplanır. BÜLTEN READ bu bloktan kişisel veri toplamaz. Bağlantı yoksa yanıt alınmaz.</p>
+      </div>
+      <div style={row}><label style={lbl}>Bağlantı Butonu</label><input style={inp} value={block.data.submit||''} onChange={e=>set('submit',e.target.value)} placeholder="Forma Git"/></div>
     </div>;
     case 'googleform': return <div>
       <div style={row}><label style={lbl}>Google Form URL</label>
@@ -589,14 +593,15 @@ export default function BultenReadPage() {
   const [draftReady, setDraftReady] = useState(false);
   const SAVED_KEY = 'bulten_saved_newsletters_v2';
   const [previewMode,   setPreviewMode]   = useState<'desktop'|'mobile'>('desktop');
+  const [mobilePanel,setMobilePanel]=React.useState<'content'|'canvas'|'properties'>('canvas');
   const draggedBlockIdRef = React.useRef<string|null>(null);
 
   const [blocks,        _setBlocks]       = useState<Block[]>([
-    { id:uid(), type:'title',     data:{ text:'Use titles for easy scanning', size:'h2'} },
-    { id:uid(), type:'paragraph', data:{ text:'You can use a paragraph block to write a welcome message, explain assignments, or share an inspiration for the week.\n\nThe more your readers know about what\'s happening, the better they can support your goals.' } },
-    { id:uid(), type:'photos',    data:{ url:'', caption:'Add a photo to personalize your newsletter!' } },
+    { id:uid(), type:'title',     data:{ text:'Bültenimize Hoş Geldiniz', size:'h2'} },
+    { id:uid(), type:'paragraph', data:{ text:'Bu alana haberinizi, proje gelişmelerini veya duyurunuzu yazabilirsiniz. Okurlarınız için açık, kısa ve erişilebilir bir metin hazırlayın.' } },
+    { id:uid(), type:'photos',    data:{ url:'', caption:'Fotoğraf açıklaması ekleyin.' } },
     { id:uid(), type:'separator', data:{ style:'solid' } },
-    { id:uid(), type:'event',     data:{ title:'Proje Toplantısı', date:'2026-04-01', time:'14:00', location:'Online — Zoom' } },
+    { id:uid(), type:'event',     data:{ title:'Proje Toplantısı', date:'2026-11-06', time:'14:00', location:'Online — Zoom' } },
   ]);
 
   const historyRef = React.useRef<{ past: Block[][], future: Block[][] }>({ past: [], future: [] });
@@ -655,21 +660,26 @@ export default function BultenReadPage() {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // ── Auto-save / Restore logic ───────────────────────────────────────
-  const DRAFT_KEY = 'bulten_draft_v1';
 
-  React.useEffect(() => {
-    try {
-      const saved=window.localStorage.getItem(DRAFT_KEY);
-      if(saved){
-        const data=JSON.parse(saved);
-        if(data && Array.isArray(data.blocks) && data.blocks.length){
-          setTitle(data.title||'Yeni Bülten');
-          setSubtitle(data.subtitle||'');
-          setDesign(data.design||'modern');
-          setLogoUrl(data.logoUrl||'');
-          setHeaderImgUrl(data.headerImgUrl||'');
-          setShowTOC(data.showTOC!==false);
+  // Persist large drafts in IndexedDB, with lossless migration from localStorage.
+  const DRAFT_KEY = 'bulten_draft_v1';
+  const [draftStorageError,setDraftStorageError]=React.useState('');
+  React.useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try{
+        let data:Record<string,any>|null=null;
+        try{data=await loadLocalDraft<Record<string,any>>();}
+        catch(error){console.warn('IndexedDB draft read failed:',error);}
+        if(!data){
+          const legacy=window.localStorage.getItem(DRAFT_KEY);
+          if(legacy)data=JSON.parse(legacy);
+        }
+        if(cancelled)return;
+        if(data&&Array.isArray(data.blocks)&&data.blocks.length){
+          setTitle(data.title||'Yeni Bülten');setSubtitle(data.subtitle||'');
+          setDesign(data.design||'modern');setLogoUrl(data.logoUrl||'');
+          setHeaderImgUrl(data.headerImgUrl||'');setShowTOC(data.showTOC!==false);
           setActiveNewsletterId(typeof data.activeNewsletterId==='string'?data.activeNewsletterId:uid());
           setPublication(data.publication&&typeof data.publication.editToken==='string'?data.publication:null);
           setPublicNewsletterUrl(data.publication?.url||data.publicNewsletterUrl||'');
@@ -677,19 +687,27 @@ export default function BultenReadPage() {
           const safeBlocks=data.blocks.filter((b:any)=>b&&typeof b==='object'&&typeof b.id==='string');
           if(safeBlocks.length){setBlocks(safeBlocks);setSelectedId(safeBlocks[0].id);}
         }
-      }
-    }catch(error){console.warn('Taslak okunamadı:',error);}
-    setDraftReady(true);
-  }, []);
+      }catch(error){console.warn('Taslak okunamadı:',error);}
+      finally{if(!cancelled)setDraftReady(true);}
+    })();
+    return()=>{cancelled=true;};
+  },[]);
 
-  React.useEffect(() => {
+  React.useEffect(()=>{
     if(!draftReady)return;
-    try{
-      window.localStorage.setItem(DRAFT_KEY,JSON.stringify({
+    const timeout=window.setTimeout(()=>{
+      saveLocalDraft({
         activeNewsletterId,title,subtitle,design,logoUrl,headerImgUrl,blocks,
         showTOC,publicNewsletterUrl,publication,publishedSnapshot:lastSharedSnapshot.current,
-      }));
-    }catch(error){console.warn('Yerel otomatik taslak kaydı yapılamadı:',error);}
+      }).then(()=>{
+        window.localStorage.removeItem(DRAFT_KEY);
+        setDraftStorageError('');
+      }).catch(error=>{
+        console.error('IndexedDB auto-save failed:',error);
+        setDraftStorageError('Otomatik kayıt yapılamadı. Depolama alanını kontrol edin veya bülteni HTML olarak yedekleyin.');
+      });
+    },800);
+    return()=>window.clearTimeout(timeout);
   },[draftReady,activeNewsletterId,title,subtitle,design,logoUrl,headerImgUrl,blocks,showTOC,publicNewsletterUrl,publication]);
 
   // ── Text-to-Speech ──────────────────────────────────────────────────
@@ -829,17 +847,18 @@ export default function BultenReadPage() {
   const [showSavedModal,setShowSavedModal]=React.useState(false);
   const [savedList,setSavedList]=React.useState<SavedNL[]>([]);
   const [saveSuccess,setSaveSuccess]=React.useState(false);
+  const [cloudSaveStatus,setCloudSaveStatus]=React.useState('');
   const [savedSearch,setSavedSearch]=React.useState('');
 
-  const persistSavedLocally = (entry:SavedNL):boolean => {
-    try {
-      const next=[entry,...savedList.filter(x=>x.id!==entry.id)].slice(0,30);
-      window.localStorage.setItem(SAVED_KEY,JSON.stringify(next));
-      setSavedList(next);
+
+  const persistSavedLocally=async(entry:SavedNL):Promise<boolean>=>{
+    try{
+      await saveLocalNewsletter(entry);
+      setSavedList(previous=>[entry,...previous.filter(x=>x.id!==entry.id)].slice(0,30));
       return true;
     }catch(error){
-      console.error('Bültenin yerel kaydı başarısız:',error);
-      alert('Bülten kaydedilemedi. Tarayıcı depolama alanını kontrol edin; büyük fotoğrafları küçültmeyi deneyin.');
+      console.error('IndexedDB newsletter save failed:',error);
+      alert('Bülten kaydedilemedi. Tarayıcı depolama izinlerini kontrol edin veya HTML yedeği alın.');
       return false;
     }
   };
@@ -854,22 +873,28 @@ export default function BultenReadPage() {
 
   const handleSave=async ():Promise<boolean>=>{
     const entry=savedEntry();
-    if(!persistSavedLocally(entry))return false;
+    if(!await persistSavedLocally(entry))return false;
     setSaveSuccess(true);window.setTimeout(()=>setSaveSuccess(false),2200);
-    // Server storage is optional. Never send the owner-only edit token to a
-    // cloud record; local browser storage is the source of edit permission.
+    // The public publication edit token stays on this device, never in Supabase.
     const {publication:secret,publishedSnapshot,...cloudRecord}=entry;
-    try {
+    const payload=JSON.stringify(cloudRecord);
+    if(new Blob([payload]).size>850_000){
+      setCloudSaveStatus('Bu bülten IndexedDB’de yerel olarak kaydedildi. Büyük özel görseller bulut arşivine yüklenmedi.');
+      return true;
+    }
+    try{
       const response=await fetch('/api/db/newsletters',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(cloudRecord),
+        method:'POST',headers:{'Content-Type':'application/json'},body:payload,
       });
-      if(!response.ok)console.info('Bulut kaydı yapılandırılmamış, bülten bu tarayıcıda saklandı.');
-    }catch{console.info('Bulut bağlantısı yok, yerel bülten kaydı korundu.');}
+      if(response.ok)setCloudSaveStatus('Bülten bu tarayıcıda ve hesabınızın bulut arşivinde kaydedildi.');
+      else setCloudSaveStatus('Yerel kayıt başarılı. Bulut yedeği yok; hesabınızı ve Supabase ayarlarını kontrol edin.');
+    }catch{
+      setCloudSaveStatus('Yerel kayıt başarılı. Bulut bağlantısı kurulamadı.');
+    }
     return true;
   };
 
-  const handleLoad=(record:SavedNL)=>{
+  const handleLoad=async(record:SavedNL)=>{
     if(!record || !Array.isArray(record.blocks))return;
     const existing=savedList.find(x=>x.id===activeNewsletterId);
     const storedSnapshot=existing?JSON.stringify({
@@ -881,7 +906,7 @@ export default function BultenReadPage() {
       if(!window.confirm('Bu kaydın üzerindeki henüz kaydedilmemiş değişiklikler geri alınacak. Kayıtlı sürümü açmak istiyor musunuz?'))return;
     }else if(changed && activeNewsletterId!==record.id && blocks.length){
       // Keep work-in-progress before loading another newsletter.
-      if(!persistSavedLocally(savedEntry()))return;
+      if(!await persistSavedLocally(savedEntry()))return;
     }
     setActiveNewsletterId(record.id);
     setTitle(record.title||'Yeni Bülten');setSubtitle(record.subtitle||'');
@@ -927,7 +952,7 @@ export default function BultenReadPage() {
   };
 
   // Analytics helpers
-  const [analytics, setAnalytics] = React.useState<{views:number, lastWeek:number, opens:number, clicks:number}>({views:0, lastWeek:0, opens:0, clicks:0});
+  const [analytics, setAnalytics] = React.useState<{views:number, lastWeek:number, opens:number, clicks:number,webViews:number|null,webLastWeek:number|null}>({views:0,lastWeek:0,opens:0,clicks:0,webViews:null,webLastWeek:null});
   // Fetch real analytics when modal opens
   const openAnalytics = async () => {
     try {
@@ -938,7 +963,9 @@ export default function BultenReadPage() {
         views: data.totalOpens || 0,
         opens: data.uniqueOpens || 0,
         clicks: data.totalClicks || 0,
-        lastWeek: data.lastWeek || 0
+        lastWeek: data.lastWeek || 0,
+        webViews:typeof data.webViews==='number'?data.webViews:null,
+        webLastWeek:typeof data.webLastWeek==='number'?data.webLastWeek:null,
       });
       setShowAnalyticsModal(true);
     } catch(e) {
@@ -964,11 +991,33 @@ export default function BultenReadPage() {
   
   const [savedReady,setSavedReady]=React.useState(false);
   React.useEffect(()=>{
-    try{
-      const local=JSON.parse(window.localStorage.getItem(SAVED_KEY)||'[]');
-      if(Array.isArray(local))setSavedList(local.filter((v:any)=>v&&typeof v.id==='string'&&Array.isArray(v.blocks)).slice(0,30));
-    }catch(error){console.warn('Kayıtlı bülten listesi açılamadı:',error);}
-    setSavedReady(true);
+    (async()=>{
+      try{
+        const existing=await listLocalNewsletters<SavedNL>();
+        const legacy=JSON.parse(window.localStorage.getItem(SAVED_KEY)||'[]');
+        const combined=[...existing];
+        if(Array.isArray(legacy)){
+          for(const entry of legacy){
+            if(!entry||typeof entry.id!=='string'||!Array.isArray(entry.blocks)||combined.some(e=>e.id===entry.id))continue;
+            await saveLocalNewsletter(entry);
+            combined.push(entry);
+          }
+          if(legacy.length)window.localStorage.removeItem(SAVED_KEY);
+        }
+        combined.sort((a,b)=>(b.savedAt||'').localeCompare(a.savedAt||''));
+        setSavedList(previous=>{
+          const ids=new Set(combined.map(v=>v.id));
+          return [...combined,...previous.filter(v=>!ids.has(v.id))].slice(0,30);
+        });
+      }catch(error){
+        console.warn('IndexedDB saved newsletters unavailable:',error);
+        setDraftStorageError('Kayıtlı bülten arşivi açılamadı. Tarayıcı depolama izinlerini kontrol edin.');
+        try{
+          const old=JSON.parse(window.localStorage.getItem(SAVED_KEY)||'[]');
+          if(Array.isArray(old))setSavedList(old.filter((v:any)=>v&&typeof v.id==='string'&&Array.isArray(v.blocks)).slice(0,30));
+        }catch{}
+      }finally{setSavedReady(true);}
+    })();
     // Optional account-backed records are merged, never allowed to overwrite the
     // same record (or private owner token) saved on this browser.
     fetch('/api/db/newsletters').then(r=>r.ok?r.json():[]).then((remote:unknown)=>{
@@ -989,7 +1038,10 @@ export default function BultenReadPage() {
       });
     }).catch(()=>{});
     fetch('/api/db/mailing-lists').then(r=>r.ok?r.json():[]).then(d=>{
-      if(Array.isArray(d))setMailingLists(d);
+      if(Array.isArray(d))setMailingLists(d.map(v=>({
+        ...v,createdAt:v.createdAt||v.created_at||new Date().toISOString(),
+        contacts:Array.isArray(v.contacts)?v.contacts:[],
+      })));
     }).catch(()=>{});
   },[]);
 
@@ -1027,14 +1079,22 @@ export default function BultenReadPage() {
 
   const saveLists = async (lists: MailingList[]) => {
     const before=mailingLists;
+    setMlError('');
     setMailingLists(lists);
     try {
-      const res=await fetch('/api/db/mailing-lists',{
-        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lists),
-      });
-      if(!res.ok){
-        const message=await res.json().catch(()=>({}));
-        throw new Error(message.error||'Listeyi kaydetmek için hesabınıza giriş yapın.');
+      // Saving an empty array must remove the old list(s) remotely too.
+      if(lists.length){
+        const res=await fetch('/api/db/mailing-lists',{
+          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lists),
+        });
+        if(!res.ok){
+          const message=await res.json().catch(()=>({}));
+          throw new Error(message.error||'Listeyi kaydetmek için hesabınıza giriş yapın.');
+        }
+      }
+      for(const removed of before.filter(x=>!lists.some(l=>l.id===x.id))){
+        const response=await fetch('/api/db/mailing-lists?id='+encodeURIComponent(removed.id),{method:'DELETE'});
+        if(!response.ok)throw new Error('Silinen liste bulut arşivinden kaldırılamadı.');
       }
     }catch(error){
       setMailingLists(before);
@@ -1386,6 +1446,7 @@ ${text}`;
         if(k==='cols') return [k,String(Math.max(1,Math.min(4,Number(value)||2)))];
         if(k==='style') return [k,['solid','dashed','dotted'].includes(value)?value:'solid'];
         if(k==='align') return [k,['left','center','right'].includes(value)?value:'center'];
+        if(k==='actionUrl')return [k,escapeShareHtml(safeReaderLinkUrl(value))];
         if(k==='avatar'||k.startsWith('url')){
           const imageBlock=['photos','textphoto','photogrid','author'].includes(b.type);
           if(imageBlock) return [k,escapeShareHtml(safeReaderImageUrl(value))];
@@ -1413,6 +1474,15 @@ ${text}`;
       if(b.type==='link') return `<a href="${d.url}" style="color:${ac};font-family:${ff};font-weight:600;">🔗 ${d.text}</a>`;
       if(b.type==='button') return `<div style="text-align:${d.align||'center'};"><a href="${d.url}" style="display:inline-block;padding:12px 28px;background:${ac};color:#fff;border-radius:30px;font-family:${ff};font-weight:700;text-decoration:none;">${d.text}</a></div>`;
       if(b.type==='poll') return `<div style="font-family:${ff};"><b style="color:${tc};">${d.question}</b><br/>${[d.opt1,d.opt2,d.opt3].filter(Boolean).map(o=>`<div style="padding:8px 14px;border:1.5px solid ${ac};border-radius:8px;margin-top:6px;color:${tc};font-size:14px;">○ ${o}</div>`).join('')}</div>`;
+      if(b.type==='form') {
+        const fields=[d.field1,d.field2,d.field3].filter(Boolean);
+        const link=d.actionUrl&&d.actionUrl!=='#'?d.actionUrl:'';
+        return `<section aria-label="Harici geri bildirim formu" style="border:1px solid ${ac}44;border-radius:12px;padding:18px;font-family:${ff};"><h3 style="color:${tc};margin:0 0 12px;">${d.title||'Geri Bildirim Formu'}</h3><p style="color:${tc};font-size:13px;">İstenen bilgiler: ${fields.join(', ')||'Geri bildirim'}.</p>${link?`<a href="${link}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:${ac};color:white;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:700;">${d.submit||'Formu Aç'}</a>`:`<p style="font-size:12px;color:#b45309;">Form bağlantısı eklenmedi; yanıt alınmıyor.</p>`}</section>`;
+      }
+      if(b.type==='googleform') {
+        const link=d.url&&d.url!=='#'?d.url:'';
+        return `<section aria-label="Google Form" style="border:1px solid #4285f4;border-radius:12px;padding:18px;font-family:${ff};"><h3 style="margin:0 0 12px;color:${tc};">${d.title||'Google Form'}</h3>${link?`<a href="${link}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#2563eb;color:#fff;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:700;">Google Form’u Aç ve Yanıtla</a>`:`<p style="font-size:12px;color:#b45309;">Google Form bağlantısı eklenmedi.</p>`}</section>`;
+      }
       if(b.type==='attachment') return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:${ff};">📎 <a href="${d.url}" style="color:${ac};font-weight:600;">${d.name}</a></div>`;
       
       if(b.type==='textphoto') {
@@ -1554,7 +1624,7 @@ ${text}`;
         title,subtitle,design,blocks:lightweight.blocks,
         headerImgUrl:lightweight.headerImgUrl,logoUrl:lightweight.logoUrl,showTOC,
       });
-      if(!persistSavedLocally(lightweight)){
+      if(!await persistSavedLocally(lightweight)){
         alert('Bülten yayımlandı ancak düzenleme kaydı bu tarayıcıda saklanamadı. Sayfadan ayrılmadan önce bir yedek alın.');
       }
       setShowShareModal(true);
@@ -1578,7 +1648,7 @@ ${text}`;
       if(!res.ok)throw new Error(result.error||'Yayından kaldırma başarısız.');
       setPublication(null);setPublicNewsletterUrl('');lastSharedSnapshot.current='';
       const draft={...savedEntry(null,''),publication:null,publicNewsletterUrl:'',publishedSnapshot:''};
-      persistSavedLocally(draft);
+      await persistSavedLocally(draft);
       setShowShareModal(false);
       alert('Yayın kaldırıldı. Düzenleme taslağınız kayıtlıdır. Daha önce ayrı yüklenmiş görseller için ayrıca veri silme talebi gerekebilir.');
     }catch(error){
@@ -1621,7 +1691,7 @@ ${text}`;
 
   return (
     <>
-    <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 60px)',fontFamily:'Inter,system-ui,sans-serif',background:'#f1f5f9'}}>
+    <div className="bulten-editor-root" style={{display:'flex',flexDirection:'column',height:'calc(100vh - 60px)',fontFamily:'Inter,system-ui,sans-serif',background:'#f1f5f9'}}>
 
       {/* ── Top Bar ── */}
       <div style={{background:'#ffffff',borderBottom:'1px solid #e2e8f0',padding:'8px 16px',minHeight:68,display:'flex',flexWrap:'wrap',alignItems:'center',gap:8,flexShrink:0,boxShadow:'0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',zIndex:10}}>
@@ -1750,11 +1820,16 @@ ${text}`;
         </div>
       </div>
 
+      {draftStorageError && <p role="alert" style={{margin:0,padding:'6px 12px',background:'#fef3c7',color:'#92400e',fontSize:12}}>{draftStorageError}</p>}
+      <nav className="bulten-mobile-nav" aria-label="Mobil editör panelleri" style={{display:'none',gap:6,padding:8,background:'#fff'}}>
+        {([{id:'content',label:'＋ İçerik'},{id:'canvas',label:'▣ Bülten'},{id:'properties',label:'✎ Düzenle'}] as const).map(item=><button key={item.id} type="button" aria-pressed={mobilePanel===item.id} onClick={()=>setMobilePanel(item.id)} style={{flex:1,padding:'10px 6px',borderRadius:8,border:mobilePanel===item.id?'2px solid #0d9488':'1px solid #cbd5e1',background:mobilePanel===item.id?'#ecfdf5':'#fff',fontWeight:700,fontSize:12,color:'#1e293b'}}>{item.label}</button>)}
+      </nav>
+      {cloudSaveStatus && <p role="status" style={{margin:0,padding:'5px 12px',background:'#eff6ff',color:'#1e40af',fontSize:12}}>{cloudSaveStatus}</p>}
       {/* ── 3-Panel ── */}
-      <div style={{flex:1,display:'grid',gridTemplateColumns:'240px 1fr 280px',overflow:'hidden'}}>
+      <div className="bulten-editor-layout" style={{flex:1,display:'grid',gridTemplateColumns:'240px minmax(0,1fr) 280px',overflow:'hidden',minHeight:0}}>
 
         {/* LEFT — palette + design */}
-        <div style={{background:'#fff',borderRight:'1px solid #e2e8f0',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'4px 0 16px rgba(0,0,0,0.02)',zIndex:5}}>
+        <div className={`bulten-pane bulten-palette ${mobilePanel==='content'?'is-mobile-active':''}`} style={{background:'#fff',borderRight:'1px solid #e2e8f0',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'4px 0 16px rgba(0,0,0,0.02)',zIndex:5}}>
           {/* Tabs */}
           <div style={{display:'flex',borderBottom:'1px solid #e5e7eb'}}>
             {(['content','design'] as const).map(tab=>(
@@ -1775,7 +1850,7 @@ ${text}`;
                   <button key={p.type} data-testid={`palette-${p.type}`}
                     draggable
                     onDragStart={e=>{ dragTypeRef.current=p.type; e.dataTransfer.effectAllowed='copy'; }}
-                    onClick={()=>addBlock(p.type)}
+                    onClick={()=>{addBlock(p.type);setMobilePanel('properties');}}
                     style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'14px 4px',
                       border:'none',borderRight:'1px solid #f3f4f6',borderBottom:'1px solid #f3f4f6',
                       background:'#fff',cursor:'grab',gap:5,transition:'background .15s'}}
@@ -1803,7 +1878,7 @@ ${text}`;
                   {blocks.map((b,i)=>{
                     const p=PALETTE.find(x=>x.type===b.type)!;
                     return (
-                      <div key={b.id} onClick={()=>setSelectedId(b.id)}
+                      <div key={b.id} onClick={()=>{setSelectedId(b.id);setMobilePanel('properties');}}
                         style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',cursor:'pointer',
                           background:selectedId===b.id?'#eff6ff':'transparent',
                           borderLeft:selectedId===b.id?`3px solid ${D.accentColor}`:'3px solid transparent',transition:'all .1s'}}>
@@ -1927,7 +2002,7 @@ ${text}`;
         </div>
 
         {/* CENTER — canvas */}
-        <div style={{
+        <div className={`bulten-pane bulten-canvas ${mobilePanel==='canvas'?'is-mobile-active':''}`} style={{
           overflowY:'auto', padding:32,
           ...(headerImgUrl
             ? { backgroundImage:`url(${headerImgUrl})`, backgroundSize:'cover', backgroundPosition:'center', backgroundAttachment:'fixed', position:'relative' }
@@ -2100,7 +2175,7 @@ ${text}`;
                         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6 }}>
                           {PALETTE.map(p=>(
                             <button key={p.type}
-                              onClick={()=>insertBlock(p.type, idx)}
+                              onClick={()=>{insertBlock(p.type, idx);setMobilePanel('properties');}}
                               style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, padding:'10px 6px', borderRadius:10, border:'1px solid #e5e7eb', background:'#fafafa', cursor:'pointer', transition:'all .12s' }}
                               onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.background='#ecfdf5'; (e.currentTarget as HTMLElement).style.borderColor='#10b981'; }}
                               onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.background='#fafafa'; (e.currentTarget as HTMLElement).style.borderColor='#e5e7eb'; }}>
@@ -2134,7 +2209,7 @@ ${text}`;
                         <InsertDivider idx={i}/>
                         {dropIndicator===i && <div style={{height:3,background:D.accentColor,borderRadius:2,margin:'2px 0'}}/>}
                         <div style={{cursor:'grab'}}>
-                          <CanvasBlock block={b} design={D} selected={selectedId===b.id} onClick={()=>setSelectedId(b.id)}/>
+                          <CanvasBlock block={b} design={D} selected={selectedId===b.id} onClick={()=>{setSelectedId(b.id);setMobilePanel('properties');}}/>
                         </div>
                       </div>
                     ))}
@@ -2154,7 +2229,7 @@ ${text}`;
         </div>
 
         {/* RIGHT — block editor */}
-        <div style={{background:'#ffffff',borderLeft:'1px solid #e2e8f0',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'-4px 0 16px rgba(0,0,0,0.02)',zIndex:5}}>
+        <div className={`bulten-pane bulten-properties ${mobilePanel==='properties'?'is-mobile-active':''}`} style={{background:'#ffffff',borderLeft:'1px solid #e2e8f0',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'-4px 0 16px rgba(0,0,0,0.02)',zIndex:5}}>
           {selectedBlock ? (
             <>
               <div style={panelHdr}>✏️ {t[selectedBlock.type as keyof typeof t] as string || PALETTE.find(p=>p.type===selectedBlock.type)?.label} — {t.edit}</div>
@@ -2246,7 +2321,7 @@ ${text}`;
     {showAnalyticsModal && (
       <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}
            onClick={()=>setShowAnalyticsModal(false)}>
-        <div style={{background:'#fff',borderRadius:16,width:960,height:'80vh',display:'flex',flexDirection:'row',boxShadow:'0 16px 48px rgba(0,0,0,.25)',overflow:'hidden'}}
+        <div style={{background:'#fff',borderRadius:16,width:'min(960px,100%)',height:'80vh',display:'flex',flexDirection:'row',boxShadow:'0 16px 48px rgba(0,0,0,.25)',overflow:'hidden'}}
              onClick={e=>e.stopPropagation()}>
           
           {/* Sidebar */}
@@ -2259,9 +2334,6 @@ ${text}`;
               {[
                 {k:'overview',l:'Genel Bakış',icon:'📊'},
                 {k:'deliveries',l:'E-posta Teslimatı',icon:'✉️'},
-                {k:'locations',l:'Lokasyonlar',icon:'📍'},
-                {k:'interactions',l:'Etkileşimler',icon:'🖱️'},
-                {k:'traffic',l:'Trafik Kaynakları',icon:'🚗'},
               ].map(tab=>(
                 <button key={tab.k} onClick={()=>setAnalyticsTab(tab.k)}
                   style={{padding:'10px 14px',borderRadius:8,border:analyticsTab===tab.k?'1px solid #10b981':'1px solid transparent',
@@ -2293,16 +2365,20 @@ ${text}`;
             <div style={{padding:32,overflowY:'auto',flex:1}}>
               {analyticsTab==='overview' && (
                 <>
-                  <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:24}}>
-                    <span style={{fontWeight:800,fontSize:42,color:'#0f172a',lineHeight:1}}>{(analytics.views||0).toLocaleString('tr-TR')}</span>
-                    <span style={{fontSize:13,color:'#64748b',fontWeight:600}}>toplam mail açılışı (opens)</span>
+                  <div style={{display:'flex',alignItems:'baseline',flexWrap:'wrap',gap:8,marginBottom:12}}>
+                    <span style={{fontWeight:800,fontSize:42,color:'#0f172a',lineHeight:1}}>{analytics.webViews===null?'—':analytics.webViews.toLocaleString('tr-TR')}</span>
+                    <span style={{fontSize:13,color:'#64748b',fontWeight:600}}>gerçek web sayfası isteği (benzersiz ziyaretçi değil)</span>
                   </div>
+                  <p style={{fontSize:12,color:'#64748b',marginBottom:24}}>
+                    {analytics.webViews===null?'Web görüntüleme ölçümü henüz yapılandırılmadı. Faz 2 SQL geçişini uygulayın.':
+                    'Bu sayıya bot olmayan sayfa istekleri dahildir; bazı otomatik ziyaretler ayıklanamamış olabilir.'}
+                  </p>
                   
                   <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:32}}>
                     {[
-                      {label:'Farklı Kişi Okudu',value:(analytics.opens||0).toString(),color:'#f59e0b',icon:'👤'},
-                      {label:'Toplam Link Tıklaması',value:(analytics.clicks||0).toString(),color:'#ec4899',icon:'🔗'},
-                      {label:'Ortalama Okuma',value:`${readingTime} dk`,color:'#8b5cf6',icon:'⏱️'},
+                      {label:'E-posta Açılmaları',value:(analytics.views||0).toString(),color:'#f59e0b',icon:'✉️'},
+                      {label:'Tekil E-posta Açan',value:(analytics.opens||0).toString(),color:'#ec4899',icon:'👤'},
+                      {label:'E-posta Link Tıklamaları',value:(analytics.clicks||0).toString(),color:'#8b5cf6',icon:'🔗'},
                     ].map(m=>(
                       <div key={m.label} style={{background:'#f8fafc',borderRadius:12,padding:'20px',border:'1px solid #e2e8f0'}}>
                         <div style={{fontSize:24,marginBottom:8}}>{m.icon}</div>
@@ -2312,91 +2388,13 @@ ${text}`;
                     ))}
                   </div>
 
-                  <h3 style={{fontSize:14,fontWeight:800,color:'#334155',marginBottom:16}}>Cihaz Dağılımı</h3>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-                    <div style={{background:'#1e293b',borderRadius:12,padding:'20px',display:'flex',alignItems:'center',gap:16}}>
-                      <div style={{fontSize:32}}>📱</div>
-                      <div>
-                        <div style={{fontWeight:800,fontSize:20,color:'#fff'}}>48%</div>
-                        <div style={{fontSize:12,color:'#94a3b8',fontWeight:600}}>Mobil Cihazlar</div>
-                      </div>
-                    </div>
-                    <div style={{background:'#ea580c',borderRadius:12,padding:'20px',display:'flex',alignItems:'center',gap:16}}>
-                      <div style={{fontSize:32}}>🖥️</div>
-                      <div>
-                        <div style={{fontWeight:800,fontSize:20,color:'#fff'}}>52%</div>
-                        <div style={{fontSize:12,color:'#fed7aa',fontWeight:600}}>Masaüstü Cihazlar</div>
-                      </div>
-                    </div>
+                  <div style={{borderTop:'1px solid #e2e8f0',paddingTop:18,fontSize:13,lineHeight:1.7,color:'#475569'}}>
+                    <strong>Son 7 gün:</strong> {analytics.webLastWeek===null?'Web verisi yok':analytics.webLastWeek+' web sayfası isteği'} · {analytics.lastWeek} e-posta açılışı.
+                    <p style={{fontSize:12,color:'#64748b'}}>Cihaz, konum, trafik kaynağı ve blok etkileşimi verileri ölçülmediği için gösterilmez. İçerik üzerinden tahmini okuma süresi: {readingTime} dk.</p>
                   </div>
                 </>
               )}
 
-              {analyticsTab==='locations' && (
-                <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
-                  <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:20}}>
-                    <span style={{fontWeight:800,fontSize:32,color:'#4f46e5'}}>72</span>
-                    <span style={{fontSize:13,color:'#64748b',fontWeight:600}}>ziyaretçi konumu saptandı</span>
-                  </div>
-                  <div style={{borderRadius:12,overflow:'hidden',border:'1px solid #e2e8f0',flex:1,minHeight:400,boxShadow:'0 4px 6px -1px rgba(0,0,0,0.05)'}}>
-                    <BultenLocationMap/>
-                  </div>
-                  <div style={{marginTop:16,fontSize:11,color:'#94a3b8',textAlign:'center'}}>
-                    📍 Harita üzerindeki kırmızı pinler en son erişim konumlarını göstermektedir. (Simülasyon verisidir)
-                  </div>
-                </div>
-              )}
-
-              {analyticsTab==='traffic' && (
-                <div>
-                  <p style={{color:'#64748b',fontSize:13,marginBottom:24,fontWeight:600}}>Bülteninize gelen trafik kanallarının analizi (Google Analytics tabanlıdır).</p>
-                  <div style={{display:'flex',flexDirection:'column',gap:20}}>
-                  {[
-                    {label:'Direkt (URL)',val:analytics.views?Math.round((analytics.views||10)*.52):52,color:'#0d9488'},
-                    {label:'E-posta (Mailbox)',val:analytics.views?Math.round((analytics.views||10)*.25):25,color:'#4f46e5'},
-                    {label:'Sosyal Medya',val:analytics.views?Math.round((analytics.views||10)*.15):15,color:'#2563eb'},
-                    {label:'Web Sitesi / Platform',val:analytics.views?Math.round((analytics.views||10)*.08):8,color:'#7c3aed'},
-                  ].map(src=>{
-                    const total = analytics.views||100;
-                    const pct = Math.round(src.val/total*100);
-                    return (
-                      <div key={src.label}>
-                        <div style={{display:'flex',justifyContent:'space-between',fontSize:13,fontWeight:700,color:'#334155',marginBottom:6}}>
-                          <span>{src.label} ({pct}%)</span><span style={{color:src.color}}>{src.val} tık</span>
-                        </div>
-                        <div style={{background:'#f1f5f9',borderRadius:8,height:12,overflow:'hidden',boxShadow:'inset 0 1px 2px rgba(0,0,0,.05)'}}>
-                          <div style={{height:'100%',borderRadius:8,background:src.color,width:`${pct}%`,transition:'width .6s ease-out'}}/>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  </div>
-                </div>
-              )}
-
-              {analyticsTab==='interactions' && (
-                <div>
-                  <p style={{color:'#64748b',fontSize:13,marginBottom:24,fontWeight:600}}>Bülten içindeki özel yapıtaşlarına olan etkileşim oranları.</p>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:16}}>
-                    {[
-                      {label:'Tıklanan Butonlar',count:btnCount*4||12,color:'#0d9488',icon:'⬛'},
-                      {label:'Video İzleme',count:videoCount*6||8,color:'#ef4444',icon:'▶'},
-                      {label:'Ek İndirme',count:attachCount*2||5,color:'#f59e0b',icon:'📎'},
-                      {label:'Link Tıklama',count:linkCount*7||18,color:'#6366f1',icon:'🔗'},
-                      {label:'Form / Anket',count:formCount*3||2,color:'#8b5cf6',icon:'📋'},
-                    ].map(item=>(
-                      <div key={item.label} style={{display:'flex',alignItems:'center',gap:12,padding:'16px',borderRadius:12,background:item.color+'0a',border:`1px solid ${item.color}22`}}>
-                        <span style={{fontSize:24}}>{item.icon}</span>
-                        <div>
-                          <div style={{fontWeight:800,fontSize:20,color:item.color}}>{item.count}</div>
-                          <div style={{fontSize:12,color:'#64748b',fontWeight:700}}>{item.label}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
               {analyticsTab==='deliveries' && (
                 <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',paddingTop:60,color:'#94a3b8',textAlign:'center'}}>
                   <span style={{fontSize:48,marginBottom:16}}>✉️</span>

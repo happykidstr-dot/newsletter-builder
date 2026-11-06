@@ -62,6 +62,8 @@ export interface PublishedNewsletter {
   updatedAt?: string;
   revision?: number;
   editTokenHash?: string;
+  /** Verified Clerk publisher ID; never exposed in public HTML. */
+  ownerUserId?: string;
 }
 
 /** Best-effort per-IP throttling; do not present this as a bot-proof quota. */

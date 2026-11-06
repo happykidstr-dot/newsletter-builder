@@ -117,3 +117,37 @@ body {
   body { background: #fff !important; }
   .wk-a11y-fab { display: none !important; }
 }
+
+/* BÜLTEN READ: real single-column editor on narrow touch screens. */
+@media (max-width: 900px) {
+  .bulten-editor-root { min-height: 0 !important; height: calc(100dvh - 60px) !important; }
+  .bulten-mobile-nav { display: flex !important; flex-shrink: 0; }
+  .bulten-editor-layout {
+    display: block !important;
+    overflow: hidden !important;
+    min-height: 0;
+    width: 100%;
+  }
+  .bulten-editor-layout > .bulten-pane {
+    display: none !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0;
+    max-width: 100% !important;
+  }
+  .bulten-editor-layout > .bulten-pane.is-mobile-active { display: flex !important; }
+  .bulten-editor-layout > .bulten-canvas.is-mobile-active {
+    display: block !important;
+    padding: 12px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+  .bulten-editor-layout > .bulten-properties.is-mobile-active { padding-bottom: 24px; }
+}
+@media (max-width: 560px) {
+  .bulten-editor-root > div:first-child { padding: 8px !important; }
+  .bulten-editor-layout img { height: auto; max-width: 100%; }
+  .bulten-editor-layout input,
+  .bulten-editor-layout textarea,
+  .bulten-editor-layout select { max-width: 100%; }
+}
