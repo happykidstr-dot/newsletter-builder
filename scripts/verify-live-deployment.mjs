@@ -43,7 +43,7 @@ async function check(){
   // as the request origin inside a production Next.js Function. Both are
   // dedicated hostnames of this one Netlify project, not arbitrary redirects.
   const sameNetlifySite=callbackTarget.origin===base||
-    /^[a-z0-9-]+--bultenoku\\.netlify\\.app$/i.test(callbackTarget.hostname);
+    /^[a-z0-9-]+--bultenoku\.netlify\.app$/i.test(callbackTarget.hostname);
   if(![302,303,307,308].includes(callback.status)||
      callbackTarget.protocol!=='https:'||
      !sameNetlifySite||
