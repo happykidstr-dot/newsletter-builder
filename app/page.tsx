@@ -1013,6 +1013,7 @@ export default function BultenReadPage() {
   const [newContactEmail, setNewContactEmail] = React.useState('');
   const [newContactName, setNewContactName] = React.useState('');
   const [contactConsent,setContactConsent]=React.useState(false);
+  const [contactTrackingConsent,setContactTrackingConsent]=React.useState(false);
   const [csvConsent,setCsvConsent]=React.useState(false);
   const [consentSource,setConsentSource]=React.useState('');
   const [trackingEnabled,setTrackingEnabled]=React.useState(false);
@@ -1064,10 +1065,10 @@ export default function BultenReadPage() {
       ?{...l,contacts:[...l.contacts,{
         email,name:newContactName.trim()||email,addedAt:new Date().toISOString(),
         consentAt:new Date().toISOString(),consentSource:consentSource.trim().slice(0,200),
-        trackingConsent:false,
+        trackingConsent:contactTrackingConsent,
       }]}
       :l);
-    saveLists(next);setNewContactEmail('');setNewContactName('');setContactConsent(false);
+    saveLists(next);setNewContactEmail('');setNewContactName('');setContactConsent(false);setContactTrackingConsent(false);
   };
   const removeContact = (email:string) => {
     const next = mailingLists.map(l=>l.id===activeListId
@@ -2555,6 +2556,11 @@ ${text}`;
                       <label style={{display:'flex',gap:7,alignItems:'center',fontSize:11,color:'#78350f'}}>
                         <input type="checkbox" checked={contactConsent} onChange={e=>setContactConsent(e.target.checked)}/>
                         Yeni eklediğim kişinin bülten e-postası alma izni var.
+                      </label>
+                      <label style={{display:'flex',gap:7,alignItems:'center',fontSize:11,color:'#78350f'}}>
+                        <input type="checkbox" checked={contactTrackingConsent}
+                          onChange={e=>setContactTrackingConsent(e.target.checked)} disabled={!contactConsent}/>
+                        Bu kişi ayrıca e-posta açılma ve bağlantı tıklama takibine izin verdi.
                       </label>
                       <input type="text" value={consentSource} onChange={e=>setConsentSource(e.target.value)}
                         placeholder="İzin kanıtı/kaynağı: tarihli e-posta, imzalı form, çevrimiçi abonelik..."
