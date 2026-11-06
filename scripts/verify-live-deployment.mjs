@@ -14,6 +14,11 @@ async function check(){
   if(!homepage.includes('Düzenle') || !homepage.includes('Yayınla')){
     return {ok:false,reason:'Live editor still lacks Smore-style Düzenle / Yayınla controls'};
   }
+  // Phase 2 acceptance marker: ensure production is no longer serving the
+  // pre-Phase-2 editor, which lacked a responsive mobile panel navigator.
+  if(!homepage.includes('bulten-mobile-nav') || !homepage.includes('Mobil editör panelleri')){
+    return {ok:false,reason:'Phase 2 mobile editor is not yet present in the live homepage'};
+  }
   // A live Netlify publication endpoint denies cross-site POST with 403.
   // Legacy versions responded 404 or redirected, so this tests new deployment.
   const publish=await fetch(base+'/api/publish',{
