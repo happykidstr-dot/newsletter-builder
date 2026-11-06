@@ -1,10 +1,12 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {allowedSiteOrigin} from '@/lib/publication-origin';
 import {storePublicMedia} from '@/lib/public-newsletter-media';
+import {requireAuthorizedPublisher} from '@/lib/security/access';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 
 export async function POST(req:NextRequest){
+  const identity=await requireAuthorizedPublisher();if(identity.error)return identity.error;
   const origin=req.headers.get('origin')||'';
   if(!allowedSiteOrigin(origin)||new URL(origin).hostname!==new URL(req.url).hostname)
     return NextResponse.json({error:'Görsel yüklemek için bülten editörünü kullanın.'},{status:403});
