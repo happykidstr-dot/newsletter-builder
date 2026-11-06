@@ -1,8 +1,5 @@
 'use client';
 import React, { useState, useCallback } from 'react';
-// Note: Clerk auth is handled in layout.tsx - these are placeholder no-ops for SSR safety
-const SignInButton = null as any;
-const UserButton = null as any;
 import dynamic from 'next/dynamic';
 import { TemplateGallery } from '@/components/TemplateGallery';
 import {AccountAction} from '@/components/AccountAction';
@@ -934,16 +931,19 @@ export default function BultenReadPage() {
   // Fetch real analytics when modal opens
   const openAnalytics = async () => {
     try {
-      const res = await fetch('/api/db/analytics');
+      const res = await fetch('/api/db/analytics',{cache:'no-store'});
       const data = await res.json();
+      if(!res.ok)throw new Error(data.error||'Analitik servisi kullanılamıyor.');
       setAnalytics({
         views: data.totalOpens || 0,
         opens: data.uniqueOpens || 0,
         clicks: data.totalClicks || 0,
-        lastWeek: data.uniqueOpens || 0
+        lastWeek: data.lastWeek || 0
       });
-    } catch(e) {}
-    setShowAnalyticsModal(true);
+      setShowAnalyticsModal(true);
+    } catch(e) {
+      alert(e instanceof Error?e.message:'Analitik bilgileri alınamadı.');
+    }
   };
   // Derived analytics from blocks
   const wordCount = blocks.filter(b=>b.type==='paragraph'||b.type==='title').reduce((acc,b)=>acc+(b.data.text||'').split(/\s+/).length,0);
@@ -1617,8 +1617,6 @@ ${text}`;
 
   // ── Styles ──
   const panelHdr: React.CSSProperties = { fontSize:10,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',color:'#9ca3af',padding:'12px 14px 8px',borderBottom:'1px solid #e5e7eb',background:'#f9fafb' };
-  // Auth state: set to false when Clerk is not configured (no NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)
-  const isSignedIn = false;
 
   return (
     <>
