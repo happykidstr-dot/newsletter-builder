@@ -5,38 +5,13 @@ import {publicationStore, checkPublishQuota, type PublishedNewsletter} from '../
 import {sanitiseNewsletterBody, renderPublishedNewsletter} from '../../lib/public-newsletter-render';
 import {allowedSiteOrigin} from '../../lib/publication-origin';
 import {createClient} from '@supabase/supabase-js';
+import {verifyNetlifyPublisher} from '../../lib/security/netlify-publisher';
 
 export const config:Config = {
   path:['/api/publish','/api/unpublish','/b/:slug'],
 };
 
 const MAX_BYTES=5_700_000;
-
-// Netlify Functions bypass Next.js proxy and must verify the bearer token
-// on each publisher write. Public reader GETs stay anonymous.
-function publisherAuthEnabled():boolean{
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL&&process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
-}
-async function verifiedPublisher(req:Request):Promise<string|undefined>{
-  const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if(!url||!key)return undefined;
-  const authorization=req.headers.get('authorization')||'';
-  const match=/^Bearer ([A-Za-z0-9._~-]{50,4000})$/.exec(authorization);
-  if(!match)return undefined;
-  try{
-    const client=createClient(url,key,{
-      auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
-    });
-    // Never trust the JWT payload or browser-supplied user id directly.
-    const {data:{user},error}=await client.auth.getUser(match[1]);
-    if(error||!user?.id)return undefined;
-    return user.id;
-  }catch{
-    console.warn('Supabase publication owner verification failed.');
-    return undefined;
-  }
-}
 
 async function recordAnonymousPageRequest(ownerUserId:string,slug:string,req:Request):Promise<void>{
   const userAgent=req.headers.get('user-agent')||'';
@@ -80,9 +55,9 @@ export default async (req:Request,context:Context):Promise<Response>=>{
         typeof body?.headerImgUrl!=='string'||body.headerImgUrl.length>3000){
         return reply({error:'Bülten bilgileri geçersiz veya çok uzun.'},400);
       }
-      const owner=await verifiedPublisher(req);
-      if(publisherAuthEnabled()&&!owner)
-        return reply({error:'Bülteni yayımlamak için Supabase hesabınıza giriş yapın.'},401);
+      const decision=await verifyNetlifyPublisher(req);
+      if(decision.error)return reply({error:decision.error},decision.status);
+      const owner=decision.userId;
       const clean=sanitiseNewsletterBody(body.html);
       const ip=req.headers.get('x-nf-client-connection-ip')||
         req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'anonymous';
@@ -133,6 +108,8 @@ export default async (req:Request,context:Context):Promise<Response>=>{
     if(req.headers.get('content-type')?.split(';')[0]!=='application/json')
       return reply({error:'JSON bekleniyor.'},415);
     try{
+      const decision=await verifyNetlifyPublisher(req);
+      if(decision.error)return reply({error:decision.error},decision.status);
       const raw=await req.text();
       if(raw.length>4_000)return reply({error:'İstek çok büyük.'},413);
       const body=JSON.parse(raw);
@@ -140,7 +117,7 @@ export default async (req:Request,context:Context):Promise<Response>=>{
       const store=publicationStore(host);
       const existing=await store.get(body.slug,{type:'json'}) as PublishedNewsletter|null;
       if(!existing)return reply({error:'Bülten bulunamadı.'},404);
-      if(existing.ownerUserId&&existing.ownerUserId!==await verifiedPublisher(req))
+      if(existing.ownerUserId&&existing.ownerUserId!==decision.userId)
         return reply({error:'Bu yayın başka kullanıcı hesabına ait.'},403);
       if(!matchesEditToken(body.editToken,existing.editTokenHash))
         return reply({error:'Bu bülteni yayından kaldırma yetkiniz yok.'},403);
