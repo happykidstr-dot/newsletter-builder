@@ -6,7 +6,7 @@ import {sanitiseNewsletterBody, renderPublishedNewsletter} from '../../lib/publi
 import {allowedSiteOrigin} from '../../lib/publication-origin';
 
 export const config:Config = {
-  path:['/api/publish','/b/:slug'],
+  path:['/api/publish','/api/unpublish','/b/:slug'],
 };
 
 const MAX_BYTES=5_700_000;
@@ -75,6 +75,29 @@ export default async (req:Request,context:Context):Promise<Response>=>{
       console.error('Netlify publication failed:',detail);
       const oversized=detail.includes('boyutu');
       return reply({error:oversized?'Bülten çok büyük. Görselleri küçültüp yeniden deneyin.':'Bülten yayımlanamadı. Depolama servisi kullanılamıyor.'},oversized?413:503);
+    }
+  }
+  if(req.method==='POST'&&new URL(req.url).pathname==='/api/unpublish'){
+    const origin=req.headers.get('origin')||'';
+    if(!allowedSiteOrigin(origin)||new URL(origin).hostname!==host)
+      return reply({error:'Yayından kaldırma sadece kendi editörünüzden yapılabilir.'},403);
+    if(req.headers.get('content-type')?.split(';')[0]!=='application/json')
+      return reply({error:'JSON bekleniyor.'},415);
+    try{
+      const raw=await req.text();
+      if(raw.length>4_000)return reply({error:'İstek çok büyük.'},413);
+      const body=JSON.parse(raw);
+      if(!validPublicationSlug(body?.slug))return reply({error:'Yayın adresi geçersiz.'},400);
+      const store=publicationStore(host);
+      const existing=await store.get(body.slug,{type:'json'}) as PublishedNewsletter|null;
+      if(!existing)return reply({error:'Bülten bulunamadı.'},404);
+      if(!matchesEditToken(body.editToken,existing.editTokenHash))
+        return reply({error:'Bu bülteni yayından kaldırma yetkiniz yok.'},403);
+      await store.delete(body.slug);
+      return reply({success:true,slug:body.slug},200);
+    }catch(error){
+      console.error('unpublish failed',error instanceof Error?error.message:error);
+      return reply({error:'Bülten yayından kaldırılamadı.'},503);
     }
   }
   if(req.method==='GET'){
