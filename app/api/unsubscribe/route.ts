@@ -1,6 +1,7 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {createClient} from '@supabase/supabase-js';
 import {readCampaignToken} from '@/lib/security/campaign-token';
+import {suppressionHash} from '@/lib/security/email-suppression';
 
 export const runtime='nodejs';
 const page=(title:string,body:string)=>'<!doctype html><html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>'+title+'</title></head><body style="font:16px system-ui;background:#f8fafc;color:#172554;display:grid;place-items:center;min-height:100vh"><main style="background:white;border:1px solid #e2e8f0;border-radius:16px;padding:30px;max-width:520px"><h1>'+title+'</h1>'+body+'</main></body></html>';
@@ -39,6 +40,11 @@ export async function POST(req:NextRequest){
    const {error:writeError}=await db.from('mailing_lists')
      .update({contacts:updated}).eq('id',token.listId).eq('user_id',token.userId);
    if(writeError)throw writeError;
+   const {error:denyError}=await db.from('email_suppressions').upsert({
+     user_id:token.userId,email_hash:suppressionHash(token.email),
+     created_at:new Date().toISOString(),
+   },{onConflict:'user_id,email_hash'});
+   if(denyError)throw denyError;
    return answer('Abonelik iptal edildi','<p>Talebiniz kaydedildi. Bu listeden yeni toplu bülten e-postaları almayacaksınız.</p>');
  }catch{return answer('İşlem yapılamadı','<p>İptal işlemi kaydedilemedi. Lütfen gönderen kuruluşla iletişime geçin.</p>',503);}
 }
