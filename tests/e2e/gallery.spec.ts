@@ -31,7 +31,7 @@ test('preview shows live text blocks and device switching', async ({page}) => {
   await page.getByTestId('template-gallery-card').first().click();
   const preview = page.getByTestId('template-gallery-preview');
   const actual=preview.frameLocator('[data-testid="template-gallery-live-preview"]');
-  await expect(actual.locator('h1')).toHaveText('European Project Magazine');
+  await expect(actual.locator('h1').first()).toHaveText('European Project Magazine');
   await expect(actual.locator('#bulten-reading-content')).toContainText('Birlikte Daha Güçlü Bir Avrupa');
   await page.getByRole('group',{name:'Önizleme ekranı'}).getByRole('button',{name:/Mobil/}).click();
   await expect(preview.getByTestId('template-gallery-live-preview')).toHaveClass(/publicationIframeMobile/);
