@@ -24,7 +24,7 @@ test('Google Form and external response links survive HTML export',async({page})
   await page.getByPlaceholder(/https:\/\/forms\.gle/).fill('https://docs.google.com/forms/d/e/demo/viewform');
   const [download]=await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button',{name:'HTML',exact:true}).click(),
+    page.getByRole('button',{name:/HTML/}).click(),
   ]);
   const html=await readFile(await download.path() as string,'utf8');
   expect(html).toContain('Google Form’u Aç ve Yanıtla');
