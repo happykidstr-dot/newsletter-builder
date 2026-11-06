@@ -58,7 +58,7 @@ export async function storeAudioRequest(
   const store=mediaStore(hostname);
   if(input.action==='start'){
     if(typeof input.name!=='string'||typeof input.mime!=='string'||
-      !Number.isSafeInteger(input.size)||Number(input.size)<1||Number(input.size)>MAX_AUDIO_BYTES)
+      typeof input.size!=='number'||!Number.isSafeInteger(input.size)||input.size<1||input.size>MAX_AUDIO_BYTES)
       return json({error:'Ses dosyası geçersiz veya 60 MB sınırını aşıyor.'},413);
     const format=audioFormat(input.name,input.mime);
     if(!format)return json({error:'Lütfen ses dosyası seçin. Dosya uzantısı tanınamadı.'},415);
@@ -79,7 +79,7 @@ export async function storeAudioRequest(
   if(input.action==='chunk'){
     if(manifest.state!=='uploading')return json({error:'Yükleme zaten tamamlandı.'},409);
     const index=input.index;
-    if(!Number.isSafeInteger(index)||Number(index)<0||Number(index)>=manifest.parts||
+    if(typeof index!=='number'||!Number.isSafeInteger(index)||index<0||index>=manifest.parts||
       typeof input.base64!=='string'||input.base64.length>2_100_000||
       !/^[A-Za-z0-9+/]+={0,2}$/.test(input.base64))
       return json({error:'Ses parçası geçersiz.'},400);
