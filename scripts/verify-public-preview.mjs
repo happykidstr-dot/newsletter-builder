@@ -23,6 +23,31 @@ async function ready(){
 }
 await ready();
 
+// Non-destructive security checks: anonymous callers must never be able
+// to reach billable or private endpoints. Empty bodies cannot send mail/AI.
+for(const path of ['/api/ai-generate','/api/chat','/api/send-email']){
+  const response=await fetch(BASE+path,{
+    method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},
+    body:JSON.stringify({}),signal:AbortSignal.timeout(15000),
+  });
+  assert.ok([401,403,503].includes(response.status),
+    path+' was not session-locked: '+response.status);
+}
+for(const path of ['/api/db/analytics','/api/account/privacy']){
+  const response=await fetch(BASE+path,{signal:AbortSignal.timeout(15000)});
+  assert.ok([401,403,503].includes(response.status),
+    path+' leaked personal data: '+response.status);
+}
+const unsignedClick=await fetch(BASE+'/api/track/click?u=https%3A%2F%2Fevil.example',{
+  redirect:'manual',signal:AbortSignal.timeout(15000),
+});
+assert.equal(unsignedClick.status,400,'Legacy public redirect must not be accepted.');
+const badUnsubscribe=await fetch(BASE+'/api/unsubscribe?t=fake',{
+  redirect:'manual',signal:AbortSignal.timeout(15000),
+});
+assert.equal(badUnsubscribe.status,400,'Invalid unsubscribe token must not change subscriber data.');
+
+
 // Test the independent media store before publishing an image-rich article.
 const pngOnePixel='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL2VQAAAABJRU5ErkJggg==';
 const mediaSent=await fetch(BASE+'/api/media',{
