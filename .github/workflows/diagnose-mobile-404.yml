@@ -1,0 +1,19 @@
+name: Investigate BULTEN READ production mobile 404
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/diagnose-mobile-404.mjs'
+      - '.github/workflows/diagnose-mobile-404.yml'
+  workflow_dispatch:
+jobs:
+  inspect-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout diagnostic script
+        uses: actions/checkout@v4
+      - name: Inspect mobile and desktop production HTTP responses
+        run: node scripts/diagnose-mobile-404.mjs
