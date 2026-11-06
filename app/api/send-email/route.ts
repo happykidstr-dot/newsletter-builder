@@ -6,6 +6,7 @@ import sanitizeHtml from 'sanitize-html';
 import {requireSignedInUser,checkSameOrigin,boundedJson,requestProblem} from '@/lib/security/access';
 import {reserveQuota} from '@/lib/security/quotas';
 import {makeCampaignToken} from '@/lib/security/campaign-token';
+import {suppressionHash} from '@/lib/security/email-suppression';
 
 export const runtime='nodejs';
 type Recipient={email:string;name?:string;consentAt?:string;consentSource?:string;unsubscribedAt?:string;trackingConsent?:boolean};
@@ -72,6 +73,13 @@ export async function POST(req:NextRequest){
        Boolean(c.consentAt)&&typeof c.consentSource==='string'&&c.consentSource.trim().length>2);
      if(recipients.length<1)return refuse('İzin kaydı bulunan aktif alıcı yok. Önce abonelik izinlerini kaydedin.',422);
      if(recipients.length>30)return refuse('Tek seferde en fazla 30 alıcıya gönderin. Listeyi gruplara ayırın.',413);
+     const hashes=recipients.map(c=>suppressionHash(c.email));
+     const {data:blocked,error:blockError}=await db.from('email_suppressions')
+       .select('email_hash').eq('user_id',identity.userId).in('email_hash',hashes);
+     if(blockError)throw blockError;
+     const blacklist=new Set((blocked||[]).map(v=>v.email_hash));
+     recipients=recipients.filter(c=>!blacklist.has(suppressionHash(c.email)));
+     if(!recipients.length)return refuse('Bu listedeki tüm izinli alıcılar abonelikten ayrılmış.',422);
    }
  }catch{return refuse('Alıcı izinleri doğrulanamadı.',503);}
  const quotaCount=recipients.length;
