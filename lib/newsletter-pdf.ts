@@ -1,3 +1,4 @@
+import {validYoutubeId,youtubePosterProxyPath} from './video-thumbnail';
 /**
  * Separate real PDF download from the browser print dialog.
  * Rendering takes place in the browser and does not use OpenAI tokens.
@@ -28,6 +29,10 @@ export function printableNewsletterNode(html: string): HTMLElement {
   const node=root.cloneNode(true) as HTMLElement;
   node.querySelectorAll('#speakBtn,#bulten-reader-share,script,button').forEach(el=>el.remove());
 
+  // A video poster is already visible in the exported HTML; remove its
+  // optional YouTube player to avoid duplicate links or blank PDF frames.
+  node.querySelectorAll('.bulten-video-player').forEach(el=>el.remove());
+
   // Cross-origin frames cannot be rasterised reliably: link to the video instead.
   node.querySelectorAll('iframe').forEach(frame=>{
     const replacement=parsed.createElement('p');
@@ -53,9 +58,48 @@ export function printableNewsletterNode(html: string): HTMLElement {
   return node;
 }
 
+
+/**
+ * PDF screenshots cannot safely canvas-capture images from third-party origins.
+ * Convert only our marked YouTube thumbnails to same-origin JPEG data URIs.
+ * If the thumbnail host is unavailable, leave the normal web image URL as a
+ * best-effort fallback; PDF export still works for all other content.
+ */
+export async function inlineVideoPosterImages(node:HTMLElement):Promise<number>{
+  const posters=Array.from(node.querySelectorAll<HTMLImageElement>('img[data-bulten-video-id]'));
+  let prepared=0;
+  await Promise.all(posters.map(async image=>{
+    const id=image.getAttribute('data-bulten-video-id');
+    if(!validYoutubeId(id))return;
+    try{
+      const response=await fetch(youtubePosterProxyPath(id),{
+        signal:AbortSignal.timeout(9000),cache:'force-cache',
+      });
+      if(!response.ok||!/^image\/jpe?g(?:;|$)/i.test(response.headers.get('content-type')||''))
+        throw new Error('Video görseli getirilemedi.');
+      const blob=await response.blob();
+      if(blob.size>1_500_000||blob.size<100)throw new Error('Video görseli geçersiz.');
+      const dataUri=await new Promise<string>((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=()=>resolve(String(reader.result||''));
+        reader.onerror=()=>reject(new Error('Video görseli okunamadı.'));
+        reader.readAsDataURL(blob);
+      });
+      if(!dataUri.startsWith('data:image/jpeg;base64,'))throw new Error('Geçersiz video resmi.');
+      image.removeAttribute('crossorigin');
+      image.src=dataUri;
+      prepared++;
+    }catch(error){
+      console.warn('YouTube video kapak görseli PDF içinde yüklenemedi.',error);
+    }
+  }));
+  return prepared;
+}
+
 export async function downloadNewsletterPdf(html:string,title:string):Promise<void> {
   if(typeof document==='undefined') throw new Error('PDF yalnızca tarayıcıda oluşturulabilir.');
   const node=printableNewsletterNode(html);
+  await inlineVideoPosterImages(node);
   const module=await import('html2pdf.js');
   const html2pdf=module.default;
   // A4 PDF with generous margins, multi-page handling and colour images.
