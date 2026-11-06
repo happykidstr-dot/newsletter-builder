@@ -583,8 +583,8 @@ export default function BultenReadPage() {
   const a11y = useAccessibility({ storagePrefix: 'bulten_a11y_' });
   const dragTypeRef = React.useRef<BT|null>(null);
   const [dropIndicator, setDropIndicator] = React.useState<number|null>(null);
-  const [title,    setTitle]    = useState('The Weekly Update');
-  const [subtitle, setSubtitle] = useState('#1  •  March 24th, 2026');
+  const [title,    setTitle]    = useState('Proje ve Toplum Bülteni');
+  const [subtitle, setSubtitle] = useState('Sayı 1 · Güncel Haberler');
   const [design,        setDesign]        = useState<Design>('modern');
   const [showTOC,       setShowTOC]       = useState(true);
   const [logoUrl,       setLogoUrl]       = useState('');
@@ -1792,10 +1792,12 @@ ${text}`;
               {/* TOC toggle */}
               <div style={{padding:'12px 14px',borderTop:'1px solid #e5e7eb',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <span style={{fontSize:12,fontWeight:600,color:'#374151'}}>{t.toc}</span>
-                <div onClick={()=>setShowTOC(x=>!x)}
-                  style={{width:40,height:22,borderRadius:11,background:showTOC?D.accentColor:'#d1d5db',cursor:'pointer',position:'relative',transition:'background .2s'}}>
-                  <div style={{position:'absolute',top:3,left:showTOC?20:3,width:16,height:16,borderRadius:'50%',background:'#fff',transition:'left .2s'}}/>
-                </div>
+                <button type="button" role="switch" aria-checked={showTOC}
+                  aria-label="İçindekiler bölümünü göster"
+                  onClick={()=>setShowTOC(x=>!x)}
+                  style={{width:40,height:22,borderRadius:11,background:showTOC?D.accentColor:'#d1d5db',cursor:'pointer',position:'relative',transition:'background .2s',border:0}}>
+                  <span aria-hidden="true" style={{position:'absolute',top:3,left:showTOC?20:3,width:16,height:16,borderRadius:'50%',background:'#fff',transition:'left .2s'}}/>
+                </button>
               </div>
 
               {/* Block list */}
@@ -1938,7 +1940,7 @@ ${text}`;
           {/* TOC */}
           {showTOC && blocks.some(b=>b.type==='title') && (
             <div style={{maxWidth:previewMode==='mobile'?375:640,margin:'0 auto 12px',background:'#fff',borderRadius:8,padding:'10px 16px',border:`1px solid ${D.accentColor}33`,transition:'max-width 0.3s ease'}}>
-              <div style={{fontSize:10,fontWeight:800,letterSpacing:1,textTransform:'uppercase',color:'#9ca3af',marginBottom:6}}>Contents</div>
+              <div style={{fontSize:10,fontWeight:800,letterSpacing:1,textTransform:'uppercase',color:'#9ca3af',marginBottom:6}}>{lang==='en'?'Contents':'İçindekiler'}</div>
               {blocks.filter(b=>b.type==='title').map(b=>(
                 <div key={b.id} style={{fontSize:12,color:D.accentColor,fontWeight:600,marginBottom:2,fontFamily:D.font}}>→ {b.data.text}</div>
               ))}
