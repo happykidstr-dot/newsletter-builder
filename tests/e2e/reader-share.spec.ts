@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 
 async function downloadNewsletter(page:import('@playwright/test').Page):Promise<string>{
+  await page.getByTestId('advanced-tools-toggle').click();
   const [download]=await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('button',{name:/HTML/}).click(),
@@ -43,7 +44,7 @@ test('publisher receives a URL for the current newsletter without manual entry',
   await page.goto('/');
   await page.route('**/api/publish',route=>route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM',editToken:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',revision:1})}));
   page.once('dialog',dialog=>dialog.accept());
-  await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
+  await page.getByRole('button',{name:'Bülteni yayınla'}).click();
   const dialog=page.getByRole('dialog',{name:'Bu Bülteni Paylaş'});
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('textbox',{name:'Yayımlanmış bülten adresi'}))
@@ -55,7 +56,7 @@ test('newly published URL becomes static social links in HTML export for email r
   await page.goto('/');
   await page.route('**/api/publish',route=>route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM',editToken:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',revision:1})}));
   page.once('dialog',dialog=>dialog.accept());
-  await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
+  await page.getByRole('button',{name:'Bülteni yayınla'}).click();
   await page.getByRole('button',{name:'Paylaşım penceresini kapat'}).click();
   const html=await downloadNewsletter(page);
   expect(html).toContain('https://www.linkedin.com/sharing/share-offsite/?url=');
