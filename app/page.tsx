@@ -1031,7 +1031,10 @@ export default function BultenReadPage() {
       });
     }).catch(()=>{});
     fetch('/api/db/mailing-lists').then(r=>r.ok?r.json():[]).then(d=>{
-      if(Array.isArray(d))setMailingLists(d);
+      if(Array.isArray(d))setMailingLists(d.map(v=>({
+        ...v,createdAt:v.createdAt||v.created_at||new Date().toISOString(),
+        contacts:Array.isArray(v.contacts)?v.contacts:[],
+      })));
     }).catch(()=>{});
   },[]);
 
@@ -1069,14 +1072,22 @@ export default function BultenReadPage() {
 
   const saveLists = async (lists: MailingList[]) => {
     const before=mailingLists;
+    setMlError('');
     setMailingLists(lists);
     try {
-      const res=await fetch('/api/db/mailing-lists',{
-        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lists),
-      });
-      if(!res.ok){
-        const message=await res.json().catch(()=>({}));
-        throw new Error(message.error||'Listeyi kaydetmek için hesabınıza giriş yapın.');
+      // Saving an empty array must remove the old list(s) remotely too.
+      if(lists.length){
+        const res=await fetch('/api/db/mailing-lists',{
+          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lists),
+        });
+        if(!res.ok){
+          const message=await res.json().catch(()=>({}));
+          throw new Error(message.error||'Listeyi kaydetmek için hesabınıza giriş yapın.');
+        }
+      }
+      for(const removed of before.filter(x=>!lists.some(l=>l.id===x.id))){
+        const response=await fetch('/api/db/mailing-lists?id='+encodeURIComponent(removed.id),{method:'DELETE'});
+        if(!response.ok)throw new Error('Silinen liste bulut arşivinden kaldırılamadı.');
       }
     }catch(error){
       setMailingLists(before);
