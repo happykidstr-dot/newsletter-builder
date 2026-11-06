@@ -40,6 +40,29 @@ async function check(){
      callbackTarget.origin!==base||
      callbackTarget.searchParams.get('auth_error')!=='callback')
     return {ok:false,reason:'Supabase Auth PKCE callback is not deployed yet ('+callback.status+')'};
+  // Private editor is an enforced allowlisted workspace. Confirm deployment
+  // before sending anonymous same-origin write probes to avoid the old version.
+  if(!homepage.includes('bulten-private-gate')){
+    return {ok:false,reason:'Private publisher editor gate is not yet deployed'};
+  }
+  const access=await fetch(base+'/api/editor-access',{cache:'no-store',signal:AbortSignal.timeout(20000)});
+  if(![401,403,503].includes(access.status))
+    return {ok:false,reason:'Anonymous editor access was granted: HTTP '+access.status};
+  const deniedPublication=await fetch(base+'/api/publish',{
+    method:'POST',headers:{Origin:base,'Content-Type':'application/json'},
+    body:JSON.stringify({title:'Unauthorized QA probe',subtitle:'Access test',headerImgUrl:'',
+      html:'<!doctype html><html lang="tr"><body><h1>Denied</h1></body></html>'}),
+    signal:AbortSignal.timeout(20000),
+  });
+  if(![401,403,503].includes(deniedPublication.status))
+    return {ok:false,reason:'Anonymous publication was not blocked: HTTP '+deniedPublication.status};
+  const deniedMedia=await fetch(base+'/api/media',{
+    method:'POST',headers:{Origin:base,'Content-Type':'application/json'},
+    body:JSON.stringify({mime:'image/png',base64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL2VQAAAABJRU5ErkJggg=='}),
+    signal:AbortSignal.timeout(20000),
+  });
+  if(![401,403,503].includes(deniedMedia.status))
+    return {ok:false,reason:'Anonymous media upload was not blocked: HTTP '+deniedMedia.status};
   // A live Netlify publication endpoint denies cross-site POST with 403.
   // Legacy versions responded 404 or redirected, so this tests new deployment.
   const publish=await fetch(base+'/api/publish',{
