@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from '../helpers/authorized-editor-test';
 import {readFileSync} from 'node:fs';
 
 test('Temel and Gelişmiş expose the appropriate blocks without removing existing work',async({page})=>{
