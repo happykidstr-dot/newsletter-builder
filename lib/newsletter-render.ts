@@ -1,4 +1,5 @@
 import { escapeShareHtml, normalisePublicNewsletterUrl, readerShareBar, READER_SHARE_RUNTIME, safeReaderImageUrl, safeReaderLinkUrl } from './reader-social-share';
+import {youtubeVideoId,youtubePosterUrl,youtubeWatchUrl} from './video-thumbnail';
 
 /** The same HTML renderer powers published exports and the template's real preview. */
 export type NewsletterRenderBlock = {type:string; data:Record<string,string>};
@@ -9,7 +10,6 @@ export type NewsletterRenderOptions = {
   blocks:NewsletterRenderBlock[];D:NewsletterRenderDesign;title:string;subtitle:string;
   showTOC:boolean;headerImgUrl:string;logoUrl:string;lang:'tr'|'en';publicNewsletterUrl:string;
 };
-function videoId(url:string){ const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^&?\s]+)/); return m?m[1]:null; }
 export function renderNewsletterHTML({blocks,D,title,subtitle,showTOC,headerImgUrl,logoUrl,lang,publicNewsletterUrl}:NewsletterRenderOptions):string {
     const blockHtml = blocks.map(b=>{
       const d:Record<string,string> = Object.fromEntries(Object.entries(b.data).map(([k,raw])=>{
@@ -40,7 +40,35 @@ export function renderNewsletterHTML({blocks,D,title,subtitle,showTOC,headerImgU
         return d.url?`<img src="${d.url}" alt="${d.caption||''}" style="width:100%;border-radius:8px;display:block;"/>`:`<div style="height:80px;background:#e2e8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-family:${ff};">🖼 Görsel ekleyin</div>`;
       }
 
-      if(b.type==='video'){const v=videoId(d.url||'');return v && /^[A-Za-z0-9_-]{11}$/.test(v)?`<div style="position:relative;padding-bottom:56.25%;height:0;"><iframe src="https://www.youtube.com/embed/${v}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe></div>`:``;}
+      if(b.type==='video'){
+        const id=youtubeVideoId(d.url||'');
+        if(!id)return `<p style="font-size:13px;color:#a16207;font-family:${ff};">Video önizlemesi için geçerli bir YouTube bağlantısı ekleyin.</p>`;
+        const label=d.caption?.trim()||'YouTube videosu';
+        const watch=youtubeWatchUrl(id);
+        // YouTube provides a real video-frame poster. The still image remains
+        // visible in downloaded HTML and PDF, while <details> keeps an optional
+        // embedded player available in HTML and hosted newsletters.
+        return `<figure class="bulten-video-poster" style="margin:0 0 12px;break-inside:avoid;page-break-inside:avoid;font-family:${ff};">
+          <a href="${watch}" target="_blank" rel="noopener noreferrer" aria-label="${label} — YouTube'da videoyu izle"
+             style="position:relative;display:block;text-decoration:none;color:inherit;overflow:hidden;border-radius:12px;background:#0f172a;">
+            <img data-bulten-video-id="${id}" src="${youtubePosterUrl(id)}" alt="Video kapak görseli: ${label}"
+                 loading="eager" style="display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#172033;"/>
+            <span aria-hidden="true" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:14px;
+               background:#dc2626;color:white;padding:10px 23px;font-size:27px;line-height:1;box-shadow:0 3px 16px #0008;">▶</span>
+          </a>
+          <figcaption style="color:${tc};font-size:13px;margin:8px 0;line-height:1.5;">
+            ▶ ${label} · <a href="${watch}" target="_blank" rel="noopener noreferrer"
+                style="font-weight:700;color:${ac};">Videoyu izle</a>
+          </figcaption>
+        </figure>
+        <details class="bulten-video-player" style="margin:0 0 10px;font-family:${ff};">
+          <summary style="cursor:pointer;color:${ac};font-size:13px;font-weight:700;padding:8px 0;">▶ Videoyu bu sayfada oynat</summary>
+          <div style="position:relative;padding-bottom:56.25%;height:0;">
+            <iframe loading="lazy" title="${label}" src="https://www.youtube-nocookie.com/embed/${id}"
+                    style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe>
+          </div>
+        </details>`;
+      }
       if(b.type==='event') return `<div style="border-left:4px solid ${ac};padding:8px 16px;font-family:${ff};"><b style="color:${ac};">${d.title}</b>${d.date?`<br/><span style="color:${tc};font-size:13px;">📅 ${d.date} ${d.time}</span>`:''}${d.location?`<br/><span style="color:${tc};font-size:13px;">📍 ${d.location}</span>`:''}</div>`;
       if(b.type==='separator') return `<hr style="border:none;border-top:2px ${d.style} ${ac};margin:8px 0;"/>`;
       if(b.type==='link') return `<a href="${d.url}" style="color:${ac};font-family:${ff};font-weight:600;">🔗 ${d.text}</a>`;
@@ -86,7 +114,7 @@ export function renderNewsletterHTML({blocks,D,title,subtitle,showTOC,headerImgU
     const ogImageUrl = normalisePublicNewsletterUrl(headerImgUrl);
     const ogImageMeta = ogImageUrl ? `<meta property="og:image" content="${escapeShareHtml(ogImageUrl)}">` : '';
 
-    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${cleanTitle}</title><meta name="description" content="${cleanSubtitle}"><meta property="og:title" content="${cleanTitle}"><meta property="og:description" content="${cleanSubtitle}"><meta property="og:type" content="article">${canonicalMeta}${ogImageMeta}<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn,#bulten-reader-share{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;">${logoHtml}<button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${cleanTitle}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${cleanSubtitle}</p></div><div id="bulten-reading-content" style="padding:32px 40px;">${toc}${blockHtml}</div>${shareBarHtml}<div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
+    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${cleanTitle}</title><meta name="description" content="${cleanSubtitle}"><meta property="og:title" content="${cleanTitle}"><meta property="og:description" content="${cleanSubtitle}"><meta property="og:type" content="article">${canonicalMeta}${ogImageMeta}<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;print-color-adjust:exact;}body{background:#e5e7eb;font-family:${D.font};}a{text-decoration:none;}@media print{body{background:#fff!important;}div[style*="border-radius:12px"]{box-shadow:none!important;border-radius:0!important;margin:0 auto!important;max-width:100%!important;}#speakBtn,#bulten-reader-share,.bulten-video-player{display:none!important;}}</style></head><body><div style="max-width:640px;margin:24px auto;background:${D.bodyBg};border-radius:12px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.15);position:relative;"><div style="${headerBgStyle}padding:36px 40px;text-align:center;position:relative;">${logoHtml}<button id="speakBtn" onclick="window.bultenSpeak()" style="position:absolute;top:20px;right:24px;background:#fff;border:none;color:#1e293b;border-radius:30px;padding:8px 16px;display:flex;gap:6px;justify-content:center;align-items:center;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,0.2);font-family:${D.font};"><span id="speakIcon" style="font-size:16px;">🔊</span> <span id="speakText">Dinle</span></button><h1 style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};font-size:26px;font-weight:800;margin:0 0 6px;font-family:${D.font};">${cleanTitle}</h1><p style="color:${headerImgUrl?'#ffffff':D.headerColor};text-shadow:${headerImgUrl?'0 2px 10px rgba(0,0,0,0.8)':'none'};opacity:${headerImgUrl?'1':'.8'};font-size:13px;font-family:${D.font};">${cleanSubtitle}</p></div><div id="bulten-reading-content" style="padding:32px 40px;">${toc}${blockHtml}</div>${shareBarHtml}<div style="background:${D.headerBg};padding:16px 40px;text-align:center;"><p style="color:${D.headerColor};opacity:.6;font-size:12px;font-family:${D.font};">Bu bülten Project Factory AI ile oluşturulmuştur.</p></div></div>
     <script>
       window.bultenIsSpeaking = false;
       window.bultenSpeak = function() {
