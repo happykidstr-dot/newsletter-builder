@@ -173,16 +173,33 @@ body {
 
 .bulten-pubpreview-overlay{position:fixed;inset:0;z-index:12500;display:grid;place-items:center;
  background:rgba(15,23,42,.78);padding:16px;}
-.bulten-pubpreview-dialog{display:flex;flex-direction:column;gap:0;background:#f1f5f9;
+.bulten-pubpreview-dialog{position:relative;display:flex;flex-direction:column;gap:0;background:#f1f5f9;
  width:min(790px,100%);height:min(900px,calc(100dvh - 32px));border-radius:16px;overflow:hidden;}
 .bulten-pubpreview-header{padding:14px 18px;display:flex;justify-content:space-between;
  align-items:center;gap:12px;background:#fff;border-bottom:1px solid #cbd5e1;color:#183047;}
 .bulten-pubpreview-header strong{font-size:16px;}
 .bulten-pubpreview-header p{font-size:12px;color:#475569;margin:5px 0 0;}
 .bulten-pubpreview-dialog iframe{width:100%;height:100%;min-height:0;border:0;background:#fff;}
+.bulten-pubpreview-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:7px;}
+.bulten-pubpreview-play{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+ background:#dc2626;color:#fff;border-color:#b91c1c;}
+.bulten-pubpreview-video-screen{position:absolute;inset:0;z-index:5;
+ background:rgba(15,23,42,.94);display:grid;place-items:center;padding:16px;}
+.bulten-pubpreview-video-dialog{width:min(720px,100%);background:#fff;border-radius:12px;overflow:hidden;
+ box-shadow:0 22px 70px rgba(0,0,0,.45);}
+.bulten-pubpreview-video-header{padding:11px 15px;display:flex;justify-content:space-between;
+ gap:12px;align-items:center;color:#0f172a;}
+.bulten-pubpreview-video-ratio{width:100%;aspect-ratio:16/9;background:#000;}
+.bulten-pubpreview-video-ratio iframe{display:block;width:100%;height:100%;min-height:0;border:0;background:#000;}
+.bulten-pubpreview-youtube-link{display:block;padding:12px 16px;color:#0e7490;font-size:13px;
+ font-weight:700;text-decoration:underline;}
+.bulten-pubpreview-video-screen :focus-visible,.bulten-pubpreview-actions :focus-visible{
+ outline:3px solid #0d9488;outline-offset:2px;}
 @media(max-width:560px){.bulten-pubpreview-overlay{padding:0;}
  .bulten-pubpreview-dialog{height:100dvh;border-radius:0;width:100%;}
- .bulten-pubpreview-header{padding:12px;}}
+ .bulten-pubpreview-header{padding:12px;align-items:flex-start;}
+ .bulten-pubpreview-play{max-width:150px;}
+ .bulten-pubpreview-video-screen{padding:9px;}}
 
 /* Free Supabase Auth: modal controls with clear focus indicators. */
 .bulten-auth-backdrop{position:fixed;inset:0;z-index:16000;background:rgba(15,23,42,.72);
