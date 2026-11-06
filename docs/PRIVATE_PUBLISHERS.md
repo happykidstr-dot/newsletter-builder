@@ -1,22 +1,40 @@
-# BÜLTEN READ — Özel Yayıncı Yönetimi (2 Hesap)
+# BÜLTEN READ — Şifresiz Yerel Editör ve Özel Sunucu Yayıncıları
 
-Yönetici onayı: 6 Kasım 2026. **Yalnızca aşağıdaki Supabase Auth hesapları** bülten oluşturabilir, kaydedebilir, görsel yükleyebilir, yayımlayabilir, güncelleyebilir ve yayından kaldırabilir:
+Karar: Şimdilik bülten editörü **hesap veya şifre olmadan açılır**. Bülten
+hazırlama, yerel Kaydet / Aç, şablonlar ve HTML / PDF indirme herkese
+açıktır; kayıtlar aynı tarayıcının IndexedDB alanında tutulur.
+Farklı bir cihazda aynı kişiye otomatik aktarılmaz.
 
+**İki yetkili yayıncı** sunucu işlemleri için geçerlidir:
 - `happykidstr@gmail.com`
 - `projefabrikasitr@gmail.com`
 
-Yetki, yalnızca arayüzdeki gizleme mekanizmasına dayanmaz. Next.js ve Netlify sunucu uç noktaları her istekte **Supabase'in doğruladığı oturum kimliğini** ve **email_confirmed_at** bilgisini denetler. E-posta adresi doğrulanmamışsa, listedeki bir adres bile yayın yapamaz.
+Supabase Auth, bu e-postaların doğrulanmış olduğunu kanıtlamadan bulut
+kaydı, bülten yayımlama, medya yükleme, AI, analitik veya gönderim yapılamaz.
+Giriş olmadan editör herkese açıktır; yalnızca iki kişinin editöre
+girmesini engellemek şifresiz ortamda teknik olarak mümkün değildir.
 
-## Okuyucu / yayıncı ayrımı
+## İşlem ve yetki tablosu
 
-| İşlem | Kim yapabilir? |
+| İşlem | Erişim |
 |---|---|
-| Mevcut `/b/<slug>` bağlantısını okumak | Herkes |
-| Yayımlanmış görseli görüntülemek | Herkes |
-| Ana sayfada editörü açmak | Yalnızca yukarıdaki iki doğrulanmış hesap |
-| Taslak hazırlamak / yerel kaydetmek / PDF veya HTML dışa aktarmak | Yalnızca yetkililer |
-| Bulut taslağı, liste, AI, mail, analitik yönetimi | Yalnızca yetkililer |
-| Yeni yayın, görsel yükleme, aynı URL güncelleme, yayından kaldırma | Yalnızca yetkililer; ayrıca eski edit anahtarı ve hesap sahipliği kuralları korunur |
+| `/` ana sayfasını açmak | Herkes, girişsiz |
+| Taslak hazırlama, yerel Kaydet/Aç ve HTML/PDF indirme | Herkes, kendi tarayıcısında |
+| Mevcut `/b/<slug>` bültenini okumak | Herkes |
+| Sunucuya bülten yayımlamak, yayımlananı değiştirmek, yayından kaldırmak | İki doğrulanmış yetkili hesap |
+| Sunucuya görüntü/ses dosyası yüklemek | İki doğrulanmış yetkili hesap |
+| Bulut taslağı, liste, AI, e-posta, analitik | İki doğrulanmış yetkili hesap |
+
+## İleride şifreli editör açmak
+
+Netlify → **Environment variables** alanında
+`NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN=true` tanımlanır ve yeni deploy yapılır.
+Bu durumda `EditorAccessGate` yeniden etkinleşir; Supabase Auth ile doğrulanmış
+onaylı kullanıcılar editöre girebilir. Şifreli kullanım için ilgili
+Supabase ve Google OAuth ayarları da tamamlanmalıdır.
+
+`NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN` değeri yoksa veya `false` ise
+editör **doğrudan açılır**, `Hesap ayarı gerekli` ekranı görünmez.
 
 ## Supabase / Netlify bağlantısını tamamlamak için
 
@@ -28,7 +46,7 @@ Kullanıcı Supabase panelinde `happykidstr-dot’s Org` Free Plan kuruluşunu a
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL`.
 4. Supabase SQL Editor → şema bulunmuyorsa `supabase_schema.sql`, sonra `migrations/20261106_security_phase1.sql`, ardından `migrations/20261106_phase2_reliability.sql`. Uygulanmış SQL'i tekrar çalıştırmadan önce kontrol edin.
 5. Netlify'de yeniden deploy edin. Alan adı satın almanız gerekmiyor.
-6. İki onaylı adresle Google girişi test edin. Başka bir doğrulanmış Gmail hesabıyla giriş denendiğinde **403** ve editör erişimi kapalı olmalı. Anonim yayınlama veya görsel yükleme her koşulda reddedilmeli.
+6. İki onaylı adresle Google girişi test edin. Başka bir doğrulanmış Gmail hesabıyla sunucu işlemi denendiğinde **403** dönmeli. Şifresiz editör modu açıksa bu kişiler yerel taslaklarını hazırlayabilir, ancak sunucuya yayımlayamaz veya görsel yükleyemez.
 7. Dilerseniz bu iki kullanıcı Supabase Auth → Users bölümünde oluştuktan sonra yeni kullanıcı kaydını Supabase Auth ayarlarından kapatın. **Dikkat:** İlk kez Google ile giriş yapacak onaylı hesapları oluşturmadan önce kaydı kapatırsanız onlar da giriş yapamayabilir.
 
 ### Mevcut verilerin korunması
@@ -37,10 +55,10 @@ Kullanıcı Supabase panelinde `happykidstr-dot’s Org` Free Plan kuruluşunu a
 
 ### Önemli güvenlik kuralı
 
-Supabase URL veya publishable key eksikken **editör ve yayınlama kapalı** kalır: 503 güvenli hata durumu. Asla anonime düşülmez. Hizmetin etkinleşmesi için Netlify/Supabase panellerinde gerçek anahtarların girilmesi gerekir. Gizli anahtarları sohbet içinde paylaşmayın.
+Supabase URL veya publishable key eksikken **yalnızca sunucu işlemleri kapalı** kalır: 503 güvenli hata durumu. Yerel editör herkese açıktır; sunucuda anonim yayımlama açılmaz. Hizmetin etkinleşmesi için Netlify/Supabase panellerinde gerçek anahtarların girilmesi gerekir. Gizli anahtarları sohbet içinde paylaşmayın.
 
 ## Test stratejisi
 
-- UI Playwright testlerinde yalnızca `/api/editor-access` yanıtı taklit edilir; sunucuda test moduyla auth bypass bulunmaz.
+- Yerel editör Playwright ile Supabase ayarları olmadan açılarak Kaydet/HTML indirme bakımından test edilir. Sunucuda test moduyla auth bypass bulunmaz.
 - Güvenlik testleri gerçek anonim URL isteklerini, sahte Supabase belirtecini, Netlify medya ve yayın reddini denetler.
 - Onaylı iki gerçek kullanıcının canlı hesap testleri, Supabase Google OAuth etkinleştirilince ayrı yapılmalıdır.
