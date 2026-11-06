@@ -1,29 +1,34 @@
 import {test,expect} from '@playwright/test';
 
-test('editor stays public when Supabase Auth is not configured, without exposing private APIs',async({page,request})=>{
+test('anonymous editor access is denied without Supabase Auth configuration',async({page,request})=>{
   await page.goto('/');
-  await expect(page.getByPlaceholder('Bülten başlığı...')).toBeVisible();
-  // GitHub CI builds without production credentials. Preview builds may configure
-  // Supabase in the future; both states must remain meaningful and safe.
-  const status=page.getByText('Hesap ayarı gerekli');
-  const login=page.getByRole('button',{name:'Hesaba giriş yap'});
-  await expect(status.or(login)).toBeVisible();
-  for(const route of ['/api/db/newsletters','/api/db/mailing-lists','/api/account/privacy']){
-    const response=await request.get(route);
-    expect([401,503]).toContain(response.status());
+  await expect(page.getByRole('heading',{name:'BÜLTEN READ'})).toBeVisible();
+  await expect(page.getByPlaceholder('Bülten başlığı...')).toHaveCount(0);
+  await expect(page.getByText('Yayıncı doğrulaması yapılandırılmadığı için editör güvenlik amacıyla kapalıdır.')).toBeVisible();
+  for(const route of ['/api/editor-access','/api/db/newsletters','/api/db/mailing-lists','/api/account/privacy']){
+    const result=await request.get(route);
+    expect([401,403,503]).toContain(result.status());
   }
 });
 
-test('signed-out account modal is accessible and offers Google and email/password flows when configured',async({page})=>{
+test('server-denied publisher cannot see editor even if the access endpoint returns forbidden',async({page})=>{
+  await page.route('**/api/editor-access',route=>route.fulfill({
+    status:403,contentType:'application/json',body:JSON.stringify({error:'BÜLTEN READ publisher not approved'}),
+  }));
   await page.goto('/');
-  const login=page.getByRole('button',{name:'Hesaba giriş yap'});
-  if(!(await login.count()))return; // No public Supabase key in GitHub CI.
-  await login.click();
-  const modal=page.getByRole('dialog',{name:/BÜLTEN READ · Giriş/});
-  await expect(modal).toBeVisible();
-  await expect(modal.getByRole('button',{name:/Google ile Giriş Yap/})).toBeVisible();
-  await expect(modal.getByLabel('E-posta adresi')).toBeVisible();
-  await expect(modal.getByLabel('Şifre',{exact:true})).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(modal).toHaveCount(0);
+  await expect(page.getByText('Bu hesap için bülten hazırlama veya yayımlama yetkisi verilmemiştir.')).toBeVisible();
+  await expect(page.getByPlaceholder('Bülten başlığı...')).toHaveCount(0);
+});
+
+test('server-approved publisher can mount the editor without a test-only server auth backdoor',async({page})=>{
+  await page.route('**/api/editor-access',route=>route.fulfill({
+    status:200,contentType:'application/json',body:'{"allowed":true}',
+  }));
+  await page.goto('/');
+  await expect(page.getByPlaceholder('Bülten başlığı...')).toBeVisible();
+});
+
+test('public newsletter reader requests stay unauthenticated and never expose the editor',async({request})=>{
+  const result=await request.get('/b/not-a-valid-id');
+  expect([400,404,503]).toContain(result.status());
 });
