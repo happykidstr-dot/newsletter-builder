@@ -847,6 +847,7 @@ export default function BultenReadPage() {
   const [showSavedModal,setShowSavedModal]=React.useState(false);
   const [savedList,setSavedList]=React.useState<SavedNL[]>([]);
   const [saveSuccess,setSaveSuccess]=React.useState(false);
+  const [cloudSaveStatus,setCloudSaveStatus]=React.useState('');
   const [savedSearch,setSavedSearch]=React.useState('');
 
 
@@ -874,16 +875,22 @@ export default function BultenReadPage() {
     const entry=savedEntry();
     if(!await persistSavedLocally(entry))return false;
     setSaveSuccess(true);window.setTimeout(()=>setSaveSuccess(false),2200);
-    // Server storage is optional. Never send the owner-only edit token to a
-    // cloud record; local browser storage is the source of edit permission.
+    // The public publication edit token stays on this device, never in Supabase.
     const {publication:secret,publishedSnapshot,...cloudRecord}=entry;
-    try {
+    const payload=JSON.stringify(cloudRecord);
+    if(new Blob([payload]).size>850_000){
+      setCloudSaveStatus('Bu bülten IndexedDB’de yerel olarak kaydedildi. Büyük özel görseller bulut arşivine yüklenmedi.');
+      return true;
+    }
+    try{
       const response=await fetch('/api/db/newsletters',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(cloudRecord),
+        method:'POST',headers:{'Content-Type':'application/json'},body:payload,
       });
-      if(!response.ok)console.info('Bulut kaydı yapılandırılmamış, bülten bu tarayıcıda saklandı.');
-    }catch{console.info('Bulut bağlantısı yok, yerel bülten kaydı korundu.');}
+      if(response.ok)setCloudSaveStatus('Bülten bu tarayıcıda ve hesabınızın bulut arşivinde kaydedildi.');
+      else setCloudSaveStatus('Yerel kayıt başarılı. Bulut yedeği yok; hesabınızı ve Supabase ayarlarını kontrol edin.');
+    }catch{
+      setCloudSaveStatus('Yerel kayıt başarılı. Bulut bağlantısı kurulamadı.');
+    }
     return true;
   };
 
@@ -1817,6 +1824,7 @@ ${text}`;
       <nav className="bulten-mobile-nav" aria-label="Mobil editör panelleri" style={{display:'none',gap:6,padding:8,background:'#fff'}}>
         {([{id:'content',label:'＋ İçerik'},{id:'canvas',label:'▣ Bülten'},{id:'properties',label:'✎ Düzenle'}] as const).map(item=><button key={item.id} type="button" aria-pressed={mobilePanel===item.id} onClick={()=>setMobilePanel(item.id)} style={{flex:1,padding:'10px 6px',borderRadius:8,border:mobilePanel===item.id?'2px solid #0d9488':'1px solid #cbd5e1',background:mobilePanel===item.id?'#ecfdf5':'#fff',fontWeight:700,fontSize:12,color:'#1e293b'}}>{item.label}</button>)}
       </nav>
+      {cloudSaveStatus && <p role="status" style={{margin:0,padding:'5px 12px',background:'#eff6ff',color:'#1e40af',fontSize:12}}>{cloudSaveStatus}</p>}
       {/* ── 3-Panel ── */}
       <div className="bulten-editor-layout" style={{flex:1,display:'grid',gridTemplateColumns:'240px minmax(0,1fr) 280px',overflow:'hidden',minHeight:0}}>
 
@@ -1842,7 +1850,7 @@ ${text}`;
                   <button key={p.type} data-testid={`palette-${p.type}`}
                     draggable
                     onDragStart={e=>{ dragTypeRef.current=p.type; e.dataTransfer.effectAllowed='copy'; }}
-                    onClick={()=>addBlock(p.type)}
+                    onClick={()=>{addBlock(p.type);setMobilePanel('properties');}}
                     style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'14px 4px',
                       border:'none',borderRight:'1px solid #f3f4f6',borderBottom:'1px solid #f3f4f6',
                       background:'#fff',cursor:'grab',gap:5,transition:'background .15s'}}
@@ -2167,7 +2175,7 @@ ${text}`;
                         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6 }}>
                           {PALETTE.map(p=>(
                             <button key={p.type}
-                              onClick={()=>insertBlock(p.type, idx)}
+                              onClick={()=>{insertBlock(p.type, idx);setMobilePanel('properties');}}
                               style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, padding:'10px 6px', borderRadius:10, border:'1px solid #e5e7eb', background:'#fafafa', cursor:'pointer', transition:'all .12s' }}
                               onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.background='#ecfdf5'; (e.currentTarget as HTMLElement).style.borderColor='#10b981'; }}
                               onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.background='#fafafa'; (e.currentTarget as HTMLElement).style.borderColor='#e5e7eb'; }}>
