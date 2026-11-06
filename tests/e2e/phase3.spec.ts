@@ -68,7 +68,7 @@ test('actual template HTML preview and exported newsletter use the same content 
   await page.getByRole('button',{name:'Şablonlar'}).click();
   await page.getByTestId('template-gallery-card').first().click();
   const frame=page.frameLocator('[data-testid="template-gallery-live-preview"]');
-  const previewTitle=await frame.locator('h1').innerText();
+  const previewTitle=await frame.locator('h1').first().innerText();
   const paragraph=await frame.locator('#bulten-reading-content').innerText();
   expect(paragraph).toContain('Birlikte Daha Güçlü Bir Avrupa');
   page.once('dialog',dialog=>dialog.accept());
