@@ -8,6 +8,7 @@ test('mobile editor has working content, preview and properties panels',async({p
   await expect(page.locator('.bulten-palette')).toBeHidden();
   await page.getByRole('navigation',{name:'Mobil editör panelleri'}).getByRole('button',{name:/İçerik/}).click();
   await expect(page.locator('.bulten-palette')).toBeVisible();
+  await page.getByRole('group',{name:'İçerik blokları seviyesi'}).getByRole('button',{name:'Gelişmiş'}).click();
   await page.getByTestId('palette-googleform').click();
   await page.getByRole('navigation',{name:'Mobil editör panelleri'}).getByRole('button',{name:/Düzenle/}).click();
   await expect(page.locator('.bulten-properties')).toBeVisible();
@@ -20,8 +21,10 @@ test('mobile editor has working content, preview and properties panels',async({p
 
 test('Google Form and external response links survive HTML export',async({page})=>{
   await page.goto('/');
+  await page.getByRole('group',{name:'İçerik blokları seviyesi'}).getByRole('button',{name:'Gelişmiş'}).click();
   await page.getByTestId('palette-googleform').click();
   await page.getByPlaceholder(/https:\/\/forms\.gle/).fill('https://docs.google.com/forms/d/e/demo/viewform');
+  await page.getByTestId('advanced-tools-toggle').click();
   const [download]=await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('button',{name:/HTML/}).click(),
