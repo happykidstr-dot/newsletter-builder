@@ -91,3 +91,16 @@ test('editor stays usable at 320px width without a forced three-panel horizontal
   await expect(page.locator('.bulten-canvas')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
 });
+
+
+test('Yayın Önizleme opens the actual export HTML without enabling its scripts',async({page})=>{
+  await page.goto('/');
+  await page.getByRole('button',{name:'Yayın önizlemesi'}).click();
+  const dialog=page.getByRole('dialog',{name:'Gerçek yayın önizlemesi'});
+  await expect(dialog).toBeVisible();
+  const iframe=dialog.locator('iframe[data-testid="editor-live-publication-preview"]');
+  await expect(iframe).toHaveAttribute('sandbox','');
+  await expect(dialog.frameLocator('iframe').locator('h1').first()).toHaveText('Proje ve Toplum Bülteni');
+  await page.getByRole('button',{name:'Yayın önizlemesini kapat'}).click();
+  await expect(dialog).toHaveCount(0);
+});
