@@ -12,6 +12,7 @@ type Props = {
   onClose: () => void;
   onApplyDesign: (template: GalleryTemplate) => void;
   onCreateFromTemplate: (template: GalleryTemplate) => boolean;
+  onPreviewHtml: (template: GalleryTemplate) => string;
 };
 const CATEGORIES: Category[] = ['Tümü', 'AB Projeleri', 'Etkinlikler', 'Kurumsal', 'Erişilebilirlik', 'Hikâyeler'];
 
@@ -85,7 +86,7 @@ function DocumentPreview({ template, compact = false, device = 'desktop' }: {
   </div>;
 }
 
-export function TemplateGallery({ open, onClose, onApplyDesign, onCreateFromTemplate }: Props) {
+export function TemplateGallery({ open, onClose, onApplyDesign, onCreateFromTemplate, onPreviewHtml }: Props) {
   const [category, setCategory] = useState<Category>('Tümü');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<GalleryTemplate | null>(null);
@@ -209,7 +210,18 @@ export function TemplateGallery({ open, onClose, onApplyDesign, onCreateFromTemp
           </div>
         </div>
         <div className={styles.previewLayout}>
-          <div className={styles.previewStage} data-testid="template-gallery-preview"><DocumentPreview template={selected} device={device}/></div>
+          <div className={styles.previewStage} data-testid="template-gallery-preview">
+            <iframe
+              key={selected.id+'-'+device}
+              title={'Gerçek HTML yayın önizlemesi: '+selected.title}
+              data-testid="template-gallery-live-preview"
+              className={[styles.publicationIframe,device==='mobile'?styles.publicationIframeMobile:''].join(' ')}
+              srcDoc={onPreviewHtml(selected)}
+              sandbox=""
+              loading="eager"
+              referrerPolicy="no-referrer"
+            />
+          </div>
           <aside className={styles.previewDetails}>
             <span className={styles.detailCategory}>{selected.category}</span>
             <h3>{selected.title}</h3>
@@ -223,7 +235,7 @@ export function TemplateGallery({ open, onClose, onApplyDesign, onCreateFromTemp
             <button type="button" className={styles.secondaryButton} onClick={()=>chooseExample(selected)}>
               Örnek içerikle yeni bülten oluştur
             </button>
-            <p className={styles.hint}>Mevcut içeriğin üzerine yazmadan önce sizden onay istenir. Örnek metin ve görseller düzenlenebilir.</p>
+            <p className={styles.hint}>Önizlemede HTML dışa aktarma ve yayımlama için kullanılan gerçek sayfa oluşturucu gösterilir. Örnek içerik üzerinde değişiklik yapabilirsiniz.</p>
             <div className={styles.detailMeta}>İçerik blokları: {selected.blocks.length} · Türkçe örnek içerik</div>
           </aside>
         </div>
