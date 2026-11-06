@@ -21,7 +21,33 @@ async function ready(){
   }
   throw Error('Netlify preview success status was not observed.');
 }
+
 await ready();
+
+// Netlify Next.js has / as the homepage. Legacy /index.html bookmarks must
+// redirect, rather than showing the stock Next.js 404 seen on mobile.
+for(const [browser,userAgent] of [
+  ['desktop','Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0.0.0'],
+  ['android','Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36'],
+]){
+  const homepage=await fetch(BASE+'/',{
+    headers:{'User-Agent':userAgent},
+    signal:AbortSignal.timeout(15000),
+  });
+  const html=await homepage.text();
+  assert.equal(homepage.status,200,browser+' homepage is unavailable.');
+  assert.match(html,/BÜLTEN READ/,browser+' homepage rendered the wrong app.');
+}
+const legacy=await fetch(BASE+'/index.html',{
+  redirect:'manual',signal:AbortSignal.timeout(15000),
+});
+assert.ok([301,302,307,308].includes(legacy.status),
+  'Old /index.html URL still returns '+legacy.status+' instead of a redirect.');
+const landing=new URL(legacy.headers.get('location')||'',BASE);
+assert.equal(landing.origin+landing.pathname,BASE+'/',
+  'Legacy bookmark is not redirected to the live homepage.');
+console.log('PASS: Android/desktop homepage 200 and legacy /index.html redirects to /.');
+
 
 // Non-destructive security checks: anonymous callers must never be able
 // to reach billable or private endpoints. Empty bodies cannot send mail/AI.

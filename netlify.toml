@@ -4,3 +4,11 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Old static/HTML links may point to index.html. The Next.js 16 app homepage
+# is /, not /index.html. Redirect old bookmarks before Next returns its 404.
+[[redirects]]
+  from = "/index.html"
+  to = "/"
+  status = 301
+  force = true
