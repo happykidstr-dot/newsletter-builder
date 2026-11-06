@@ -4,10 +4,11 @@
  * by their provided alternatives rather than silently disappearing.
  * PDF/UA conformance must still be verified with a specialist accessibility checker.
  */
-import {newsletterFileBase} from './newsletter-pdf';
+import {newsletterFileBase,fetchVideoPosterDataUri} from './newsletter-pdf';
+import {validYoutubeId,youtubeWatchUrl} from './video-thumbnail';
 
 type Lang = 'tr'|'en';
-type PdfNode = {text?:string;style?:string;link?:string;margin?:number[];headlineLevel?:number;keepWithNext?:boolean;italics?:boolean};
+type PdfNode = {text?:string;style?:string;link?:string;margin?:number[];headlineLevel?:number;keepWithNext?:boolean;italics?:boolean;image?:string;fit?:number[]};
 const compact=(value:string)=>value.replace(/\s+/g,' ').trim();
 const safeExternalUrl=(value:string):string|undefined=>{
   try{
@@ -39,10 +40,19 @@ export function readablePdfDefinition(html:string,title:string,lang:Lang='tr'):{
       if(visitedImages.has(img))continue;
       visitedImages.add(img);
       const alt=compact(img.getAttribute('alt')||'');
-      nodes.push({text:alt? `Görsel: ${alt}`:'Görsel: alternatif açıklama eklenmemiş.',style:'caption',margin:[0,5,0,10]});
+      const videoId=img.getAttribute('data-bulten-video-id');
+      if(validYoutubeId(videoId)){
+        const watch=youtubeWatchUrl(videoId);
+        nodes.push({image:'bulten-video-poster:'+videoId,fit:[440,248],margin:[0,8,0,5]});
+        nodes.push({text:(alt||'YouTube videosu')+' · Videoyu izle',link:watch,
+          style:'link',margin:[0,2,0,12]});
+      }else{
+        nodes.push({text:alt? `Görsel: ${alt}`:'Görsel: alternatif açıklama eklenmemiş.',style:'caption',margin:[0,5,0,10]});
+      }
       continue;
     }
     if(tag==='iframe'){
+      if(element.closest('.bulten-video-player'))continue;
       const src=safeExternalUrl(element.getAttribute('src')||'');
       nodes.push({text:src?'Video bağlantısı: '+src:'Video içeriği',link:src,style:'link',margin:[0,4,0,10]});
       continue;
@@ -50,6 +60,7 @@ export function readablePdfDefinition(html:string,title:string,lang:Lang='tr'):{
     const text=compact(element.textContent||'');
     if(!text)continue;
     if(tag==='a'){
+      if(element.closest('.bulten-video-poster'))continue;
       // Avoid duplicate text when an anchor is part of a paragraph/heading.
       if(element.closest('p,h1,h2,h3,li'))continue;
       nodes.push({text,link:safeExternalUrl(element.getAttribute('href')||''),style:'link',margin:[0,3,0,10]});
@@ -88,5 +99,18 @@ export async function downloadReadableNewsletterPdf(html:string,title:string,lan
   const pdfMake=((pdfMakeModule as any).default||pdfMakeModule) as any;
   pdfMake.addVirtualFileSystem((fontModule as any).default||fontModule);
   const definition=readablePdfDefinition(html,title,lang);
+  // pdfmake embeds a real thumbnail as an image rather than printing an iframe
+  // URL. Text and an accessible watch link remain selectable/searchable.
+  await Promise.all(definition.content.map(async node=>{
+    const id=node.image?.match(/^bulten-video-poster:([A-Za-z0-9_-]{11})$/)?.[1];
+    if(!id)return;
+    try{node.image=await fetchVideoPosterDataUri(id);}
+    catch{
+      delete node.image;
+      node.text='Video kapak görseli yüklenemedi. Videoyu izle: '+youtubeWatchUrl(id);
+      node.link=youtubeWatchUrl(id);
+      node.style='link';
+    }
+  }));
   await pdfMake.createPdf(definition).download(newsletterFileBase(title)+'-metin.pdf');
 }
