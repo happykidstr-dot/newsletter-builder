@@ -35,7 +35,7 @@ export async function requireSignedInUser():Promise<AccessResult>{
 /** Editorial and billable operations require one of two named, verified accounts. */
 export async function requireAuthorizedPublisher():Promise<AccessResult>{
   const identity=await requireSignedInUser();
-  if(identity.error)return identity.error;
+  if(identity.error)return {error:identity.error};
   if(!isApprovedPublisher(identity.email,identity.emailVerified))
     return {error:NextResponse.json(
       {error:'BÜLTEN READ yalnızca izin verilen iki doğrulanmış hesap tarafından yönetilebilir.'},
