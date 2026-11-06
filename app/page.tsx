@@ -99,7 +99,7 @@ const PALETTE: { type: BT; icon: string; label: string; def: Record<string,strin
   { type:'textphoto',  icon:'🗒',  label:'Text+Photo',  def:{ text:'Metin buraya...', url:'', imagePos:'right' } },
   { type:'photogrid',  icon:'🗳',  label:'Photo Grid',  def:{ cols:'2', url1:'', cap1:'', url2:'', cap2:'', url3:'' , cap3:'' } },
   { type:'author',     icon:'👤',  label:'Author',      def:{ name:'Ad Soyad', title:'Moderator', avatar:'', bio:'', facebook:'', twitter:'', instagram:'', youtube:'' } },
-  { type:'form',       icon:'📋',  label:'Form',        def:{ title:'Geri Bildirim', field1:'Ad Soyad', field2:'E-posta', field3:'Mesaj', submit:'Gönder' } },
+  { type:'form',       icon:'📋',  label:'Form',        def:{ title:'Geri Bildirim', field1:'Ad Soyad', field2:'E-posta', field3:'Mesaj', submit:'Forma Git', actionUrl:'' } },
   { type:'googleform', icon:'📝',  label:'Google Form', def:{ url:'', title:'Form', height:'520' } },
   { type:'video',      icon:'►',   label:'Video',       def:{ url:'', caption:'' } },
   { type:'event',      icon:'📅',  label:'Event',       def:{ title:'Etkinlik', date:'', time:'', location:'' } },
@@ -554,7 +554,10 @@ function BlockEditor({ block, onChange, onAI, aiLoading }: {
       {['field1','field2','field3'].map((k,i)=>(
         <div key={k} style={row}><label style={lbl}>Alan {i+1}</label><input style={inp} value={block.data[k]||''} onChange={e=>set(k,e.target.value)} placeholder={`Alan ${i+1} etiketi...`}/></div>
       ))}
-      <div style={row}><label style={lbl}>Buton Metni</label><input style={inp} value={block.data.submit||''} onChange={e=>set('submit',e.target.value)} placeholder="Gönder"/></div>
+      <div style={row}><label style={lbl}>Harici Form Bağlantısı (HTTPS)</label><input style={inp} value={block.data.actionUrl||''} onChange={e=>set('actionUrl',e.target.value)} placeholder="https://..."/>
+        <p style={{fontSize:11,color:'#64748b'}}>Yanıtlar seçtiğiniz harici form sağlayıcısında toplanır. BÜLTEN READ bu bloktan kişisel veri toplamaz. Bağlantı yoksa yanıt alınmaz.</p>
+      </div>
+      <div style={row}><label style={lbl}>Bağlantı Butonu</label><input style={inp} value={block.data.submit||''} onChange={e=>set('submit',e.target.value)} placeholder="Forma Git"/></div>
     </div>;
     case 'googleform': return <div>
       <div style={row}><label style={lbl}>Google Form URL</label>
@@ -590,14 +593,15 @@ export default function BultenReadPage() {
   const [draftReady, setDraftReady] = useState(false);
   const SAVED_KEY = 'bulten_saved_newsletters_v2';
   const [previewMode,   setPreviewMode]   = useState<'desktop'|'mobile'>('desktop');
+  const [mobilePanel,setMobilePanel]=React.useState<'content'|'canvas'|'properties'>('canvas');
   const draggedBlockIdRef = React.useRef<string|null>(null);
 
   const [blocks,        _setBlocks]       = useState<Block[]>([
-    { id:uid(), type:'title',     data:{ text:'Use titles for easy scanning', size:'h2'} },
-    { id:uid(), type:'paragraph', data:{ text:'You can use a paragraph block to write a welcome message, explain assignments, or share an inspiration for the week.\n\nThe more your readers know about what\'s happening, the better they can support your goals.' } },
-    { id:uid(), type:'photos',    data:{ url:'', caption:'Add a photo to personalize your newsletter!' } },
+    { id:uid(), type:'title',     data:{ text:'Bültenimize Hoş Geldiniz', size:'h2'} },
+    { id:uid(), type:'paragraph', data:{ text:'Bu alana haberinizi, proje gelişmelerini veya duyurunuzu yazabilirsiniz. Okurlarınız için açık, kısa ve erişilebilir bir metin hazırlayın.' } },
+    { id:uid(), type:'photos',    data:{ url:'', caption:'Fotoğraf açıklaması ekleyin.' } },
     { id:uid(), type:'separator', data:{ style:'solid' } },
-    { id:uid(), type:'event',     data:{ title:'Proje Toplantısı', date:'2026-04-01', time:'14:00', location:'Online — Zoom' } },
+    { id:uid(), type:'event',     data:{ title:'Proje Toplantısı', date:'2026-11-06', time:'14:00', location:'Online — Zoom' } },
   ]);
 
   const historyRef = React.useRef<{ past: Block[][], future: Block[][] }>({ past: [], future: [] });
@@ -1422,6 +1426,7 @@ ${text}`;
         if(k==='cols') return [k,String(Math.max(1,Math.min(4,Number(value)||2)))];
         if(k==='style') return [k,['solid','dashed','dotted'].includes(value)?value:'solid'];
         if(k==='align') return [k,['left','center','right'].includes(value)?value:'center'];
+        if(k==='actionUrl')return [k,escapeShareHtml(safeReaderLinkUrl(value))];
         if(k==='avatar'||k.startsWith('url')){
           const imageBlock=['photos','textphoto','photogrid','author'].includes(b.type);
           if(imageBlock) return [k,escapeShareHtml(safeReaderImageUrl(value))];
@@ -1449,6 +1454,15 @@ ${text}`;
       if(b.type==='link') return `<a href="${d.url}" style="color:${ac};font-family:${ff};font-weight:600;">🔗 ${d.text}</a>`;
       if(b.type==='button') return `<div style="text-align:${d.align||'center'};"><a href="${d.url}" style="display:inline-block;padding:12px 28px;background:${ac};color:#fff;border-radius:30px;font-family:${ff};font-weight:700;text-decoration:none;">${d.text}</a></div>`;
       if(b.type==='poll') return `<div style="font-family:${ff};"><b style="color:${tc};">${d.question}</b><br/>${[d.opt1,d.opt2,d.opt3].filter(Boolean).map(o=>`<div style="padding:8px 14px;border:1.5px solid ${ac};border-radius:8px;margin-top:6px;color:${tc};font-size:14px;">○ ${o}</div>`).join('')}</div>`;
+      if(b.type==='form') {
+        const fields=[d.field1,d.field2,d.field3].filter(Boolean);
+        const link=d.actionUrl&&d.actionUrl!=='#'?d.actionUrl:'';
+        return `<section aria-label="Harici geri bildirim formu" style="border:1px solid ${ac}44;border-radius:12px;padding:18px;font-family:${ff};"><h3 style="color:${tc};margin:0 0 12px;">${d.title||'Geri Bildirim Formu'}</h3><p style="color:${tc};font-size:13px;">İstenen bilgiler: ${fields.join(', ')||'Geri bildirim'}.</p>${link?`<a href="${link}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:${ac};color:white;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:700;">${d.submit||'Formu Aç'}</a>`:`<p style="font-size:12px;color:#b45309;">Form bağlantısı eklenmedi; yanıt alınmıyor.</p>`}</section>`;
+      }
+      if(b.type==='googleform') {
+        const link=d.url&&d.url!=='#'?d.url:'';
+        return `<section aria-label="Google Form" style="border:1px solid #4285f4;border-radius:12px;padding:18px;font-family:${ff};"><h3 style="margin:0 0 12px;color:${tc};">${d.title||'Google Form'}</h3>${link?`<a href="${link}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#2563eb;color:#fff;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:700;">Google Form’u Aç ve Yanıtla</a>`:`<p style="font-size:12px;color:#b45309;">Google Form bağlantısı eklenmedi.</p>`}</section>`;
+      }
       if(b.type==='attachment') return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:${ff};">📎 <a href="${d.url}" style="color:${ac};font-weight:600;">${d.name}</a></div>`;
       
       if(b.type==='textphoto') {
@@ -1657,7 +1671,7 @@ ${text}`;
 
   return (
     <>
-    <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 60px)',fontFamily:'Inter,system-ui,sans-serif',background:'#f1f5f9'}}>
+    <div className="bulten-editor-root" style={{display:'flex',flexDirection:'column',height:'calc(100vh - 60px)',fontFamily:'Inter,system-ui,sans-serif',background:'#f1f5f9'}}>
 
       {/* ── Top Bar ── */}
       <div style={{background:'#ffffff',borderBottom:'1px solid #e2e8f0',padding:'8px 16px',minHeight:68,display:'flex',flexWrap:'wrap',alignItems:'center',gap:8,flexShrink:0,boxShadow:'0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',zIndex:10}}>
@@ -1787,11 +1801,14 @@ ${text}`;
       </div>
 
       {draftStorageError && <p role="alert" style={{margin:0,padding:'6px 12px',background:'#fef3c7',color:'#92400e',fontSize:12}}>{draftStorageError}</p>}
+      <nav className="bulten-mobile-nav" aria-label="Mobil editör panelleri" style={{display:'none',gap:6,padding:8,background:'#fff'}}>
+        {([{id:'content',label:'＋ İçerik'},{id:'canvas',label:'▣ Bülten'},{id:'properties',label:'✎ Düzenle'}] as const).map(item=><button key={item.id} type="button" aria-pressed={mobilePanel===item.id} onClick={()=>setMobilePanel(item.id)} style={{flex:1,padding:'10px 6px',borderRadius:8,border:mobilePanel===item.id?'2px solid #0d9488':'1px solid #cbd5e1',background:mobilePanel===item.id?'#ecfdf5':'#fff',fontWeight:700,fontSize:12,color:'#1e293b'}}>{item.label}</button>)}
+      </nav>
       {/* ── 3-Panel ── */}
-      <div style={{flex:1,display:'grid',gridTemplateColumns:'240px 1fr 280px',overflow:'hidden'}}>
+      <div className="bulten-editor-layout" style={{flex:1,display:'grid',gridTemplateColumns:'240px minmax(0,1fr) 280px',overflow:'hidden',minHeight:0}}>
 
         {/* LEFT — palette + design */}
-        <div style={{background:'#fff',borderRight:'1px solid #e2e8f0',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'4px 0 16px rgba(0,0,0,0.02)',zIndex:5}}>
+        <div className={`bulten-pane bulten-palette ${mobilePanel==='content'?'is-mobile-active':''}`} style={{background:'#fff',borderRight:'1px solid #e2e8f0',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'4px 0 16px rgba(0,0,0,0.02)',zIndex:5}}>
           {/* Tabs */}
           <div style={{display:'flex',borderBottom:'1px solid #e5e7eb'}}>
             {(['content','design'] as const).map(tab=>(
@@ -1840,7 +1857,7 @@ ${text}`;
                   {blocks.map((b,i)=>{
                     const p=PALETTE.find(x=>x.type===b.type)!;
                     return (
-                      <div key={b.id} onClick={()=>setSelectedId(b.id)}
+                      <div key={b.id} onClick={()=>{setSelectedId(b.id);setMobilePanel('properties');}}
                         style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',cursor:'pointer',
                           background:selectedId===b.id?'#eff6ff':'transparent',
                           borderLeft:selectedId===b.id?`3px solid ${D.accentColor}`:'3px solid transparent',transition:'all .1s'}}>
@@ -1964,7 +1981,7 @@ ${text}`;
         </div>
 
         {/* CENTER — canvas */}
-        <div style={{
+        <div className={`bulten-pane bulten-canvas ${mobilePanel==='canvas'?'is-mobile-active':''}`} style={{
           overflowY:'auto', padding:32,
           ...(headerImgUrl
             ? { backgroundImage:`url(${headerImgUrl})`, backgroundSize:'cover', backgroundPosition:'center', backgroundAttachment:'fixed', position:'relative' }
@@ -2171,7 +2188,7 @@ ${text}`;
                         <InsertDivider idx={i}/>
                         {dropIndicator===i && <div style={{height:3,background:D.accentColor,borderRadius:2,margin:'2px 0'}}/>}
                         <div style={{cursor:'grab'}}>
-                          <CanvasBlock block={b} design={D} selected={selectedId===b.id} onClick={()=>setSelectedId(b.id)}/>
+                          <CanvasBlock block={b} design={D} selected={selectedId===b.id} onClick={()=>{setSelectedId(b.id);setMobilePanel('properties');}}/>
                         </div>
                       </div>
                     ))}
@@ -2191,7 +2208,7 @@ ${text}`;
         </div>
 
         {/* RIGHT — block editor */}
-        <div style={{background:'#ffffff',borderLeft:'1px solid #e2e8f0',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'-4px 0 16px rgba(0,0,0,0.02)',zIndex:5}}>
+        <div className={`bulten-pane bulten-properties ${mobilePanel==='properties'?'is-mobile-active':''}`} style={{background:'#ffffff',borderLeft:'1px solid #e2e8f0',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'-4px 0 16px rgba(0,0,0,0.02)',zIndex:5}}>
           {selectedBlock ? (
             <>
               <div style={panelHdr}>✏️ {t[selectedBlock.type as keyof typeof t] as string || PALETTE.find(p=>p.type===selectedBlock.type)?.label} — {t.edit}</div>
