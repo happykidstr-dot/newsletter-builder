@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {requireSignedInUser,checkSameOrigin} from '@/lib/security/access';
+import {requireAuthorizedPublisher,checkSameOrigin} from '@/lib/security/access';
 
 export async function POST(req: NextRequest) {
-  const identity=await requireSignedInUser();
+  const identity=await requireAuthorizedPublisher();
   if(identity.error)return identity.error;
   const originError=checkSameOrigin(req);
   if(originError)return originError;
