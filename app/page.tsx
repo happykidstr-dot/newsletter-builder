@@ -5,6 +5,7 @@ import { TemplateGallery } from '@/components/TemplateGallery';
 import {AccountAction} from '@/components/AccountAction';
 import { downloadNewsletterPdf, printNewsletter } from '@/lib/newsletter-pdf';
 import {prepareNewsletterForSharing} from '@/lib/publish-newsletter-media';
+import {saveLocalDraft,loadLocalDraft,saveLocalNewsletter,listLocalNewsletters} from '@/lib/local-newsletter-db';
 import type { GalleryTemplate } from '@/lib/gallery-templates';
 import { escapeShareHtml, makeShareLinks, normalisePublicNewsletterUrl, readerShareBar, READER_SHARE_RUNTIME, safeReaderImageUrl, safeReaderLinkUrl } from '@/lib/reader-social-share';
 import { useAccessibility } from '@/hooks/useAccessibility';
@@ -655,21 +656,26 @@ export default function BultenReadPage() {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // ── Auto-save / Restore logic ───────────────────────────────────────
-  const DRAFT_KEY = 'bulten_draft_v1';
 
-  React.useEffect(() => {
-    try {
-      const saved=window.localStorage.getItem(DRAFT_KEY);
-      if(saved){
-        const data=JSON.parse(saved);
-        if(data && Array.isArray(data.blocks) && data.blocks.length){
-          setTitle(data.title||'Yeni Bülten');
-          setSubtitle(data.subtitle||'');
-          setDesign(data.design||'modern');
-          setLogoUrl(data.logoUrl||'');
-          setHeaderImgUrl(data.headerImgUrl||'');
-          setShowTOC(data.showTOC!==false);
+  // Persist large drafts in IndexedDB, with lossless migration from localStorage.
+  const DRAFT_KEY = 'bulten_draft_v1';
+  const [draftStorageError,setDraftStorageError]=React.useState('');
+  React.useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try{
+        let data:Record<string,any>|null=null;
+        try{data=await loadLocalDraft<Record<string,any>>();}
+        catch(error){console.warn('IndexedDB draft read failed:',error);}
+        if(!data){
+          const legacy=window.localStorage.getItem(DRAFT_KEY);
+          if(legacy)data=JSON.parse(legacy);
+        }
+        if(cancelled)return;
+        if(data&&Array.isArray(data.blocks)&&data.blocks.length){
+          setTitle(data.title||'Yeni Bülten');setSubtitle(data.subtitle||'');
+          setDesign(data.design||'modern');setLogoUrl(data.logoUrl||'');
+          setHeaderImgUrl(data.headerImgUrl||'');setShowTOC(data.showTOC!==false);
           setActiveNewsletterId(typeof data.activeNewsletterId==='string'?data.activeNewsletterId:uid());
           setPublication(data.publication&&typeof data.publication.editToken==='string'?data.publication:null);
           setPublicNewsletterUrl(data.publication?.url||data.publicNewsletterUrl||'');
@@ -677,19 +683,27 @@ export default function BultenReadPage() {
           const safeBlocks=data.blocks.filter((b:any)=>b&&typeof b==='object'&&typeof b.id==='string');
           if(safeBlocks.length){setBlocks(safeBlocks);setSelectedId(safeBlocks[0].id);}
         }
-      }
-    }catch(error){console.warn('Taslak okunamadı:',error);}
-    setDraftReady(true);
-  }, []);
+      }catch(error){console.warn('Taslak okunamadı:',error);}
+      finally{if(!cancelled)setDraftReady(true);}
+    })();
+    return()=>{cancelled=true;};
+  },[]);
 
-  React.useEffect(() => {
+  React.useEffect(()=>{
     if(!draftReady)return;
-    try{
-      window.localStorage.setItem(DRAFT_KEY,JSON.stringify({
+    const timeout=window.setTimeout(()=>{
+      saveLocalDraft({
         activeNewsletterId,title,subtitle,design,logoUrl,headerImgUrl,blocks,
         showTOC,publicNewsletterUrl,publication,publishedSnapshot:lastSharedSnapshot.current,
-      }));
-    }catch(error){console.warn('Yerel otomatik taslak kaydı yapılamadı:',error);}
+      }).then(()=>{
+        window.localStorage.removeItem(DRAFT_KEY);
+        setDraftStorageError('');
+      }).catch(error=>{
+        console.error('IndexedDB auto-save failed:',error);
+        setDraftStorageError('Otomatik kayıt yapılamadı. Depolama alanını kontrol edin veya bülteni HTML olarak yedekleyin.');
+      });
+    },800);
+    return()=>window.clearTimeout(timeout);
   },[draftReady,activeNewsletterId,title,subtitle,design,logoUrl,headerImgUrl,blocks,showTOC,publicNewsletterUrl,publication]);
 
   // ── Text-to-Speech ──────────────────────────────────────────────────
@@ -831,15 +845,15 @@ export default function BultenReadPage() {
   const [saveSuccess,setSaveSuccess]=React.useState(false);
   const [savedSearch,setSavedSearch]=React.useState('');
 
-  const persistSavedLocally = (entry:SavedNL):boolean => {
-    try {
-      const next=[entry,...savedList.filter(x=>x.id!==entry.id)].slice(0,30);
-      window.localStorage.setItem(SAVED_KEY,JSON.stringify(next));
-      setSavedList(next);
+
+  const persistSavedLocally=async(entry:SavedNL):Promise<boolean>=>{
+    try{
+      await saveLocalNewsletter(entry);
+      setSavedList(previous=>[entry,...previous.filter(x=>x.id!==entry.id)].slice(0,30));
       return true;
     }catch(error){
-      console.error('Bültenin yerel kaydı başarısız:',error);
-      alert('Bülten kaydedilemedi. Tarayıcı depolama alanını kontrol edin; büyük fotoğrafları küçültmeyi deneyin.');
+      console.error('IndexedDB newsletter save failed:',error);
+      alert('Bülten kaydedilemedi. Tarayıcı depolama izinlerini kontrol edin veya HTML yedeği alın.');
       return false;
     }
   };
@@ -854,7 +868,7 @@ export default function BultenReadPage() {
 
   const handleSave=async ():Promise<boolean>=>{
     const entry=savedEntry();
-    if(!persistSavedLocally(entry))return false;
+    if(!await persistSavedLocally(entry))return false;
     setSaveSuccess(true);window.setTimeout(()=>setSaveSuccess(false),2200);
     // Server storage is optional. Never send the owner-only edit token to a
     // cloud record; local browser storage is the source of edit permission.
@@ -869,7 +883,7 @@ export default function BultenReadPage() {
     return true;
   };
 
-  const handleLoad=(record:SavedNL)=>{
+  const handleLoad=async(record:SavedNL)=>{
     if(!record || !Array.isArray(record.blocks))return;
     const existing=savedList.find(x=>x.id===activeNewsletterId);
     const storedSnapshot=existing?JSON.stringify({
@@ -881,7 +895,7 @@ export default function BultenReadPage() {
       if(!window.confirm('Bu kaydın üzerindeki henüz kaydedilmemiş değişiklikler geri alınacak. Kayıtlı sürümü açmak istiyor musunuz?'))return;
     }else if(changed && activeNewsletterId!==record.id && blocks.length){
       // Keep work-in-progress before loading another newsletter.
-      if(!persistSavedLocally(savedEntry()))return;
+      if(!await persistSavedLocally(savedEntry()))return;
     }
     setActiveNewsletterId(record.id);
     setTitle(record.title||'Yeni Bülten');setSubtitle(record.subtitle||'');
@@ -964,11 +978,33 @@ export default function BultenReadPage() {
   
   const [savedReady,setSavedReady]=React.useState(false);
   React.useEffect(()=>{
-    try{
-      const local=JSON.parse(window.localStorage.getItem(SAVED_KEY)||'[]');
-      if(Array.isArray(local))setSavedList(local.filter((v:any)=>v&&typeof v.id==='string'&&Array.isArray(v.blocks)).slice(0,30));
-    }catch(error){console.warn('Kayıtlı bülten listesi açılamadı:',error);}
-    setSavedReady(true);
+    (async()=>{
+      try{
+        const existing=await listLocalNewsletters<SavedNL>();
+        const legacy=JSON.parse(window.localStorage.getItem(SAVED_KEY)||'[]');
+        const combined=[...existing];
+        if(Array.isArray(legacy)){
+          for(const entry of legacy){
+            if(!entry||typeof entry.id!=='string'||!Array.isArray(entry.blocks)||combined.some(e=>e.id===entry.id))continue;
+            await saveLocalNewsletter(entry);
+            combined.push(entry);
+          }
+          if(legacy.length)window.localStorage.removeItem(SAVED_KEY);
+        }
+        combined.sort((a,b)=>(b.savedAt||'').localeCompare(a.savedAt||''));
+        setSavedList(previous=>{
+          const ids=new Set(combined.map(v=>v.id));
+          return [...combined,...previous.filter(v=>!ids.has(v.id))].slice(0,30);
+        });
+      }catch(error){
+        console.warn('IndexedDB saved newsletters unavailable:',error);
+        setDraftStorageError('Kayıtlı bülten arşivi açılamadı. Tarayıcı depolama izinlerini kontrol edin.');
+        try{
+          const old=JSON.parse(window.localStorage.getItem(SAVED_KEY)||'[]');
+          if(Array.isArray(old))setSavedList(old.filter((v:any)=>v&&typeof v.id==='string'&&Array.isArray(v.blocks)).slice(0,30));
+        }catch{}
+      }finally{setSavedReady(true);}
+    })();
     // Optional account-backed records are merged, never allowed to overwrite the
     // same record (or private owner token) saved on this browser.
     fetch('/api/db/newsletters').then(r=>r.ok?r.json():[]).then((remote:unknown)=>{
@@ -1554,7 +1590,7 @@ ${text}`;
         title,subtitle,design,blocks:lightweight.blocks,
         headerImgUrl:lightweight.headerImgUrl,logoUrl:lightweight.logoUrl,showTOC,
       });
-      if(!persistSavedLocally(lightweight)){
+      if(!await persistSavedLocally(lightweight)){
         alert('Bülten yayımlandı ancak düzenleme kaydı bu tarayıcıda saklanamadı. Sayfadan ayrılmadan önce bir yedek alın.');
       }
       setShowShareModal(true);
@@ -1578,7 +1614,7 @@ ${text}`;
       if(!res.ok)throw new Error(result.error||'Yayından kaldırma başarısız.');
       setPublication(null);setPublicNewsletterUrl('');lastSharedSnapshot.current='';
       const draft={...savedEntry(null,''),publication:null,publicNewsletterUrl:'',publishedSnapshot:''};
-      persistSavedLocally(draft);
+      await persistSavedLocally(draft);
       setShowShareModal(false);
       alert('Yayın kaldırıldı. Düzenleme taslağınız kayıtlıdır. Daha önce ayrı yüklenmiş görseller için ayrıca veri silme talebi gerekebilir.');
     }catch(error){
@@ -1750,6 +1786,7 @@ ${text}`;
         </div>
       </div>
 
+      {draftStorageError && <p role="alert" style={{margin:0,padding:'6px 12px',background:'#fef3c7',color:'#92400e',fontSize:12}}>{draftStorageError}</p>}
       {/* ── 3-Panel ── */}
       <div style={{flex:1,display:'grid',gridTemplateColumns:'240px 1fr 280px',overflow:'hidden'}}>
 
