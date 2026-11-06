@@ -4,10 +4,11 @@ import dynamic from 'next/dynamic';
 import { TemplateGallery } from '@/components/TemplateGallery';
 import {AccountAction} from '@/components/AccountAction';
 import { downloadNewsletterPdf, printNewsletter } from '@/lib/newsletter-pdf';
+import {downloadReadableNewsletterPdf} from '@/lib/newsletter-text-pdf';
 import {prepareNewsletterForSharing} from '@/lib/publish-newsletter-media';
 import {saveLocalDraft,loadLocalDraft,saveLocalNewsletter,listLocalNewsletters} from '@/lib/local-newsletter-db';
 import type { GalleryTemplate } from '@/lib/gallery-templates';
-import {makeShareLinks, normalisePublicNewsletterUrl} from '@/lib/reader-social-share';
+import {escapeShareHtml,makeShareLinks,normalisePublicNewsletterUrl} from '@/lib/reader-social-share';
 import {renderNewsletterHTML} from '@/lib/newsletter-render';
 import { useAccessibility } from '@/hooks/useAccessibility';
 import { AccessibilityToolbar } from '@/components/AccessibilityToolbar';
@@ -93,6 +94,7 @@ const DESIGNS: Record<Design, DesignConfig> = {
 };
 
 // ── Block palette ─────────────────────────────────────────────────────
+const BASIC_BLOCK_TYPES:ReadonlySet<BT>=new Set(['title','paragraph','photos','textphoto','event','link','button','separator']);
 const PALETTE: { type: BT; icon: string; label: string; def: Record<string,string> }[] = [
   { type:'title',      icon:'T',   label:'Title',       def:{ text:'Başlık', size:'h2' } },
   { type:'paragraph',  icon:'¶',   label:'Paragraph',   def:{ text:'Buraya metin yazın...' } },
@@ -594,6 +596,8 @@ export default function BultenReadPage() {
   const [draftReady, setDraftReady] = useState(false);
   const SAVED_KEY = 'bulten_saved_newsletters_v2';
   const [previewMode,   setPreviewMode]   = useState<'desktop'|'mobile'>('desktop');
+  const [paletteMode,setPaletteMode] = useState<'basic'|'advanced'>('basic');
+  const [advancedToolsOpen,setAdvancedToolsOpen] = useState(false);
   const [mobilePanel,setMobilePanel]=React.useState<'content'|'canvas'|'properties'>('canvas');
   const draggedBlockIdRef = React.useRef<string|null>(null);
 
@@ -1517,6 +1521,21 @@ ${text}`;
     }finally{setShareBusy(false);setShareProgress('');}
   };
 
+  // Share opens links only; publishing remains an explicit separate action.
+  const handleSharePublished=()=>{
+    if(!publication){
+      alert('Paylaşmadan önce bu bülteni Yayınla düğmesiyle yayımlayın.');
+      return;
+    }
+    if(lastSharedSnapshot.current!==currentSnapshot()){
+      alert('Yayınlanmamış değişiklikleriniz var. Önce Güncelle düğmesini kullanın; Paylaş mevcut yayını açar.');
+      return;
+    }
+    setShareError('');
+    setPublicNewsletterUrl(publication.url);
+    setShowShareModal(true);
+  };
+
   const handleUnpublish=async()=>{
     if(!publication||shareBusy)return;
     if(!window.confirm('Bu bültenin herkese açık okuyucu bağlantısı kapatılacak. Mevcut bağlantı artık çalışmayacak. Taslağınız bu tarayıcıda korunacak. Devam edilsin mi?'))return;
@@ -1557,6 +1576,16 @@ ${text}`;
     } finally {
       setPdfBusy(false);
     }
+  };
+
+  const handleReadablePdfExport = async()=>{
+    if(pdfBusy)return;
+    setPdfBusy(true);
+    try{ await downloadReadableNewsletterPdf(generateHTML(),title,lang); }
+    catch(error){
+      console.error('Metin PDF indirme hatası:',error);
+      alert('Metin tabanlı PDF dosyası oluşturulamadı. Lütfen tekrar deneyin.');
+    }finally{setPdfBusy(false);}
   };
 
   const handlePrint = () => {
@@ -1631,26 +1660,38 @@ ${text}`;
             style={{display:'flex',alignItems:'center',gap:6,background:'#fff1f2',border:'1px solid #fecdd3',color:'#9f1239',fontSize:12,fontWeight:800,cursor:shareBusy?'wait':'pointer',padding:'8px 12px',borderRadius:8}}>
             <span aria-hidden="true">⊘</span> Yayından Kaldır
           </button>}
-          {/* Share the currently open newsletter, publishing changes if needed. */}
-          <button type="button" onClick={handleShareCurrent} disabled={shareBusy}
-            title="Açık bülteni yayımla ve paylaş"
+          {/* Share the currently published version; never save/update implicitly. */}
+          <button type="button" onClick={handleSharePublished} disabled={shareBusy}
+            title="Yayımlanmış bültenin paylaşım bağlantılarını aç"
             aria-label={shareBusy?'Bülten yayımlanıyor':'Mevcut bülteni paylaş'}
             style={{display:'flex',alignItems:'center',gap:6,background:'#ecfdf5',border:'1px solid #99d7c9',color:'#17675a',fontSize:13,fontWeight:800,cursor:shareBusy?'progress':'pointer',padding:'8px 14px',borderRadius:8,opacity:shareBusy?.65:1}}>
             <span aria-hidden="true">{shareBusy?'⏳':'↗'}</span> {shareBusy?'Yayımlanıyor…':'Paylaş'}
           </button>
 
+          {/* Common download and template actions stay visible in basic mode. */}
+          <button type="button" onClick={handlePdfExport} disabled={pdfBusy}
+            aria-label={pdfBusy?'PDF hazırlanıyor':'PDF indir'} title="Görsel PDF dosyasını indir"
+            className="bulten-action-button">
+            {pdfBusy?'⏳ PDF hazırlanıyor…':'⬇️ PDF İndir'}
+          </button>
+          <button type="button" onClick={()=>setShowTemplatesModal(true)}
+            className="bulten-action-button" aria-label="Şablonlar">🎨 Şablonlar</button>
+          <button type="button" onClick={()=>setAdvancedToolsOpen(v=>!v)}
+            aria-controls="bulten-advanced-tools" aria-expanded={advancedToolsOpen}
+            className="bulten-action-button" data-testid="advanced-tools-toggle">
+            ⚙ {advancedToolsOpen?'Araçları Gizle':'Gelişmiş Araçlar'}
+          </button>
+          {advancedToolsOpen && <div id="bulten-advanced-tools" className="bulten-advanced-tools">
           {/* Action Buttons styled softly */}
           <button onClick={handleExport} title="HTML Olarak İndir" style={{display:'flex',alignItems:'center',gap:6,background:'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:'pointer',padding:'8px 14px',borderRadius:8,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#f8fafc';(e.currentTarget as HTMLElement).style.color='#0f172a'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='#ffffff';(e.currentTarget as HTMLElement).style.color='#475569'}}>
             <span style={{fontSize:15}}>⬇️</span> HTML
           </button>
           
-          <button type="button" onClick={handlePdfExport} disabled={pdfBusy}
-            title="PDF dosyasını indir — yazdırma penceresi açılmaz"
-            aria-label={pdfBusy ? 'PDF hazırlanıyor' : 'PDF indir'}
-            style={{display:'flex',alignItems:'center',gap:6,background:pdfBusy?'#f1f5f9':'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:pdfBusy?'progress':'pointer',padding:'8px 14px',borderRadius:8,opacity:pdfBusy?0.7:1,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}}>
-            <span aria-hidden="true" style={{fontSize:15}}>{pdfBusy?'⏳':'⬇️'}</span> {pdfBusy?'PDF hazırlanıyor…':'PDF İndir'}
+          <button type="button" onClick={handleReadablePdfExport} disabled={pdfBusy}
+            title="Seçilebilir metin, bölüm başlıkları ve bağlantılarla metin PDF indir"
+            className="bulten-action-button" data-testid="pdf-readable">
+            📄 Metin PDF (erişilebilir)
           </button>
-
           <button type="button" onClick={handlePrint} title="Yazdırma penceresini aç" aria-label="Bülteni yazdır"
             style={{display:'flex',alignItems:'center',gap:6,background:'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:'pointer',padding:'8px 14px',borderRadius:8,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}}>
             <span aria-hidden="true" style={{fontSize:15}}>🖨️</span> Yazdır
@@ -1665,11 +1706,6 @@ ${text}`;
             <span style={{fontSize:16}}>{isGenerating ? '⏳' : '✨'}</span> AI Üret
           </button>
 
-          <button onClick={()=>setShowTemplatesModal(true)} title="Hazır Şablonlar"
-            style={{background:'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:'pointer',padding:'8px 14px',display:'flex',alignItems:'center',gap:6,borderRadius:8,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#f8fafc';(e.currentTarget as HTMLElement).style.color='#0f172a'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='#ffffff';(e.currentTarget as HTMLElement).style.color='#475569'}}>
-            🎨 Şablonlar
-          </button>
-          
           <button onClick={openAnalytics} title="Bülten İstatistikleri"
             style={{background:'#ffffff',border:'1px solid #e2e8f0',color:'#475569',fontSize:13,fontWeight:700,cursor:'pointer',padding:'8px 14px',display:'flex',alignItems:'center',gap:6,borderRadius:8,transition:'all .2s',boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='#f8fafc';(e.currentTarget as HTMLElement).style.color='#0f172a'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background='#ffffff';(e.currentTarget as HTMLElement).style.color='#475569'}}>
             📊 Analiz
@@ -1679,6 +1715,8 @@ ${text}`;
             style={{background:'linear-gradient(135deg, #ec4899, #e11d48)',border:'none',color:'#fff',fontSize:13,fontWeight:800,cursor:'pointer',display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:8,marginLeft:4,boxShadow:'0 4px 12px rgba(225,29,72,0.25)',transition:'all .2s'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.transform='translateY(-1px)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.transform='none'}>
             📤 Gönder
           </button>
+
+          </div>}
 
           <div style={{display:'flex',background:'#f1f5f9',borderRadius:10,padding:4,border:'1px solid #e2e8f0',marginLeft:8}}>
             <button onClick={()=>setShowSavedModal(true)} title="Kayıtlı Bültenleri Aç"
@@ -1727,8 +1765,12 @@ ${text}`;
 
           {activeTab==='content' ? (
             <div style={{overflowY:'auto',flex:1}}>
+              <div className="bulten-palette-mode" role="group" aria-label="İçerik blokları seviyesi">
+                <button type="button" aria-pressed={paletteMode==='basic'} onClick={()=>setPaletteMode('basic')}>Temel</button>
+                <button type="button" aria-pressed={paletteMode==='advanced'} onClick={()=>setPaletteMode('advanced')}>Gelişmiş</button>
+              </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:0}} id="block-palette">
-                {PALETTE.map(p=>(
+                {PALETTE.filter(p=>paletteMode==='advanced'||BASIC_BLOCK_TYPES.has(p.type)).map(p=>(
                   <button key={p.type} data-testid={`palette-${p.type}`}
                     draggable
                     onDragStart={e=>{ dragTypeRef.current=p.type; e.dataTransfer.effectAllowed='copy'; }}
@@ -2495,6 +2537,11 @@ ${text}`;
     <TemplateGallery
       open={showTemplatesModal}
       onClose={()=>setShowTemplatesModal(false)}
+      onPreviewHtml={(template:GalleryTemplate)=>renderNewsletterHTML({
+        blocks:template.blocks,D:DESIGNS[template.design as Design],
+        title:template.title,subtitle:template.subtitle,showTOC:true,
+        headerImgUrl:template.headerImgUrl,logoUrl:'',lang:'tr',publicNewsletterUrl:'',
+      })}
       onApplyDesign={(template:GalleryTemplate)=>{
         setDesign(template.design as Design);
       }}
