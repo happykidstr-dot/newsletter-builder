@@ -39,8 +39,15 @@ async function check(){
   let callbackTarget;
   try{callbackTarget=new URL(callback.headers.get('location')||'',base);}
   catch{return {ok:false,reason:'Auth callback returned invalid redirect'};}
+  // Netlify may report its immutable deploy alias (or main--bultenoku)
+  // as the request origin inside a production Next.js Function. Both are
+  // dedicated hostnames of this one Netlify project, not arbitrary redirects.
+  const sameNetlifySite=callbackTarget.origin===base||
+    /^[a-z0-9-]+--bultenoku\\.netlify\\.app$/i.test(callbackTarget.hostname);
   if(![302,303,307,308].includes(callback.status)||
-     callbackTarget.origin!==base||
+     callbackTarget.protocol!=='https:'||
+     !sameNetlifySite||
+     callbackTarget.pathname!=='/'||
      callbackTarget.searchParams.get('auth_error')!=='callback')
     return {ok:false,reason:'Supabase Auth callback redirect mismatch: HTTP '+callback.status+
       ' target='+callbackTarget.origin+callbackTarget.pathname+callbackTarget.search};
