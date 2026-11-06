@@ -3,7 +3,7 @@
 **Tarih:** 6 Kasım 2026
 
 ## Neler uygulanmıştır?
-1. Next.js 16 Clerk oturum denetimi (`proxy.ts`), gerçek Giriş Yap / Kayıt Ol, Hesabım; kimliği sunucuda doğrulama. Supabase URL ve publishable key olmadan AI, e-posta ve özel analitik servisleri güvenli şekilde 503 döndürür.
+1. Next.js 16 Supabase Auth oturum denetimi (`proxy.ts`), gerçek Giriş Yap / Kayıt Ol, Hesabım; kimliği sunucuda doğrulama. Supabase URL ve publishable key olmadan AI, e-posta ve özel analitik servisleri güvenli şekilde 503 döndürür.
 2. OpenAI API istekleri boyut sınırı, origin kontrolü, kullanıcı oturumu ve hesap başına süreli kota gerektirir. OpenAI anahtarı yalnızca sunucudadır. Kota Netlify Blobs tabanlı **best effort**; eşzamanlı çok yüksek trafikte atomik garanti vermez.
 3. Toplu e-posta yalnızca oturum sahibinin Supabase listesindeki açık izin kaydı (`consentAt`, `consentSource`) bulunan aktif alıcılara yapılır; istemciden gelen keyfî `contacts` listesi gönderimi başlatamaz. Test e-postası yalnızca kullanıcının Supabase tarafından doğrulanmış hesap adresine gönderilebilir.
 4. Abonelikten ayrılma e-postaya eklenen şifreli, zaman sınırlı bağlantıyla açılır. Önce görüntülenen onay sayfası daha sonra POST işlemi alır; yanlışlıkla GET görüntülemesi abonelik iptal etmez. Aynı adrese diğer listelerden yeniden mail gönderilmemesi için hesap kapsamlı HMAC tabanlı `email_suppressions` kullanılır.
@@ -26,7 +26,7 @@ Yalnızca ortam ayarları + SQL geçişi tamamlandıktan sonra test e-postası g
 ## Kabul ve üretim kontrol matrisi
 | Senaryo | Beklenen sonuç |
 | --- | --- |
-| Clerk anahtarı yokken /api/chat, /api/ai-generate, /api/send-email, /api/db/analytics | 503; OpenAI/Resend'e çağrı yapılmaz |
+| Supabase URL veya publishable key yokken /api/chat, /api/ai-generate, /api/send-email, /api/db/analytics | 503; OpenAI/Resend'e çağrı yapılmaz |
 | Giriş yapmamış kullanıcı | 401/403; özel listeler/analitikler görünmez |
 | Sahte contacts listesi | Gönderim yok; sunucu yalnızca liste ID üzerinden kendi DB'sini sorgular |
 | İzin kaydı olmayan veya abonelik iptal eden alıcı | Gönderim yok |
