@@ -13,7 +13,7 @@ Profesyonel e-bültenler oluşturmak için bağımsız web uygulaması.
 - **PDF İndir / Yazdır / HTML** — Bülteni doğrudan indirilebilir A4 PDF dosyası olarak oluşturma; ayrıca bağımsız Yazdır düğmesi ve HTML dışa aktarma. PDF işlemi tarayıcıda çalışır, OpenAI token harcamaz.
 - **E-posta Gönderimi** — Mailing list yönetimi ve toplu gönderim
 - **Erişilebilirlik** — Tam donanımlı a11y toolbar (font boyutu, kontrast, disleksi fontu, büyüteç, vb.)
-- **Clerk Auth** — Güvenli oturum yönetimi
+- **Supabase Auth** — Ücretsiz Google OAuth ve e-posta/şifre ile güvenli oturum yönetimi (özel alan adı gerekmez)
 
 ## 🎨 Yeni Şablon Galerisi
 
@@ -27,7 +27,7 @@ Profesyonel e-bültenler oluşturmak için bağımsız web uygulaması.
 
 HTML dışa aktarılan bültenlere LinkedIn, Facebook, X, WhatsApp, Telegram ve e-posta bağlantılarının bulunduğu **Bu bülteni paylaş** alanı eklenir. Destekleyen mobil tarayıcılarda işletim sisteminin paylaşım menüsü de açılır. Okuyucu herkese açık bülten URL'sini kopyalayabilir.
 
-**Tek tıkla güncel bülten paylaşımı:** Artık editörde açık olan bülteni yayımlamak için üstteki **Paylaş** düğmesine basmanız yeterlidir. Uygulama, bültenin kamuya açılmasını onaylamanızı ister; onaydan sonra mevcut başlık, metinler, görseller, logo ve tasarım kalıcı olarak Netlify Blobs üzerinde depolanır. `/b/<benzersiz-kimlik>` bağlantısı oluşur. Facebook, LinkedIn, X, WhatsApp, Telegram ve e-posta düğmeleri **o bültenin** adresini paylaşır.
+**Açık bülteni yayımlama:** Yeni bülteni yayımlamak için **Yayınla** düğmesine basın. **Paylaş** düğmesi yalnızca daha önce yayımlanmış sürümün bağlantılarını açar. Uygulama, bültenin kamuya açılmasını onaylamanızı ister; onaydan sonra mevcut başlık, metinler, görseller, logo ve tasarım kalıcı olarak Netlify Blobs üzerinde depolanır. `/b/<benzersiz-kimlik>` bağlantısı oluşur. Facebook, LinkedIn, X, WhatsApp, Telegram ve e-posta düğmeleri **o bültenin** adresini paylaşır.
 
 - Aynı bülteni değiştirmeden tekrar Paylaş'a basarsanız mevcut paylaşım bağlantısı tekrar açılır. Bülteni düzenleyip **Güncelle**'ye bastığınızda aynı URL yenilenir; eski bağlantıyı alan okuyucular güncel sürümü görür.
 - Yayınlamadan önce kamuya açık bağlantının herkes tarafından görülebileceğini açıkça onaylamanız gerekir. Özel bilgi içeren bültenleri yayımlamayın.
@@ -61,12 +61,13 @@ npm install
 cp .env.example .env
 ```
 
-`.env` dosyasını düzenleyip Clerk ve OpenAI anahtarlarınızı girin:
+`.env` dosyasını düzenleyip Supabase Auth bilgilerinizi girin. Google OAuth ve Netlify kurulumu için [ücretsiz kurulum kılavuzu](docs/SUPABASE_AUTH_FREE_SETUP.md) dosyasını izleyin:
 
 ```
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
-CLERK_SECRET_KEY=sk_test_...
-OPENAI_API_KEY=sk-...
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+SUPABASE_SERVICE_ROLE_KEY=SERVER_ONLY_SECRET
+# OPENAI_API_KEY=sk-...  # yalnızca AI kullanılacaksa
 ```
 
 ### 4. Geliştirme sunucusunu başlatın
@@ -83,7 +84,7 @@ Tarayıcıda `http://localhost:3000` adresini açın.
 newsletter-builder/
 ├── app/
 │   ├── page.tsx              # Ana bülten editör sayfası
-│   ├── layout.tsx            # Root layout (Clerk auth, fonts)
+│   ├── layout.tsx            # Root layout (fonts)
 │   ├── globals.css           # Global stiller
 │   └── api/
 │       └── ai-generate/      # OpenAI içerik üretim API
@@ -92,7 +93,7 @@ newsletter-builder/
 │   └── BultenLocationMap.tsx     # Leaflet harita (analytics)
 ├── hooks/
 │   └── useAccessibility.ts      # Erişilebilirlik hook
-├── middleware.ts                 # Clerk auth middleware
+├── proxy.ts                      # Next.js 16 Supabase SSR oturum yenilemesi
 ├── data/                        # Geçici veri depolama
 ├── public/bulten_resimler/      # Örnek görseller
 └── ornek_bulten.json            # Örnek bülten JSON
@@ -100,13 +101,13 @@ newsletter-builder/
 
 ## 🔒 Auth
 
-Clerk oturum açma desteği sağlanmaktadır.
+Supabase Auth ile Google veya e-posta/şifre girişi desteklenir. Özellikle ücretsiz Google OAuth için [Supabase Auth kurulum adımları](docs/SUPABASE_AUTH_FREE_SETUP.md) gereklidir. Supabase varsayılan SMTP genel kullanıcı kayıtlarını üretimde desteklemez.
 
 ## 📋 Gereksinimler
 
-- Node.js 18+
+- Node.js 20.9+
 - npm 9+
-- Clerk hesabı (auth için)
+- Supabase Free projesi (auth + veritabanı için); Google OAuth için Google Cloud OAuth Client
 - OpenAI API anahtarı (AI içerik üretimi için, isteğe bağlı)
 
 
@@ -144,10 +145,10 @@ Yayımlanmış okuyucu sayfasındaki **Düzenle / Edit** bağlantısı da editö
 
 ## 🔐 Güvenlik Faz 1 — Kullanıcı hesapları ve izinli abonelik (Kasım 2026)
 
-BÜLTEN READ'in ücretli ve kişisel veri işleyen servisleri artık sunucu tarafında doğrulanır. **AI Üret**, belgeyi AI ile işleme, toplu e-posta, alıcı listeleri ve özel analitik işlemleri için Clerk hesabıyla giriş gereklidir. Giriş yoksa veya Clerk henüz bağlanmadıysa bu servisler anonim çalışmaz; güvenli hata mesajı gösterir. Genel bülten düzenleyici, PDF/HTML indirme ve mevcut kamuya açık bültenleri okuma kullanılmaya devam eder.
+BÜLTEN READ'in ücretli ve kişisel veri işleyen servisleri artık sunucu tarafında doğrulanır. **AI Üret**, belgeyi AI ile işleme, toplu e-posta, alıcı listeleri ve özel analitik işlemleri için Supabase Auth hesabıyla giriş gereklidir. Giriş yoksa veya Supabase Auth henüz bağlanmadıysa bu servisler anonim çalışmaz; güvenli hata mesajı gösterir. Genel bülten düzenleyici, PDF/HTML indirme ve mevcut kamuya açık bültenleri okuma kullanılmaya devam eder.
 
 Yayımlanmış bir bültenin sahibi **Yayından Kaldır** ile aynı bağlantıyı kapatabilir. Özel yayın düzenleme anahtarı bu tarayıcıda kalır. Public bülten silindiğinde paylaşılan doğrudan görsel URL'lerinin ayrı depoda kalabileceğini unutmayın.
 
-Toplu e-posta yalnızca kendi Supabase listenizde **izin zamanı + izin kaynağı** kaydedilmiş ve abonelik iptali bulunmayan kişilere gönderilir. İzin kaydı bulunmayan eski kişiler otomatik gönderim hedefi değildir. Test e-postası yalnızca kullanıcının doğrulanmış Clerk adresine gider. Abonelikten ayrıl bağlantısı her toplu mesajda sunulur ve aynı kişinin diğer listeler üzerinden tekrar hedeflenmemesi için sunucu tarafı bastırma kaydı kullanılır. E-posta açılma/tıklama takibi **varsayılan kapalıdır**; kişi ve kullanıcı düzeyinde ayrıca izne bağlıdır.
+Toplu e-posta yalnızca kendi Supabase listenizde **izin zamanı + izin kaynağı** kaydedilmiş ve abonelik iptali bulunmayan kişilere gönderilir. İzin kaydı bulunmayan eski kişiler otomatik gönderim hedefi değildir. Test e-postası yalnızca kullanıcının doğrulanmış Supabase Auth e-posta adresine gider. Abonelikten ayrıl bağlantısı her toplu mesajda sunulur ve aynı kişinin diğer listeler üzerinden tekrar hedeflenmemesi için sunucu tarafı bastırma kaydı kullanılır. E-posta açılma/tıklama takibi **varsayılan kapalıdır**; kişi ve kullanıcı düzeyinde ayrıca izne bağlıdır.
 
 Uygulama gizli bilgilerinin ve veritabanı geçişinin kurulumu gereklidir. Bu adımlar tamamlanmadan **AI/e-posta/analitik çalışmaz**, ancak önceki güvensiz anonim moda da düşülmez. Gerekli Netlify ortam değişkenleri `.env.example` içinde; eski analitik RLS politikalarını kaldıran SQL geçişi `migrations/20261106_security_phase1.sql` içinde; tüm yönetici kabul listesi `docs/SECURITY_PHASE1.md` içindedir. Netlify ve Supabase gizli anahtarlarını asla GitHub'a yazmayın.
