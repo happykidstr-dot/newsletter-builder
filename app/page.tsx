@@ -3,6 +3,8 @@ import React, { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { TemplateGallery } from '@/components/TemplateGallery';
 import {AccountAction} from '@/components/AccountAction';
+import {AudioFileField} from '@/components/AudioFileField';
+import {safeReaderLinkUrl} from '@/lib/reader-social-share';
 import {EditorAccessGate} from '@/components/EditorAccessGate';
 import {publisherAuthorizationHeaders} from '@/lib/supabase/client';
 import {youtubeVideoId} from '@/lib/video-thumbnail';
@@ -28,7 +30,7 @@ const T = {
     designLabel:'Design', allBg:'All Backgrounds', customUrl:'Custom URL',
     noBlocks:'Add content from the left panel',
     // block types
-    title:'Title', paragraph:'Paragraph', photos:'Photos', video:'Video',
+    title:'Title', paragraph:'Paragraph', photos:'Photos', video:'Video', audio:'Add audio',
     event:'Event', separator:'Separator', link:'Link', button:'Button', poll:'Poll', attachment:'Attachment',
     // editors
     titleText:'Title Text', size:'Size', h1:'H1 — Large', h2:'H2 — Medium', h3:'H3 — Small',
@@ -49,7 +51,7 @@ const T = {
     designLabel:'Tasarım', allBg:'Tüm Arka Planlar', customUrl:'Özel URL',
     noBlocks:'Sol panelden içerik ekleyin',
     // block types
-    title:'Başlık', paragraph:'Metin', photos:'Görsel', video:'Video',
+    title:'Başlık', paragraph:'Metin', photos:'Görsel', video:'Video', audio:'Ses Ekle',
     event:'Etkinlik', separator:'Ayırıcı', link:'Bağlantı', button:'Buton', poll:'Anket', attachment:'Ek Dosya',
     // editors
     titleText:'Başlık Metni', size:'Boyut', h1:'H1 — Büyük', h2:'H2 — Orta', h3:'H3 — Küçük',
@@ -65,7 +67,7 @@ const T = {
 };
 
 // ── Types ──────────────────────────────────────────────────────────────
-type BT = 'title'|'paragraph'|'photos'|'video'|'event'|'separator'|'link'|'button'|'poll'|'attachment'|'textphoto'|'photogrid'|'author'|'form'|'googleform';
+type BT = 'title'|'paragraph'|'photos'|'video'|'audio'|'event'|'separator'|'link'|'button'|'poll'|'attachment'|'textphoto'|'photogrid'|'author'|'form'|'googleform';
 
 interface Block { id: string; type: BT; data: Record<string,string> }
 
@@ -97,7 +99,7 @@ const DESIGNS: Record<Design, DesignConfig> = {
 };
 
 // ── Block palette ─────────────────────────────────────────────────────
-const BASIC_BLOCK_TYPES:ReadonlySet<BT>=new Set(['title','paragraph','photos','textphoto','event','link','button','separator']);
+const BASIC_BLOCK_TYPES:ReadonlySet<BT>=new Set(['title','paragraph','photos','textphoto','event','link','button','separator','audio']);
 const PALETTE: { type: BT; icon: string; label: string; def: Record<string,string> }[] = [
   { type:'title',      icon:'T',   label:'Title',       def:{ text:'Başlık', size:'h2' } },
   { type:'paragraph',  icon:'¶',   label:'Paragraph',   def:{ text:'Buraya metin yazın...' } },
@@ -108,6 +110,7 @@ const PALETTE: { type: BT; icon: string; label: string; def: Record<string,strin
   { type:'form',       icon:'📋',  label:'Form',        def:{ title:'Geri Bildirim', field1:'Ad Soyad', field2:'E-posta', field3:'Mesaj', submit:'Forma Git', actionUrl:'' } },
   { type:'googleform', icon:'📝',  label:'Google Form', def:{ url:'', title:'Form', height:'520' } },
   { type:'video',      icon:'►',   label:'Video',       def:{ url:'', caption:'' } },
+  { type:'audio',      icon:'🔊', label:'Ses Ekle', def:{ url:'',name:'',caption:'',playback:'true' } },
   { type:'event',      icon:'📅',  label:'Event',       def:{ title:'Etkinlik', date:'', time:'', location:'' } },
   { type:'separator',  icon:'—',   label:'Separator',   def:{ style:'solid' } },
   { type:'link',       icon:'🔗',  label:'Link',        def:{ text:'Bağlantı', url:'#' } },
@@ -183,6 +186,21 @@ function CanvasBlock({ block, design, selected, onClick }: {
           <span style={{fontSize:32}}>▶</span>
           <span style={{fontSize:13,fontFamily:ff}}>YouTube URL ekleyin</span>
         </div>;
+  } else if(block.type === 'audio'){
+    const source=d.url?safeReaderLinkUrl(d.url):'';
+    const available=Boolean(source&&source!=='#');
+    inner=<div className="bulten-audio-canvas" style={{
+      padding:15,border:'1px solid #cbd5e1',borderRadius:12,
+      background:'#f8fafc',fontFamily:ff,color:tc,display:'grid',gap:8,
+    }}>
+      <strong style={{color:ac,fontSize:15}}>🔊 {d.caption||d.name||'Ses Kaydı'}</strong>
+      {available&&d.playback!=='false'&&<audio controls preload="metadata"
+        src={source} style={{width:'100%',maxWidth:'100%'}} />}
+      {available?<a href={source} target="_blank" rel="noopener noreferrer"
+        onClick={e=>e.stopPropagation()} style={{color:ac,fontSize:12}}>
+        Dinle / Ses dosyasını indir
+      </a>:<span style={{fontSize:12,color:'#64748b'}}>Ses dosyası ekleyin</span>}
+    </div>;
   } else if(block.type === 'event'){
     inner = (
       <div style={{borderLeft:`4px solid ${ac}`,paddingLeft:16,fontFamily:ff}}>
@@ -479,6 +497,25 @@ function BlockEditor({ block, onChange, onAI, aiLoading }: {
     case 'video': return <div>
       <div style={row}><label style={lbl}>YouTube URL</label><input style={inp} value={block.data.url} onChange={e=>set('url',e.target.value)} placeholder="https://youtu.be/..."/></div>
       <div style={row}><label style={lbl}>Alt Yazı</label><input style={inp} value={block.data.caption} onChange={e=>set('caption',e.target.value)} placeholder="Video açıklaması..."/></div>
+    </div>;
+    case 'audio': return <div>
+      <AudioFileField value={block.data.url||''} name={block.data.name||''}
+        playback={block.data.playback||'true'}
+        onFileReady={file=>onChange({...block.data,
+          url:file.url,name:file.name,caption:block.data.caption||file.name,
+          playback:String(file.playback)})}/>
+      <div style={row}><label style={lbl}>Ses kaydının başlığı</label>
+        <input style={inp} value={block.data.caption||''}
+          onChange={e=>set('caption',e.target.value)} placeholder="Ses kaydını dinleyin..."/>
+      </div>
+      <div style={row}><label style={lbl}>Harici ses bağlantısı (isteğe bağlı)</label>
+        <input type="url" style={inp} value={block.data.url||''} onChange={e=>set('url',e.target.value)}
+          placeholder="https://ornek.org/ses.mp3"/>
+        <p style={{fontSize:11,color:'#64748b',marginTop:5}}>
+          Dosya yükleyebilir veya doğrudan HTTPS ses bağlantısı kullanabilirsiniz.
+          HTML ve yayımlanan bültende oynatıcı, PDF'de indirme bağlantısı bulunur.
+        </p>
+      </div>
     </div>;
     case 'event': return <div>
       <div style={row}><label style={lbl}>Etkinlik Adı</label><input style={inp} value={block.data.title} onChange={e=>set('title',e.target.value)} placeholder="Etkinlik adı..."/></div>
