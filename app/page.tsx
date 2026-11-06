@@ -5,6 +5,7 @@ import { TemplateGallery } from '@/components/TemplateGallery';
 import {AccountAction} from '@/components/AccountAction';
 import {EditorAccessGate} from '@/components/EditorAccessGate';
 import {publisherAuthorizationHeaders} from '@/lib/supabase/client';
+import {youtubeVideoId} from '@/lib/video-thumbnail';
 import { downloadNewsletterPdf, printNewsletter } from '@/lib/newsletter-pdf';
 import {downloadReadableNewsletterPdf} from '@/lib/newsletter-text-pdf';
 import {prepareNewsletterForSharing} from '@/lib/publish-newsletter-media';
@@ -117,7 +118,7 @@ const PALETTE: { type: BT; icon: string; label: string; def: Record<string,strin
 
 function uid() { return Math.random().toString(36).slice(2,9); }
 
-function ytId(url:string){ const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^&?\s]+)/); return m?m[1]:null; }
+function ytId(url:string){return youtubeVideoId(url);}
 
 // ── Canvas block renderer ──────────────────────────────────────────────
 function CanvasBlock({ block, design, selected, onClick }: {
