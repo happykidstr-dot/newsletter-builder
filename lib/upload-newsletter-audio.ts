@@ -59,5 +59,5 @@ export async function uploadAudioFile(
   const url=done.url;
   if(typeof url!=='string'||url!=='/audio/'+id)
     throw new Error('Ses dosyasının yayın bağlantısı oluşturulamadı.');
-  return {url,name:file.name,playback:done.playback===true};
+  return {url:new URL(url,window.location.origin).toString(),name:file.name,playback:done.playback===true};
 }
