@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import {publicationStore, checkPublishQuota, type PublishedNewsletter} from '@/lib/newsletter-publication-store';
 import {sanitiseNewsletterBody} from '@/lib/public-newsletter-render';
 import {allowedSiteOrigin, publicOriginForRequest} from '@/lib/publication-origin';
+import {requireSignedInUser} from '@/lib/security/access';
+import {serverAuthConfigured} from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,11 +44,10 @@ export async function POST(req:NextRequest){
   }
   try{
     let verifiedPublisher:string|undefined;
-    if(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY&&process.env.CLERK_SECRET_KEY){
-      const {auth}=await import('@clerk/nextjs/server');
-      const session=await auth();
-      if(!session.userId)return NextResponse.json({error:'Bülteni yayımlamak için oturum açın.'},{status:401});
-      verifiedPublisher=session.userId;
+    if(serverAuthConfigured()){
+      const identity=await requireSignedInUser();
+      if(identity.error)return identity.error;
+      verifiedPublisher=identity.userId;
     }
     const publicOrigin=publicOriginForRequest(req);
     const raw=await readWithLimit(req);
