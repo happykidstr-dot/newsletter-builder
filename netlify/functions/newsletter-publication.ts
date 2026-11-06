@@ -4,12 +4,48 @@ import type {Config,Context} from '@netlify/functions';
 import {publicationStore, checkPublishQuota, type PublishedNewsletter} from '../../lib/newsletter-publication-store';
 import {sanitiseNewsletterBody, renderPublishedNewsletter} from '../../lib/public-newsletter-render';
 import {allowedSiteOrigin} from '../../lib/publication-origin';
+import {createClerkClient} from '@clerk/backend';
+import {createClient} from '@supabase/supabase-js';
 
 export const config:Config = {
   path:['/api/publish','/api/unpublish','/b/:slug'],
 };
 
 const MAX_BYTES=5_700_000;
+
+// Netlify's explicit publication functions bypass Next.js middleware.
+// Authenticate independently; never trust a user-supplied owner ID.
+async function verifiedPublisher(req:Request):Promise<string|undefined>{
+  const secretKey=process.env.CLERK_SECRET_KEY;
+  const publishableKey=process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  if(!secretKey||!publishableKey)return undefined;
+  try{
+    const client=createClerkClient({secretKey,publishableKey});
+    const result=await client.authenticateRequest(req,{
+      authorizedParties:[new URL(req.url).origin],
+    });
+    return result.isAuthenticated?result.toAuth().userId||undefined:undefined;
+  }catch{
+    console.warn('Clerk publication owner verification failed.');
+    return undefined;
+  }
+}
+
+async function recordAnonymousPageRequest(ownerUserId:string,slug:string,req:Request):Promise<void>{
+  const userAgent=req.headers.get('user-agent')||'';
+  if(/(bot|spider|crawl|preview|facebookexternalhit|twitterbot|linkedinbot|whatsapp|HeadlessChrome|slack|discord)/i.test(userAgent))return;
+  if(req.headers.get('purpose')==='prefetch'||req.headers.get('sec-purpose')==='prefetch')return;
+  const url=process.env.NEXT_PUBLIC_SUPABASE_URL, key=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!url||!key)return;
+  try{
+    const {error}=await createClient(url,key).from('newsletter_web_events')
+      .insert({user_id:ownerUserId,publication_slug:slug});
+    if(error)console.warn('Web page request analytics unavailable:',error.message);
+  }catch{
+    console.warn('Web page request analytics temporarily unavailable.');
+  }
+}
+
 
 async function parseBoundedRequest(req:Request){
   if(Number(req.headers.get('content-length')||'0')>MAX_BYTES)throw new Error('Bülten boyutu sınırı aşıldı.');
@@ -37,6 +73,7 @@ export default async (req:Request,context:Context):Promise<Response>=>{
         typeof body?.headerImgUrl!=='string'||body.headerImgUrl.length>3000){
         return reply({error:'Bülten bilgileri geçersiz veya çok uzun.'},400);
       }
+      const owner=await verifiedPublisher(req);
       const clean=sanitiseNewsletterBody(body.html);
       const ip=req.headers.get('x-nf-client-connection-ip')||
         req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'anonymous';
@@ -51,6 +88,8 @@ export default async (req:Request,context:Context):Promise<Response>=>{
       if(editing && !previous)return reply({error:'Yayınlanmış bülten bulunamadı.'},404);
       if(editing && !matchesEditToken(body.editToken,previous?.editTokenHash))
         return reply({error:'Bu yayını değiştirmek için düzenleme yetkisi gerekiyor.'},403);
+      if(editing&&previous?.ownerUserId&&previous.ownerUserId!==owner)
+        return reply({error:'Bu yayın farklı bir kullanıcı hesabına ait.'},403);
       if(editing && Number.isInteger(body.expectedRevision) &&
          body.expectedRevision!==(previous?.revision||1))
         return reply({error:'Bu bülten başka bir oturumda güncellenmiş. Son sürümü açıp tekrar deneyin.'},409);
@@ -63,6 +102,7 @@ export default async (req:Request,context:Context):Promise<Response>=>{
         updatedAt:timestamp,
         revision:(previous?.revision||0)+1,
         editTokenHash:previous?.editTokenHash||credential!.hash,
+        ownerUserId:previous?.ownerUserId||owner,
       };
       await store.setJSON(slug,record);
       return reply({
@@ -91,6 +131,8 @@ export default async (req:Request,context:Context):Promise<Response>=>{
       const store=publicationStore(host);
       const existing=await store.get(body.slug,{type:'json'}) as PublishedNewsletter|null;
       if(!existing)return reply({error:'Bülten bulunamadı.'},404);
+      if(existing.ownerUserId&&existing.ownerUserId!==await verifiedPublisher(req))
+        return reply({error:'Bu yayın başka kullanıcı hesabına ait.'},403);
       if(!matchesEditToken(body.editToken,existing.editTokenHash))
         return reply({error:'Bu bülteni yayından kaldırma yetkiniz yok.'},403);
       await store.delete(body.slug);
@@ -109,6 +151,7 @@ export default async (req:Request,context:Context):Promise<Response>=>{
         return new Response('Bülten bulunamadı.',{status:404});
       const url=new URL('/b/'+slug,req.url).toString();
       const {html,csp}=renderPublishedNewsletter(record,url);
+      if(record.ownerUserId)await recordAnonymousPageRequest(record.ownerUserId,slug,req);
       return new Response(html,{status:200,headers:{
         'Content-Type':'text/html; charset=utf-8',
         'Cache-Control':'public, max-age=0, must-revalidate',
