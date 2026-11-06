@@ -65,6 +65,25 @@ export function printableNewsletterNode(html: string): HTMLElement {
  * If the thumbnail host is unavailable, leave the normal web image URL as a
  * best-effort fallback; PDF export still works for all other content.
  */
+export async function fetchVideoPosterDataUri(id:string):Promise<string>{
+  if(!validYoutubeId(id))throw new Error('YouTube video bağlantısı geçersiz.');
+  const response=await fetch(youtubePosterProxyPath(id),{
+    signal:AbortSignal.timeout(9000),cache:'force-cache',
+  });
+  if(!response.ok||!/^image\/jpe?g(?:;|$)/i.test(response.headers.get('content-type')||''))
+    throw new Error('Video görseli getirilemedi.');
+  const blob=await response.blob();
+  if(blob.size>1_500_000||blob.size<100)throw new Error('Video görseli geçersiz.');
+  const dataUri=await new Promise<string>((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(String(reader.result||''));
+    reader.onerror=()=>reject(new Error('Video görseli okunamadı.'));
+    reader.readAsDataURL(blob);
+  });
+  if(!dataUri.startsWith('data:image/jpeg;base64,'))throw new Error('Geçersiz video resmi.');
+  return dataUri;
+}
+
 export async function inlineVideoPosterImages(node:HTMLElement):Promise<number>{
   const posters=Array.from(node.querySelectorAll<HTMLImageElement>('img[data-bulten-video-id]'));
   let prepared=0;
@@ -72,20 +91,7 @@ export async function inlineVideoPosterImages(node:HTMLElement):Promise<number>{
     const id=image.getAttribute('data-bulten-video-id');
     if(!validYoutubeId(id))return;
     try{
-      const response=await fetch(youtubePosterProxyPath(id),{
-        signal:AbortSignal.timeout(9000),cache:'force-cache',
-      });
-      if(!response.ok||!/^image\/jpe?g(?:;|$)/i.test(response.headers.get('content-type')||''))
-        throw new Error('Video görseli getirilemedi.');
-      const blob=await response.blob();
-      if(blob.size>1_500_000||blob.size<100)throw new Error('Video görseli geçersiz.');
-      const dataUri=await new Promise<string>((resolve,reject)=>{
-        const reader=new FileReader();
-        reader.onload=()=>resolve(String(reader.result||''));
-        reader.onerror=()=>reject(new Error('Video görseli okunamadı.'));
-        reader.readAsDataURL(blob);
-      });
-      if(!dataUri.startsWith('data:image/jpeg;base64,'))throw new Error('Geçersiz video resmi.');
+      const dataUri=await fetchVideoPosterDataUri(id);
       image.removeAttribute('crossorigin');
       image.src=dataUri;
       prepared++;
