@@ -48,6 +48,22 @@ async function check(){
   });
   if(![401,403,503].includes(deniedMedia.status))
     return {ok:false,reason:'Anonymous media upload was not blocked: HTTP '+deniedMedia.status};
+  // Video posters use this same-origin route for PDF snapshots.
+  // Require a real remote YouTube JPEG, not merely a locally mocked response.
+  const poster=await fetch(base+'/api/video-thumbnail?id=dQw4w9WgXcQ',{
+    cache:'no-store',signal:AbortSignal.timeout(20000),
+  });
+  if(poster.status!==200||!/^image\/jpe?g/i.test(poster.headers.get('content-type')||''))
+    return {ok:false,reason:'YouTube video thumbnail proxy is not ready: HTTP '+poster.status};
+  const jpeg=new Uint8Array(await poster.arrayBuffer());
+  if(jpeg.length<100||jpeg[0]!==255||jpeg[1]!==216)
+    return {ok:false,reason:'YouTube video poster endpoint returned invalid JPEG data'};
+  const unsafeThumbnail=await fetch(base+'/api/video-thumbnail?id=invalid',{
+    cache:'no-store',signal:AbortSignal.timeout(20000),
+  });
+  if(unsafeThumbnail.status!==400)
+    return {ok:false,reason:'YouTube thumbnail proxy did not validate the video ID'};
+
   // A live Netlify publication endpoint denies cross-site POST with 403.
   // Legacy versions responded 404 or redirected, so this tests new deployment.
   const publish=await fetch(base+'/api/publish',{
