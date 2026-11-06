@@ -945,7 +945,7 @@ export default function BultenReadPage() {
   };
 
   // Analytics helpers
-  const [analytics, setAnalytics] = React.useState<{views:number, lastWeek:number, opens:number, clicks:number}>({views:0, lastWeek:0, opens:0, clicks:0});
+  const [analytics, setAnalytics] = React.useState<{views:number, lastWeek:number, opens:number, clicks:number,webViews:number|null,webLastWeek:number|null}>({views:0,lastWeek:0,opens:0,clicks:0,webViews:null,webLastWeek:null});
   // Fetch real analytics when modal opens
   const openAnalytics = async () => {
     try {
@@ -956,7 +956,9 @@ export default function BultenReadPage() {
         views: data.totalOpens || 0,
         opens: data.uniqueOpens || 0,
         clicks: data.totalClicks || 0,
-        lastWeek: data.lastWeek || 0
+        lastWeek: data.lastWeek || 0,
+        webViews:typeof data.webViews==='number'?data.webViews:null,
+        webLastWeek:typeof data.webLastWeek==='number'?data.webLastWeek:null,
       });
       setShowAnalyticsModal(true);
     } catch(e) {
@@ -2300,7 +2302,7 @@ ${text}`;
     {showAnalyticsModal && (
       <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}
            onClick={()=>setShowAnalyticsModal(false)}>
-        <div style={{background:'#fff',borderRadius:16,width:960,height:'80vh',display:'flex',flexDirection:'row',boxShadow:'0 16px 48px rgba(0,0,0,.25)',overflow:'hidden'}}
+        <div style={{background:'#fff',borderRadius:16,width:'min(960px,100%)',height:'80vh',display:'flex',flexDirection:'row',boxShadow:'0 16px 48px rgba(0,0,0,.25)',overflow:'hidden'}}
              onClick={e=>e.stopPropagation()}>
           
           {/* Sidebar */}
@@ -2313,9 +2315,6 @@ ${text}`;
               {[
                 {k:'overview',l:'Genel Bakış',icon:'📊'},
                 {k:'deliveries',l:'E-posta Teslimatı',icon:'✉️'},
-                {k:'locations',l:'Lokasyonlar',icon:'📍'},
-                {k:'interactions',l:'Etkileşimler',icon:'🖱️'},
-                {k:'traffic',l:'Trafik Kaynakları',icon:'🚗'},
               ].map(tab=>(
                 <button key={tab.k} onClick={()=>setAnalyticsTab(tab.k)}
                   style={{padding:'10px 14px',borderRadius:8,border:analyticsTab===tab.k?'1px solid #10b981':'1px solid transparent',
@@ -2347,16 +2346,20 @@ ${text}`;
             <div style={{padding:32,overflowY:'auto',flex:1}}>
               {analyticsTab==='overview' && (
                 <>
-                  <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:24}}>
-                    <span style={{fontWeight:800,fontSize:42,color:'#0f172a',lineHeight:1}}>{(analytics.views||0).toLocaleString('tr-TR')}</span>
-                    <span style={{fontSize:13,color:'#64748b',fontWeight:600}}>toplam mail açılışı (opens)</span>
+                  <div style={{display:'flex',alignItems:'baseline',flexWrap:'wrap',gap:8,marginBottom:12}}>
+                    <span style={{fontWeight:800,fontSize:42,color:'#0f172a',lineHeight:1}}>{analytics.webViews===null?'—':analytics.webViews.toLocaleString('tr-TR')}</span>
+                    <span style={{fontSize:13,color:'#64748b',fontWeight:600}}>gerçek web sayfası isteği (benzersiz ziyaretçi değil)</span>
                   </div>
+                  <p style={{fontSize:12,color:'#64748b',marginBottom:24}}>
+                    {analytics.webViews===null?'Web görüntüleme ölçümü henüz yapılandırılmadı. Faz 2 SQL geçişini uygulayın.':
+                    'Bu sayıya bot olmayan sayfa istekleri dahildir; bazı otomatik ziyaretler ayıklanamamış olabilir.'}
+                  </p>
                   
                   <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:32}}>
                     {[
-                      {label:'Farklı Kişi Okudu',value:(analytics.opens||0).toString(),color:'#f59e0b',icon:'👤'},
-                      {label:'Toplam Link Tıklaması',value:(analytics.clicks||0).toString(),color:'#ec4899',icon:'🔗'},
-                      {label:'Ortalama Okuma',value:`${readingTime} dk`,color:'#8b5cf6',icon:'⏱️'},
+                      {label:'E-posta Açılmaları',value:(analytics.views||0).toString(),color:'#f59e0b',icon:'✉️'},
+                      {label:'Tekil E-posta Açan',value:(analytics.opens||0).toString(),color:'#ec4899',icon:'👤'},
+                      {label:'E-posta Link Tıklamaları',value:(analytics.clicks||0).toString(),color:'#8b5cf6',icon:'🔗'},
                     ].map(m=>(
                       <div key={m.label} style={{background:'#f8fafc',borderRadius:12,padding:'20px',border:'1px solid #e2e8f0'}}>
                         <div style={{fontSize:24,marginBottom:8}}>{m.icon}</div>
@@ -2366,91 +2369,13 @@ ${text}`;
                     ))}
                   </div>
 
-                  <h3 style={{fontSize:14,fontWeight:800,color:'#334155',marginBottom:16}}>Cihaz Dağılımı</h3>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-                    <div style={{background:'#1e293b',borderRadius:12,padding:'20px',display:'flex',alignItems:'center',gap:16}}>
-                      <div style={{fontSize:32}}>📱</div>
-                      <div>
-                        <div style={{fontWeight:800,fontSize:20,color:'#fff'}}>48%</div>
-                        <div style={{fontSize:12,color:'#94a3b8',fontWeight:600}}>Mobil Cihazlar</div>
-                      </div>
-                    </div>
-                    <div style={{background:'#ea580c',borderRadius:12,padding:'20px',display:'flex',alignItems:'center',gap:16}}>
-                      <div style={{fontSize:32}}>🖥️</div>
-                      <div>
-                        <div style={{fontWeight:800,fontSize:20,color:'#fff'}}>52%</div>
-                        <div style={{fontSize:12,color:'#fed7aa',fontWeight:600}}>Masaüstü Cihazlar</div>
-                      </div>
-                    </div>
+                  <div style={{borderTop:'1px solid #e2e8f0',paddingTop:18,fontSize:13,lineHeight:1.7,color:'#475569'}}>
+                    <strong>Son 7 gün:</strong> {analytics.webLastWeek===null?'Web verisi yok':analytics.webLastWeek+' web sayfası isteği'} · {analytics.lastWeek} e-posta açılışı.
+                    <p style={{fontSize:12,color:'#64748b'}}>Cihaz, konum, trafik kaynağı ve blok etkileşimi verileri ölçülmediği için gösterilmez. İçerik üzerinden tahmini okuma süresi: {readingTime} dk.</p>
                   </div>
                 </>
               )}
 
-              {analyticsTab==='locations' && (
-                <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
-                  <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:20}}>
-                    <span style={{fontWeight:800,fontSize:32,color:'#4f46e5'}}>72</span>
-                    <span style={{fontSize:13,color:'#64748b',fontWeight:600}}>ziyaretçi konumu saptandı</span>
-                  </div>
-                  <div style={{borderRadius:12,overflow:'hidden',border:'1px solid #e2e8f0',flex:1,minHeight:400,boxShadow:'0 4px 6px -1px rgba(0,0,0,0.05)'}}>
-                    <BultenLocationMap/>
-                  </div>
-                  <div style={{marginTop:16,fontSize:11,color:'#94a3b8',textAlign:'center'}}>
-                    📍 Harita üzerindeki kırmızı pinler en son erişim konumlarını göstermektedir. (Simülasyon verisidir)
-                  </div>
-                </div>
-              )}
-
-              {analyticsTab==='traffic' && (
-                <div>
-                  <p style={{color:'#64748b',fontSize:13,marginBottom:24,fontWeight:600}}>Bülteninize gelen trafik kanallarının analizi (Google Analytics tabanlıdır).</p>
-                  <div style={{display:'flex',flexDirection:'column',gap:20}}>
-                  {[
-                    {label:'Direkt (URL)',val:analytics.views?Math.round((analytics.views||10)*.52):52,color:'#0d9488'},
-                    {label:'E-posta (Mailbox)',val:analytics.views?Math.round((analytics.views||10)*.25):25,color:'#4f46e5'},
-                    {label:'Sosyal Medya',val:analytics.views?Math.round((analytics.views||10)*.15):15,color:'#2563eb'},
-                    {label:'Web Sitesi / Platform',val:analytics.views?Math.round((analytics.views||10)*.08):8,color:'#7c3aed'},
-                  ].map(src=>{
-                    const total = analytics.views||100;
-                    const pct = Math.round(src.val/total*100);
-                    return (
-                      <div key={src.label}>
-                        <div style={{display:'flex',justifyContent:'space-between',fontSize:13,fontWeight:700,color:'#334155',marginBottom:6}}>
-                          <span>{src.label} ({pct}%)</span><span style={{color:src.color}}>{src.val} tık</span>
-                        </div>
-                        <div style={{background:'#f1f5f9',borderRadius:8,height:12,overflow:'hidden',boxShadow:'inset 0 1px 2px rgba(0,0,0,.05)'}}>
-                          <div style={{height:'100%',borderRadius:8,background:src.color,width:`${pct}%`,transition:'width .6s ease-out'}}/>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  </div>
-                </div>
-              )}
-
-              {analyticsTab==='interactions' && (
-                <div>
-                  <p style={{color:'#64748b',fontSize:13,marginBottom:24,fontWeight:600}}>Bülten içindeki özel yapıtaşlarına olan etkileşim oranları.</p>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:16}}>
-                    {[
-                      {label:'Tıklanan Butonlar',count:btnCount*4||12,color:'#0d9488',icon:'⬛'},
-                      {label:'Video İzleme',count:videoCount*6||8,color:'#ef4444',icon:'▶'},
-                      {label:'Ek İndirme',count:attachCount*2||5,color:'#f59e0b',icon:'📎'},
-                      {label:'Link Tıklama',count:linkCount*7||18,color:'#6366f1',icon:'🔗'},
-                      {label:'Form / Anket',count:formCount*3||2,color:'#8b5cf6',icon:'📋'},
-                    ].map(item=>(
-                      <div key={item.label} style={{display:'flex',alignItems:'center',gap:12,padding:'16px',borderRadius:12,background:item.color+'0a',border:`1px solid ${item.color}22`}}>
-                        <span style={{fontSize:24}}>{item.icon}</span>
-                        <div>
-                          <div style={{fontWeight:800,fontSize:20,color:item.color}}>{item.count}</div>
-                          <div style={{fontSize:12,color:'#64748b',fontWeight:700}}>{item.label}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
               {analyticsTab==='deliveries' && (
                 <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',paddingTop:60,color:'#94a3b8',textAlign:'center'}}>
                   <span style={{fontSize:48,marginBottom:16}}>✉️</span>
