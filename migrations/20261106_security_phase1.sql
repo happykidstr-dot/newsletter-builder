@@ -23,6 +23,17 @@ DROP POLICY IF EXISTS "Kullanıcılar kendi bültenlerini ekleyebilir/güncelley
 DROP POLICY IF EXISTS "Kullanıcılar kendi mail listelerini görebilir" ON public.mailing_lists;
 DROP POLICY IF EXISTS "Kullanıcılar kendi mail listelerini ekleyebilir/güncelleyebilir" ON public.mailing_lists;
 
+-- Suppress unsubscribed addresses across every mailing list owned by the
+-- same publisher. Store keyed HMACs, never plaintext suppression emails.
+CREATE TABLE IF NOT EXISTS public.email_suppressions(
+  user_id text NOT NULL,
+  email_hash text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(user_id,email_hash)
+);
+ALTER TABLE public.email_suppressions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.email_suppressions FROM anon,authenticated;
+
 -- Prevent REST exposure to anon/authenticated Supabase keys. Clerk identities
 -- are validated by the Next.js API, which uses a server-only service-role key.
 REVOKE ALL ON TABLE public.campaign_analytics FROM anon, authenticated;
