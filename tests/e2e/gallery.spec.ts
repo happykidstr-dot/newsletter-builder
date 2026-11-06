@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/authorized-editor-test';
 
 async function openGallery(page:import('@playwright/test').Page) {
   await page.goto('/');
