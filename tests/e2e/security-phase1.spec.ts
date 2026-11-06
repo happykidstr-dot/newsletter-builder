@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from '../helpers/authorized-editor-test';
 
 test('anonymous requests cannot spend AI credits or send mail or read personal analytics',async({request})=>{
   const ai=await request.post('/api/ai-generate',{data:{prompt:'Bir haber yaz.'}});
