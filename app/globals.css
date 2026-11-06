@@ -206,3 +206,21 @@ body {
   border-radius:8px;color:#164e63;font-size:12px;line-height:1.5;}
 .bulten-auth-helper{color:#536579;font-size:12px;line-height:1.55;}
 .bulten-auth-modal :is(button,input):focus-visible{outline:3px solid #0d9488;outline-offset:3px;}
+
+/* Private editorial access screen (read-only published URLs remain public). */
+.bulten-private-gate{min-height:100dvh;display:grid;place-items:center;
+  background:linear-gradient(145deg,#e0f2fe 0%,#f8fafc 55%,#f0fdfa 100%);
+  padding:20px;font-family:Inter,system-ui,sans-serif;color:#193044;}
+.bulten-private-panel{width:min(510px,100%);background:#fff;border:1px solid #cbd5e1;
+  border-radius:18px;padding:clamp(22px,4vw,38px);box-shadow:0 24px 56px rgba(23,52,74,.12);
+  display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;}
+.bulten-private-panel h1{font-size:clamp(26px,5vw,38px);font-weight:900;letter-spacing:.05em;margin:0;}
+.bulten-private-panel p{line-height:1.55;font-size:15px;margin:2px 0;color:#334155;}
+.bulten-private-panel .bulten-private-intro{color:#64748b;font-size:12px;letter-spacing:.04em;}
+.bulten-private-mark{width:64px;height:64px;background:#ccfbf1;color:#0f766e;
+ display:grid;place-items:center;border-radius:18px;font-size:32px;}
+.bulten-private-account{display:flex;justify-content:center;flex-wrap:wrap;padding:10px 0;}
+.bulten-private-note{font-size:12px!important;color:#64748b!important;}
+.bulten-private-panel a{color:#0e7490;text-decoration:underline;font-size:12px;}
+.bulten-private-panel small{color:#64748b;line-height:1.45;}
+.bulten-private-panel :focus-visible{outline:3px solid #0d9488;outline-offset:3px;}
