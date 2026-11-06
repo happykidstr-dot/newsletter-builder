@@ -65,6 +65,21 @@ async function check(){
   if(unsafeThumbnail.status!==400)
     return {ok:false,reason:'YouTube thumbnail proxy did not validate the video ID'};
 
+  // Audio publisher endpoints must fail closed for anonymous users while the
+  // public media route must validate IDs without requiring a login.
+  const deniedAudio=await fetch(base+'/api/audio',{
+    method:'POST',headers:{Origin:base,'Content-Type':'application/json'},
+    body:JSON.stringify({action:'start',name:'sample.mp3',mime:'audio/mpeg',size:1280}),
+    signal:AbortSignal.timeout(20000),
+  });
+  if(![401,403,503].includes(deniedAudio.status))
+    return {ok:false,reason:'Anonymous audio upload unexpectedly allowed: '+deniedAudio.status};
+  const missingAudio=await fetch(base+'/audio/not-a-valid-audio-id',{
+    cache:'no-store',signal:AbortSignal.timeout(20000),
+  });
+  if(missingAudio.status!==404)
+    return {ok:false,reason:'Public audio GET failed ID validation: '+missingAudio.status};
+
   // A live Netlify publication endpoint denies cross-site POST with 403.
   // Legacy versions responded 404 or redirected, so this tests new deployment.
   const publish=await fetch(base+'/api/publish',{
