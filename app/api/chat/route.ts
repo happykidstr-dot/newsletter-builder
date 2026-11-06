@@ -1,10 +1,10 @@
 import {NextRequest,NextResponse} from 'next/server';
-import {requireSignedInUser,checkSameOrigin,boundedJson,requestProblem} from '@/lib/security/access';
+import {requireAuthorizedPublisher,checkSameOrigin,boundedJson,requestProblem} from '@/lib/security/access';
 import {reserveQuota} from '@/lib/security/quotas';
 
 export const runtime='nodejs';
 export async function POST(req:NextRequest){
-  const session=await requireSignedInUser();if(session.error)return session.error;
+  const session=await requireAuthorizedPublisher();if(session.error)return session.error;
   const originError=checkSameOrigin(req);if(originError)return originError;
   let raw:unknown;
   try{raw=await boundedJson(req,34_000);}catch(e){return requestProblem(e);}
