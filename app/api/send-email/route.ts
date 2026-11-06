@@ -2,7 +2,7 @@ import {NextRequest,NextResponse} from 'next/server';
 import {createClient} from '@supabase/supabase-js';
 import {randomUUID} from 'node:crypto';
 import sanitizeHtml from 'sanitize-html';
-import {requireSignedInUser,checkSameOrigin,boundedJson,requestProblem} from '@/lib/security/access';
+import {requireAuthorizedPublisher,checkSameOrigin,boundedJson,requestProblem} from '@/lib/security/access';
 import {reserveQuota} from '@/lib/security/quotas';
 import {makeCampaignToken} from '@/lib/security/campaign-token';
 import {suppressionHash} from '@/lib/security/email-suppression';
@@ -22,7 +22,7 @@ const websiteOrigin=(req:NextRequest):string=>{
 };
 
 export async function POST(req:NextRequest){
- const identity=await requireSignedInUser();
+ const identity=await requireAuthorizedPublisher();
  if(identity.error)return identity.error;
  const err=checkSameOrigin(req);if(err)return err;
  let value:unknown;
