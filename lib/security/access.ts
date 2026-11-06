@@ -1,23 +1,32 @@
-import {auth} from '@clerk/nextjs/server';
+import {createServerSupabaseClient,serverAuthConfigured} from '@/lib/supabase/server';
 import {NextResponse} from 'next/server';
 
-export type AccessResult={userId:string;error?:never}|{userId?:never;error:NextResponse};
+export type AccessResult=
+  |{userId:string;email:string|null;emailVerified:boolean;displayName:string;error?:never}
+  |{userId?:never;error:NextResponse};
 
 /** Never use a client-supplied user ID. All paid and personal APIs fail closed. */
 export async function requireSignedInUser():Promise<AccessResult>{
-  if(!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY||!process.env.CLERK_SECRET_KEY)
+  if(!serverAuthConfigured())
     return {error:NextResponse.json(
-      {error:'Hesap doğrulaması yapılandırılmamış. Yönetici Clerk anahtarlarını eklemeli.'},
+      {error:'Supabase Auth yapılandırılmamış. Netlify ortam değişkenlerini ayarlayın.'},
       {status:503,headers:{'Cache-Control':'no-store'}})};
   try{
-    const {userId}=await auth();
-    if(!userId)return {error:NextResponse.json(
+    const client=await createServerSupabaseClient();
+    // getUser verifies the session against Supabase Auth, not an untrusted client JWT.
+    const {data:{user},error}=await client.auth.getUser();
+    if(error||!user?.id)return {error:NextResponse.json(
       {error:'İşlem için hesabınıza giriş yapın.'},
       {status:401,headers:{'Cache-Control':'no-store'}})};
-    return {userId};
+    const email=user.email?.trim().toLowerCase()||null;
+    return {
+      userId:user.id,email,emailVerified:Boolean(user.email_confirmed_at),
+      displayName:typeof user.user_metadata?.full_name==='string'
+        ?user.user_metadata.full_name.slice(0,100):'',
+    };
   }catch{
     return {error:NextResponse.json(
-      {error:'Hesap doğrulanamadı. Tekrar giriş yapın.'},
+      {error:'Oturum doğrulanamadı. Tekrar giriş yapın.'},
       {status:401,headers:{'Cache-Control':'no-store'}})};
   }
 }

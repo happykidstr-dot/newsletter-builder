@@ -4,7 +4,6 @@ import type {Config,Context} from '@netlify/functions';
 import {publicationStore, checkPublishQuota, type PublishedNewsletter} from '../../lib/newsletter-publication-store';
 import {sanitiseNewsletterBody, renderPublishedNewsletter} from '../../lib/public-newsletter-render';
 import {allowedSiteOrigin} from '../../lib/publication-origin';
-import {createClerkClient} from '@clerk/backend';
 import {createClient} from '@supabase/supabase-js';
 
 export const config:Config = {
@@ -13,20 +12,28 @@ export const config:Config = {
 
 const MAX_BYTES=5_700_000;
 
-// Netlify's explicit publication functions bypass Next.js middleware.
-// Authenticate independently; never trust a user-supplied owner ID.
+// Netlify Functions bypass Next.js proxy and must verify the bearer token
+// on each publisher write. Public reader GETs stay anonymous.
+function publisherAuthEnabled():boolean{
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL&&process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+}
 async function verifiedPublisher(req:Request):Promise<string|undefined>{
-  const secretKey=process.env.CLERK_SECRET_KEY;
-  const publishableKey=process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  if(!secretKey||!publishableKey)return undefined;
+  const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if(!url||!key)return undefined;
+  const authorization=req.headers.get('authorization')||'';
+  const match=/^Bearer ([A-Za-z0-9._~-]{50,4000})$/.exec(authorization);
+  if(!match)return undefined;
   try{
-    const client=createClerkClient({secretKey,publishableKey});
-    const result=await client.authenticateRequest(req,{
-      authorizedParties:[new URL(req.url).origin],
+    const client=createClient(url,key,{
+      auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
     });
-    return result.isAuthenticated?result.toAuth().userId||undefined:undefined;
+    // Never trust the JWT payload or browser-supplied user id directly.
+    const {data:{user},error}=await client.auth.getUser(match[1]);
+    if(error||!user?.id)return undefined;
+    return user.id;
   }catch{
-    console.warn('Clerk publication owner verification failed.');
+    console.warn('Supabase publication owner verification failed.');
     return undefined;
   }
 }
@@ -74,6 +81,8 @@ export default async (req:Request,context:Context):Promise<Response>=>{
         return reply({error:'Bülten bilgileri geçersiz veya çok uzun.'},400);
       }
       const owner=await verifiedPublisher(req);
+      if(publisherAuthEnabled()&&!owner)
+        return reply({error:'Bülteni yayımlamak için Supabase hesabınıza giriş yapın.'},401);
       const clean=sanitiseNewsletterBody(body.html);
       const ip=req.headers.get('x-nf-client-connection-ip')||
         req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'anonymous';

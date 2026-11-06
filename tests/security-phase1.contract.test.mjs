@@ -16,12 +16,30 @@ const netlify=read('netlify/functions/newsletter-publication.ts');
 const page=read('app/page.tsx');
 const schema=read('migrations/20261106_security_phase1.sql');
 
-test('Clerk authentication fails closed and Next 16 proxy replaces obsolete middleware',()=>{
-  assert.ok(existsSync(new URL('../proxy.ts',import.meta.url)));
+test('Supabase Auth validates owner identity server-side and Next 16 proxy refreshes PKCE cookies',()=>{
+  const proxy=read('proxy.ts');
+  const server=read('lib/supabase/server.ts');
+  const client=read('lib/supabase/client.ts');
+  const account=read('components/AccountAction.tsx');
+  const callback=read('app/auth/callback/route.ts');
   assert.ok(!existsSync(new URL('../middleware.ts',import.meta.url)));
-  assert.match(auth,/if\(!process\.env\.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY\|\|!process\.env\.CLERK_SECRET_KEY\)/);
-  assert.match(auth,/const \{userId\}=await auth\(\)/);
+  assert.match(auth,/createServerSupabaseClient\(\)/);
+  assert.match(auth,/client\.auth\.getUser\(\)/);
+  assert.match(auth,/serverAuthConfigured\(\)/);
+  assert.match(auth,/emailVerified:Boolean\(user\.email_confirmed_at\)/);
+  assert.match(proxy,/createServerClient/);
+  assert.match(proxy,/auth\.getClaims\(\)/);
+  assert.match(proxy,/Cache-Control','private, no-store/);
+  assert.match(server,/await cookies\(\)/);
+  assert.match(client,/createBrowserClient/);
+  assert.match(callback,/exchangeCodeForSession/);
+  assert.match(callback,/!destination\.startsWith\('\/\/'\)/);
+  assert.match(account,/signInWithOAuth\(\{provider:'google'/);
+  assert.match(account,/signInWithPassword/);
+  assert.match(account,/signUp/);
   assert.match(page,/<AccountAction\/>/);
+  for(const source of [auth,account,proxy,read('app/layout.tsx'),read('app/api/send-email/route.ts')])
+    assert.doesNotMatch(source,/@clerk\/nextjs|CLERK_SECRET_KEY/);
 });
 test('all billable endpoints validate session, origin, body and per-user quotas',()=>{
   for(const code of [ai,chat,mail]){
@@ -38,7 +56,8 @@ test('email sends only from owned DB list and explicitly consented recipients',(
   assert.match(mail,/c\.consentAt/);
   assert.match(mail,/c\.consentSource/);
   assert.match(mail,/\!c\.unsubscribedAt/);
-  assert.match(mail,/currentUser\(\)/);
+  assert.match(mail,/identity\.emailVerified/);
+  assert.match(mail,/identity\.email/);
   assert.doesNotMatch(mail,/const \{ contacts/);
   assert.match(mail,/suppressionHash\(c\.email\)/);
   assert.match(mail,/email_suppressions/);
@@ -77,4 +96,7 @@ test('owner can export or erase only their own records after explicit confirmati
   assert.match(privacy,/confirmation.*DELETE-MY-DATA/);
   assert.match(privacy,/\.eq\('user_id',identity\.userId\)/);
   assert.match(privacy,/email_suppressions/);
+  assert.match(privacy,/newsletter_web_events/);
+  assert.match(privacy,/fetchOwnerRecords/);
+  assert.match(read('lib/local-newsletter-db.ts'),/clearLocalNewsletterData/);
 });

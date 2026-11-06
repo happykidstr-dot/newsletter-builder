@@ -3,6 +3,7 @@ import React, { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { TemplateGallery } from '@/components/TemplateGallery';
 import {AccountAction} from '@/components/AccountAction';
+import {publisherAuthorizationHeaders} from '@/lib/supabase/client';
 import { downloadNewsletterPdf, printNewsletter } from '@/lib/newsletter-pdf';
 import {downloadReadableNewsletterPdf} from '@/lib/newsletter-text-pdf';
 import {prepareNewsletterForSharing} from '@/lib/publish-newsletter-media';
@@ -1467,6 +1468,8 @@ ${text}`;
     setShareBusy(true);setShareError('');
     setShareProgress('Görseller hazırlanıyor…');
     try{
+      // Check current login before uploading large image attachments.
+      const publisherHeaders=await publisherAuthorizationHeaders();
       const prepared=await prepareNewsletterForSharing(generateHTML(),headerImgUrl,(done,total)=>{
         setShareProgress(total>0?`Görseller yükleniyor: ${done}/${total}`:'Bülten hazırlanıyor…');
       });
@@ -1479,7 +1482,7 @@ ${text}`;
         }:{}),
       };
       const response=await fetch('/api/publish',{
-        method:'POST',headers:{'Content-Type':'application/json'},
+        method:'POST',headers:{'Content-Type':'application/json',...publisherHeaders},
         body:JSON.stringify(body),
       });
       const result=await response.json().catch(()=>({}));
@@ -1543,7 +1546,7 @@ ${text}`;
     setShareBusy(true);setShareError('');setShareProgress('Yayın kaldırılıyor…');
     try{
       const res=await fetch('/api/unpublish',{
-        method:'POST',headers:{'Content-Type':'application/json'},
+        method:'POST',headers:{'Content-Type':'application/json',...(await publisherAuthorizationHeaders())},
         body:JSON.stringify({slug:publication.slug,editToken:publication.editToken}),
       });
       const result=await res.json().catch(()=>({}));

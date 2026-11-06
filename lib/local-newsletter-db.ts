@@ -77,3 +77,18 @@ export async function loadLocalDraft<T>(): Promise<T | null> {
   );
   return saved?.content ?? null;
 }
+
+/** Erase both IndexedDB stores; localStorage removal alone misses Phase 2 drafts. */
+export async function clearLocalNewsletterData():Promise<void>{
+  const db=await openDatabase();
+  try{
+    await new Promise<void>((resolve,reject)=>{
+      const tx=db.transaction([DOCUMENTS,DRAFTS],'readwrite');
+      tx.oncomplete=()=>resolve();
+      tx.onerror=()=>reject(tx.error||new Error('Yerel veriler silinemedi.'));
+      tx.onabort=()=>reject(tx.error||new Error('Yerel veriler silinemedi.'));
+      tx.objectStore(DOCUMENTS).clear();
+      tx.objectStore(DRAFTS).clear();
+    });
+  }finally{db.close();}
+}

@@ -183,3 +183,26 @@ body {
 @media(max-width:560px){.bulten-pubpreview-overlay{padding:0;}
  .bulten-pubpreview-dialog{height:100dvh;border-radius:0;width:100%;}
  .bulten-pubpreview-header{padding:12px;}}
+
+/* Free Supabase Auth: modal controls with clear focus indicators. */
+.bulten-auth-backdrop{position:fixed;inset:0;z-index:16000;background:rgba(15,23,42,.72);
+  display:grid;place-items:center;padding:18px;}
+.bulten-auth-modal{background:#fff;border-radius:16px;padding:24px;width:min(440px,100%);
+  max-height:calc(100dvh - 35px);overflow:auto;display:grid;gap:16px;
+  color:#16263c;box-shadow:0 22px 80px rgba(0,0,0,.27);font-family:Inter,system-ui,sans-serif;}
+.bulten-auth-close{background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;
+  border-radius:8px;min-width:36px;min-height:36px;cursor:pointer;}
+.bulten-auth-google,.bulten-auth-submit{width:100%;min-height:44px;padding:11px;
+  border-radius:9px;border:1px solid #cbd5e1;cursor:pointer;font-size:14px;font-weight:750;}
+.bulten-auth-google{background:#fff;color:#172554;}
+.bulten-auth-submit{background:#0e7490;color:#fff;border-color:#0e7490;}
+.bulten-auth-google:disabled,.bulten-auth-submit:disabled{opacity:.6;cursor:wait;}
+.bulten-auth-input{width:100%;min-height:43px;padding:10px;border:1px solid #94a3b8;
+  border-radius:8px;color:#15263c;background:#fff;font-size:16px;}
+.bulten-auth-links{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.bulten-auth-links button{background:none;border:0;color:#0e7490;text-decoration:underline;
+  font-size:12px;font-weight:700;cursor:pointer;padding:4px;}
+.bulten-auth-notice{background:#f0f9ff;border:1px solid #bae6fd;padding:11px;
+  border-radius:8px;color:#164e63;font-size:12px;line-height:1.5;}
+.bulten-auth-helper{color:#536579;font-size:12px;line-height:1.55;}
+.bulten-auth-modal :is(button,input):focus-visible{outline:3px solid #0d9488;outline-offset:3px;}

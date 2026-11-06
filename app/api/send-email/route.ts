@@ -1,5 +1,4 @@
 import {NextRequest,NextResponse} from 'next/server';
-import {currentUser} from '@clerk/nextjs/server';
 import {createClient} from '@supabase/supabase-js';
 import {randomUUID} from 'node:crypto';
 import sanitizeHtml from 'sanitize-html';
@@ -55,12 +54,12 @@ export async function POST(req:NextRequest){
  let listId:string;
  try{
    if(test){
-     const owner=await currentUser();
-     const allowed=(owner?.emailAddresses||[]).filter(e=>e.verification?.status==='verified')
-       .map(e=>e.emailAddress.toLowerCase());
-     if(!allowed.includes(String(body.testEmail).toLowerCase()))
+     // The address must belong to the independently verified Supabase session.
+     // An arbitrary testEmail supplied by the browser must never be accepted.
+     if(!identity.emailVerified||!identity.email||
+        identity.email!==String(body.testEmail).trim().toLowerCase())
        return refuse('Test e-postası yalnızca hesabınızdaki doğrulanmış adrese gönderilebilir.',403);
-     recipients=[{email:String(body.testEmail).toLowerCase(),name:owner?.firstName||'Test'}];
+     recipients=[{email:identity.email,name:identity.displayName||'Test'}];
      listId='test';
    }else{
      listId=body.listId as string;
