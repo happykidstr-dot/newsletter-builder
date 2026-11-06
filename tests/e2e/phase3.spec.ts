@@ -99,7 +99,10 @@ test('Yayın Önizleme opens the actual export HTML without enabling its scripts
   const dialog=page.getByRole('dialog',{name:'Gerçek yayın önizlemesi'});
   await expect(dialog).toBeVisible();
   const iframe=dialog.locator('iframe[data-testid="editor-live-publication-preview"]');
-  await expect(iframe).toHaveAttribute('sandbox','');
+  await expect(iframe).toHaveAttribute('sandbox','allow-popups allow-popups-to-escape-sandbox');
+  const sandbox=await iframe.getAttribute('sandbox');
+  expect(sandbox).not.toContain('allow-scripts');
+  expect(sandbox).not.toContain('allow-same-origin');
   await expect(dialog.frameLocator('iframe').locator('h1').first()).toHaveText('Proje ve Toplum Bülteni');
   await page.getByRole('button',{name:'Yayın önizlemesini kapat'}).click();
   await expect(dialog).toHaveCount(0);
