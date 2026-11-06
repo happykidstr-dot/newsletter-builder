@@ -33,5 +33,5 @@ export function youtubePosterUrl(id:string):string{
   return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 }
 export function youtubePosterProxyPath(id:string):string{
-  return `/api/video-thumbnail?id=${encodeURIComponent(id)}`;
+  return `/api/video-thumbnail/${encodeURIComponent(id)}`;
 }

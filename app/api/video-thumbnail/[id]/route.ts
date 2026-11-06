@@ -9,8 +9,8 @@ export const dynamic='force-dynamic';
  * can rasterise YouTube posters without tainted cross-origin canvases.
  * Accept IDs only: never fetch arbitrary browser-supplied URLs (SSRF).
  */
-export async function GET(request:NextRequest){
-  const id=request.nextUrl.searchParams.get('id');
+export async function GET(_request:NextRequest,{params}:{params:Promise<{id:string}>}){
+  const {id}=await params;
   if(!validYoutubeId(id))
     return NextResponse.json({error:'Geçersiz YouTube video kimliği.'},{status:400,headers:{'Cache-Control':'no-store'}});
   try{

@@ -36,7 +36,7 @@ test('both PDF types inline the trusted poster, not a missing iframe screenshot'
   assert.match(text,/fit:\[440,248\]/);
 });
 test('thumbnail proxy blocks arbitrary addresses and caches only validated JPEG',()=>{
-  const api=read('app/api/video-thumbnail/route.ts');
+  const api=read('app/api/video-thumbnail/[id]/route.ts');
   assert.match(api,/validYoutubeId\(id\)/);
   assert.match(api,/youtubePosterUrl\(id\)/);
   assert.match(api,/byteLength>1_500_000/);

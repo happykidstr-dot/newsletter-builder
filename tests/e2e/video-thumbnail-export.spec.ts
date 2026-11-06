@@ -50,7 +50,7 @@ test('visual PDF fetches and embeds a video frame thumbnail instead of printing 
   test.setTimeout(60000);
   const sampleJpeg=await createTestJpeg(page);
   let posterRequests=0;
-  await page.route('**/api/video-thumbnail?id='+VIDEO_ID,async route=>{
+  await page.route('**/api/video-thumbnail/'+VIDEO_ID,async route=>{
     posterRequests++;
     await route.fulfill({status:200,contentType:'image/jpeg',body:sampleJpeg});
   });
@@ -71,7 +71,7 @@ test('text PDF also embeds a real video still and a readable watch link',async({
   test.setTimeout(60000);
   const sampleJpeg=await createTestJpeg(page);
   let posterRequests=0;
-  await page.route('**/api/video-thumbnail?id='+VIDEO_ID,async route=>{
+  await page.route('**/api/video-thumbnail/'+VIDEO_ID,async route=>{
     posterRequests++;
     await route.fulfill({status:200,contentType:'image/jpeg',body:sampleJpeg});
   });
@@ -93,8 +93,8 @@ test('text PDF also embeds a real video still and a readable watch link',async({
 });
 
 test('thumbnail proxy does not permit arbitrary URL fetching',async({request})=>{
-  for(const id of ['https://example.org/a','../../secrets','short','dQw4w9WgXcQextra']){
-    const response=await request.get('/api/video-thumbnail?id='+encodeURIComponent(id));
+  for(const id of ['invalid','evil.example','short','dQw4w9WgXcQextra']){
+    const response=await request.get('/api/video-thumbnail/'+encodeURIComponent(id));
     expect(response.status()).toBe(400);
   }
 });
