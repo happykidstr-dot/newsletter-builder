@@ -32,6 +32,9 @@ export function printableNewsletterNode(html: string): HTMLElement {
   // A video poster is already visible in the exported HTML; remove its
   // optional YouTube player to avoid duplicate links or blank PDF frames.
   node.querySelectorAll('.bulten-video-player').forEach(el=>el.remove());
+  // HTML audio controls cannot play inside a PDF. Keep the explicit HTTPS
+  // listening/download link visible and clickable instead of a blank player.
+  node.querySelectorAll('.bulten-audio-block audio').forEach(el=>el.remove());
 
   // Cross-origin frames cannot be rasterised reliably: link to the video instead.
   node.querySelectorAll('iframe').forEach(frame=>{
@@ -115,6 +118,7 @@ export async function downloadNewsletterPdf(html:string,title:string):Promise<vo
   await html2pdf()
     .set({
       margin: [9,8,9,8],
+      enableLinks:true, // clickable audio download links in image-layout PDFs
       filename: pdfFilename(title),
       image: {type:'jpeg',quality:0.95},
       html2canvas: {
