@@ -16,10 +16,11 @@ async function readAll(userId:string){
    db.from('newsletters').select('*').eq('user_id',userId).limit(2000),
    db.from('mailing_lists').select('*').eq('user_id',userId).limit(2000),
    db.from('campaign_analytics').select('*').eq('user_id',userId).limit(10000),
+   db.from('email_suppressions').select('*').eq('user_id',userId).limit(10000),
  ]);
  if(results.some(r=>r.error))throw new Error('DATABASE_UNAVAILABLE');
  return {newsletters:results[0].data||[],mailingLists:results[1].data||[],
-   analyticsEvents:results[2].data||[]};
+   analyticsEvents:results[2].data||[],emailSuppressions:results[3].data||[]};
 }
 export async function GET(){
  const identity=await requireSignedInUser();if(identity.error)return identity.error;
@@ -39,7 +40,7 @@ export async function DELETE(req:NextRequest){
    return fail('Bu işlem için açık onay gereklidir.',400);
  const db=getDB();if(!db)return fail('Veri silme hizmeti yapılandırılmamış.',503);
  try{
-   for(const table of ['campaign_analytics','mailing_lists','newsletters']){
+   for(const table of ['campaign_analytics','email_suppressions','mailing_lists','newsletters']){
      const {error}=await db.from(table).delete().eq('user_id',identity.userId);
      if(error)throw error;
    }
