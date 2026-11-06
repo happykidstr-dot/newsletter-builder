@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from '../helpers/authorized-editor-test';
 test('Yayınla publishes and Paylaş only opens links to the resulting reader URL',async({page})=>{
   await page.goto('/');
   const title=page.getByPlaceholder('Bülten başlığı...');
