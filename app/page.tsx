@@ -1468,6 +1468,8 @@ ${text}`;
     setShareBusy(true);setShareError('');
     setShareProgress('Görseller hazırlanıyor…');
     try{
+      // Check current login before uploading large image attachments.
+      const publisherHeaders=await publisherAuthorizationHeaders();
       const prepared=await prepareNewsletterForSharing(generateHTML(),headerImgUrl,(done,total)=>{
         setShareProgress(total>0?`Görseller yükleniyor: ${done}/${total}`:'Bülten hazırlanıyor…');
       });
@@ -1480,7 +1482,7 @@ ${text}`;
         }:{}),
       };
       const response=await fetch('/api/publish',{
-        method:'POST',headers:{'Content-Type':'application/json',...(await publisherAuthorizationHeaders())},
+        method:'POST',headers:{'Content-Type':'application/json',...publisherHeaders},
         body:JSON.stringify(body),
       });
       const result=await response.json().catch(()=>({}));
