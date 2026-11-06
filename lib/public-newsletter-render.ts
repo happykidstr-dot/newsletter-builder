@@ -6,7 +6,7 @@ import type {PublishedNewsletter} from './newsletter-publication-store';
 const allowedTags = [
   'div','span','p','h1','h2','h3','h4','h5','h6','br','hr','strong','b','em','i',
   'a','img','button','section','article','header','footer','nav','figure','figcaption',
-  'ul','ol','li','blockquote','table','tbody','thead','tr','td','th','iframe','small','sup','sub','details','summary',
+  'ul','ol','li','blockquote','table','tbody','thead','tr','td','th','iframe','audio','small','sup','sub','details','summary',
 ];
 
 const maxBodyLength=5_500_000;
@@ -28,10 +28,11 @@ export function sanitiseNewsletterBody(exportedHtml:string):string {
       a:['href','target','rel','style','title','aria-label'],
       img:['src','alt','width','height','loading','style','class','title'],
       iframe:['src','title','width','height','style','loading','allowfullscreen'],
+      audio:['src','controls','preload','style','aria-label'],
       button:['type','id','style','aria-label'],
     },
     allowedSchemes:['http','https','mailto'],
-    allowedSchemesByTag:{img:['http','https','data'],a:['http','https','mailto'],iframe:['https']},
+    allowedSchemesByTag:{img:['http','https','data'],a:['http','https','mailto'],iframe:['https'],audio:['https','http']},
     allowedIframeHostnames:['www.youtube.com','youtube.com','www.youtube-nocookie.com'],
     allowProtocolRelative:false,
     disallowedTagsMode:'discard',
@@ -112,7 +113,7 @@ a:focus-visible,button:focus-visible{outline:3px solid #0d9488;outline-offset:3p
 .published-owner{max-width:640px;margin:10px auto;text-align:right;padding:0 12px;font:700 13px system-ui}
 .published-owner a{display:inline-flex;gap:5px;background:#e5f7f4;color:#115e59;text-decoration:none;padding:10px 14px;border-radius:8px}
 @media(max-width:680px){body>main>div{max-width:100%!important;margin:0!important;border-radius:0!important}#bulten-reading-content{padding:18px!important}}
-@media print{body{background:white}#bulten-reader-share,#speakBtn,.published-label,.published-owner,.bulten-video-player{display:none!important}}
+@media print{body{background:white}#bulten-reader-share,#speakBtn,.published-label,.published-owner,.bulten-video-player,.bulten-audio-block audio{display:none!important}}
 </style></head>
 <body><main><p class="published-label">BÜLTEN READ · YAYIMLANMIŞ BÜLTEN</p>
 <nav class="published-owner" aria-label="Yayın düzenleme"><a href="${editHref}" target="_blank" rel="noopener noreferrer" title="Sadece bu tarayıcıda düzenleme izni bulunan yayıncılar güncelleyebilir">✎ Düzenle / Edit</a></nav>
@@ -131,6 +132,7 @@ ${record.bodyHtml}
     "object-src 'none'",
     "frame-ancestors 'none'",
     "img-src https: http: data:",
+    "media-src https: http:",
     "font-src https: data:",
     "style-src 'unsafe-inline'",
     `script-src 'nonce-${nonce}'`,
