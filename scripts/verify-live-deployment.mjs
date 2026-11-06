@@ -24,7 +24,27 @@ async function check(){
     signal:AbortSignal.timeout(20000),
   });
   const text=await publish.text();
-  return {ok:publish.status===403,reason:'homepage='+home.status+' publish_cross_site='+publish.status+' response='+text.slice(0,160)};
+  const analytics=await fetch(base+'/api/db/analytics',{signal:AbortSignal.timeout(20000)});
+  const ai=await fetch(base+'/api/ai-generate',{
+    method:'POST',headers:{Origin:base,'Content-Type':'application/json'},
+    body:'{}',signal:AbortSignal.timeout(20000),
+  });
+  const forgedClick=await fetch(base+'/api/track/click?u=https%3A%2F%2Fexample.org',{
+    redirect:'manual',signal:AbortSignal.timeout(20000),
+  });
+  const badUnsub=await fetch(base+'/api/unsubscribe?t=invalid',{
+    redirect:'manual',signal:AbortSignal.timeout(20000),
+  });
+  const unpublishCross=await fetch(base+'/api/unpublish',{
+    method:'POST',headers:{Origin:'https://example.invalid','Content-Type':'application/json'},
+    body:'{}',signal:AbortSignal.timeout(20000),
+  });
+  const statuses={publish:publish.status,analytics:analytics.status,ai:ai.status,
+    forgedClick:forgedClick.status,badUnsub:badUnsub.status,unpublishCross:unpublishCross.status};
+  const ok=publish.status===403&&[401,403,503].includes(analytics.status)&&
+    [401,403,503].includes(ai.status)&&forgedClick.status===400&&
+    badUnsub.status===400&&unpublishCross.status===403;
+  return {ok,reason:'homepage='+home.status+' statuses='+JSON.stringify(statuses)+' response='+text.slice(0,80)};
 }
 
 let last='';
