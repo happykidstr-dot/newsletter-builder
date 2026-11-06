@@ -56,7 +56,8 @@ test('email sends only from owned DB list and explicitly consented recipients',(
   assert.match(mail,/c\.consentAt/);
   assert.match(mail,/c\.consentSource/);
   assert.match(mail,/\!c\.unsubscribedAt/);
-  assert.match(mail,/currentUser\(\)/);
+  assert.match(mail,/identity\.emailVerified/);
+  assert.match(mail,/identity\.email/);
   assert.doesNotMatch(mail,/const \{ contacts/);
   assert.match(mail,/suppressionHash\(c\.email\)/);
   assert.match(mail,/email_suppressions/);
