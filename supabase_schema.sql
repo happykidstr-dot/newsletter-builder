@@ -25,25 +25,33 @@ CREATE TABLE IF NOT EXISTS mailing_lists (
 CREATE TABLE IF NOT EXISTS campaign_analytics (
   id TEXT PRIMARY KEY,
   campaign_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
   event_type TEXT NOT NULL,
   email TEXT NOT NULL,
   url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 4. Row Level Security (Güvenlik Kuralları)
+-- Permanent e-mail suppression after an unsubscribe request.
+CREATE TABLE IF NOT EXISTS email_suppressions (
+  user_id TEXT NOT NULL,
+  email_hash TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  PRIMARY KEY(user_id,email_hash)
+);
+
+-- 4. RLS: no client access. Clerk identity is checked by Next.js API routes
+-- using a server-only Supabase service-role key.
 ALTER TABLE newsletters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mailing_lists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaign_analytics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_suppressions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Kullanıcılar kendi bültenlerini görebilir" ON newsletters FOR SELECT USING (auth.uid()::text = user_id);
-CREATE POLICY "Kullanıcılar kendi bültenlerini ekleyebilir/güncelleyebilir" ON newsletters FOR ALL USING (auth.uid()::text = user_id);
-CREATE POLICY "Kullanıcılar kendi mail listelerini görebilir" ON mailing_lists FOR SELECT USING (auth.uid()::text = user_id);
-CREATE POLICY "Kullanıcılar kendi mail listelerini ekleyebilir/güncelleyebilir" ON mailing_lists FOR ALL USING (auth.uid()::text = user_id);
-
--- Analytics için API'den veri yazabilmek adına INSERT herkese açık olmalı
-CREATE POLICY "Everyone can insert analytics" ON campaign_analytics FOR INSERT WITH CHECK (true);
-CREATE POLICY "Users can read analytics" ON campaign_analytics FOR SELECT USING (true);
+-- No public policies. The service-role API accesses only records where
+-- user_id equals the verified Clerk session ID.
+CREATE INDEX IF NOT EXISTS idx_bulten_owner_newsletters ON newsletters(user_id);
+CREATE INDEX IF NOT EXISTS idx_bulten_owner_lists ON mailing_lists(user_id);
+CREATE INDEX IF NOT EXISTS idx_bulten_owner_analytics ON campaign_analytics(user_id,created_at DESC);
 
 DO $$
 BEGIN

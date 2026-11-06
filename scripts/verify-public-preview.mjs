@@ -23,6 +23,31 @@ async function ready(){
 }
 await ready();
 
+// Non-destructive security checks: anonymous callers must never be able
+// to reach billable or private endpoints. Empty bodies cannot send mail/AI.
+for(const path of ['/api/ai-generate','/api/chat','/api/send-email']){
+  const response=await fetch(BASE+path,{
+    method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},
+    body:JSON.stringify({}),signal:AbortSignal.timeout(15000),
+  });
+  assert.ok([401,403,503].includes(response.status),
+    path+' was not session-locked: '+response.status);
+}
+for(const path of ['/api/db/analytics','/api/account/privacy']){
+  const response=await fetch(BASE+path,{signal:AbortSignal.timeout(15000)});
+  assert.ok([401,403,503].includes(response.status),
+    path+' leaked personal data: '+response.status);
+}
+const unsignedClick=await fetch(BASE+'/api/track/click?u=https%3A%2F%2Fevil.example',{
+  redirect:'manual',signal:AbortSignal.timeout(15000),
+});
+assert.equal(unsignedClick.status,400,'Legacy public redirect must not be accepted.');
+const badUnsubscribe=await fetch(BASE+'/api/unsubscribe?t=fake',{
+  redirect:'manual',signal:AbortSignal.timeout(15000),
+});
+assert.equal(badUnsubscribe.status,400,'Invalid unsubscribe token must not change subscriber data.');
+
+
 // Test the independent media store before publishing an image-rich article.
 const pngOnePixel='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL2VQAAAABJRU5ErkJggg==';
 const mediaSent=await fetch(BASE+'/api/media',{
@@ -97,4 +122,18 @@ const newHtml=await refreshed.text();
 assert.ok(newHtml.includes('Bu bülten yeniden düzenlendi; yeni sürüm yayında.'),'The published URL did not update');
 assert.ok(!newHtml.includes(snippet),'Old newsletter body remained visible');
 
-console.log('PASS: Netlify preview public publish, unauthorized edit rejected, authorized edit updated same URL');
+const forbiddenRemoval=await fetch(BASE+'/api/unpublish',{
+  method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},
+  body:JSON.stringify({slug:result.slug,editToken:'B'.repeat(43)}),
+  signal:AbortSignal.timeout(25000),
+});
+assert.equal(forbiddenRemoval.status,403,'Anyone who sees the public URL must not be able to unpublish.');
+const removed=await fetch(BASE+'/api/unpublish',{
+  method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},
+  body:JSON.stringify({slug:result.slug,editToken:result.editToken}),
+  signal:AbortSignal.timeout(25000),
+});
+assert.equal(removed.status,200,'Publisher should be able to revoke newsletter URL.');
+const afterRemoval=await fetch(BASE+'/b/'+result.slug,{cache:'no-store',signal:AbortSignal.timeout(25000)});
+assert.equal(afterRemoval.status,404,'Revoked public newsletter must no longer be readable.');
+console.log('PASS: Netlify preview publish, private update, denied foreign access, and owner unpublish');

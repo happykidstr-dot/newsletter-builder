@@ -69,7 +69,7 @@ test('Netlify public origins and preview domains are validated before publishing
 
 test('Netlify Functions serves both publish API and reader routes ahead of SSR',()=>{
   const fn=read('netlify/functions/newsletter-publication.ts');
-  assert.match(fn,/path:\['\/api\/publish','\/b\/:slug'\]/);
+  assert.match(fn,/path:\['\/api\/publish','\/api\/unpublish','\/b\/:slug'\]/);
   assert.match(fn,/publicationStore\(host\)/);
   assert.match(fn,/renderPublishedNewsletter\(record,url\)/);
 });

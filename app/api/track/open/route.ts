@@ -1,52 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import {NextRequest,NextResponse} from 'next/server';
+import {createClient} from '@supabase/supabase-js';
+import {randomUUID} from 'node:crypto';
+import {readCampaignToken} from '@/lib/security/campaign-token';
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key);
-}
-
-// 1x1 transparent GIF pixel
-const PIXEL = Buffer.from(
-  'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
-  'base64'
-);
-
-export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const campaignId = searchParams.get('c');
-    const encodedEmail = searchParams.get('e');
-
-    if (campaignId && encodedEmail) {
-      const email = Buffer.from(encodedEmail, 'base64').toString('ascii');
-      const supabase = getSupabase();
-      if (supabase) {
-        // Log to database asynchronously without blocking the response
-        supabase.from('campaign_analytics').insert({
-          id: Math.random().toString(36).slice(2, 11),
-          campaign_id: campaignId,
-          event_type: 'open',
-          email: email,
-          created_at: new Date().toISOString()
-        }).then(({ error }) => {
-          if (error) console.error('Tracking insert error:', error);
-        });
-      }
-    }
-
-    // Always return the 1x1 pixel with correct headers to prevent caching
-    return new NextResponse(PIXEL, {
-      headers: {
-        'Content-Type': 'image/gif',
-        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-        'Pragma': 'no-cache',
-      },
-    });
-  } catch (error) {
-    // If anything fails, still return the pixel so we don't break the email
-    return new NextResponse(PIXEL, { headers: { 'Content-Type': 'image/gif' } });
+export const runtime='nodejs';
+const PIXEL=Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7','base64');
+export async function GET(req:NextRequest){
+  // Email clients may block images. This is opt-in and never a reliable
+  // count of every human reader; never leak a recipient's email to the URL.
+  const token=readCampaignToken(new URL(req.url).searchParams.get('t')||'','open');
+  if(token&&process.env.NEXT_PUBLIC_SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY){
+    try{
+      const db=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);
+      await db.from('campaign_analytics').insert({
+        id:randomUUID(),user_id:token.userId,campaign_id:token.campaignId,
+        event_type:'open',email:token.email,created_at:new Date().toISOString(),
+      });
+    }catch{ /* Readers never receive internal data or errors. */ }
   }
+  return new NextResponse(new Uint8Array(PIXEL),{
+    headers:{'Content-Type':'image/gif','Cache-Control':'no-store, no-cache, must-revalidate, max-age=0',
+      'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'}
+  });
 }

@@ -141,3 +141,13 @@ Yayımlanmış okuyucu sayfasındaki **Düzenle / Edit** bağlantısı da editö
 - İndirme/yazdırma işlemleri bundan bağımsızdır ve OpenAI token tüketilmez.
 
 **Teknik sınırlar:** Sosyal medya platformları kısa bülten bağlantısını paylaşır; buna ilişkin bir bülten dosyası boyut limiti yoktur. Ancak Netlify Functions'ın istek boyutu, tek fotoğraf yüklemeleri için yaklaşık 2,5 MB'lik aktarım sınırı ve kötüye kullanımı önlemek için yükleme kotası bulunur. Büyük fotoğraflar tarayıcıda otomatik olarak uygun aktarım boyutuna küçültülür. Desteklenmeyen görsel dosyaları veya sistem kapasitesini aşan yayınlar sınırsız garanti edilmez.
+
+## 🔐 Güvenlik Faz 1 — Kullanıcı hesapları ve izinli abonelik (Kasım 2026)
+
+BÜLTEN READ'in ücretli ve kişisel veri işleyen servisleri artık sunucu tarafında doğrulanır. **AI Üret**, belgeyi AI ile işleme, toplu e-posta, alıcı listeleri ve özel analitik işlemleri için Clerk hesabıyla giriş gereklidir. Giriş yoksa veya Clerk henüz bağlanmadıysa bu servisler anonim çalışmaz; güvenli hata mesajı gösterir. Genel bülten düzenleyici, PDF/HTML indirme ve mevcut kamuya açık bültenleri okuma kullanılmaya devam eder.
+
+Yayımlanmış bir bültenin sahibi **Yayından Kaldır** ile aynı bağlantıyı kapatabilir. Özel yayın düzenleme anahtarı bu tarayıcıda kalır. Public bülten silindiğinde paylaşılan doğrudan görsel URL'lerinin ayrı depoda kalabileceğini unutmayın.
+
+Toplu e-posta yalnızca kendi Supabase listenizde **izin zamanı + izin kaynağı** kaydedilmiş ve abonelik iptali bulunmayan kişilere gönderilir. İzin kaydı bulunmayan eski kişiler otomatik gönderim hedefi değildir. Test e-postası yalnızca kullanıcının doğrulanmış Clerk adresine gider. Abonelikten ayrıl bağlantısı her toplu mesajda sunulur ve aynı kişinin diğer listeler üzerinden tekrar hedeflenmemesi için sunucu tarafı bastırma kaydı kullanılır. E-posta açılma/tıklama takibi **varsayılan kapalıdır**; kişi ve kullanıcı düzeyinde ayrıca izne bağlıdır.
+
+Uygulama gizli bilgilerinin ve veritabanı geçişinin kurulumu gereklidir. Bu adımlar tamamlanmadan **AI/e-posta/analitik çalışmaz**, ancak önceki güvensiz anonim moda da düşülmez. Gerekli Netlify ortam değişkenleri `.env.example` içinde; eski analitik RLS politikalarını kaldıran SQL geçişi `migrations/20261106_security_phase1.sql` içinde; tüm yönetici kabul listesi `docs/SECURITY_PHASE1.md` içindedir. Netlify ve Supabase gizli anahtarlarını asla GitHub'a yazmayın.

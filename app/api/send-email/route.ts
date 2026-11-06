@@ -1,94 +1,140 @@
-import { NextRequest, NextResponse } from 'next/server';
+import {NextRequest,NextResponse} from 'next/server';
+import {currentUser} from '@clerk/nextjs/server';
+import {createClient} from '@supabase/supabase-js';
+import {randomUUID} from 'node:crypto';
+import sanitizeHtml from 'sanitize-html';
+import {requireSignedInUser,checkSameOrigin,boundedJson,requestProblem} from '@/lib/security/access';
+import {reserveQuota} from '@/lib/security/quotas';
+import {makeCampaignToken} from '@/lib/security/campaign-token';
+import {suppressionHash} from '@/lib/security/email-suppression';
 
-export async function POST(req: NextRequest) {
-  try {
-    const { contacts, subject, html, customMsg } = await req.json();
+export const runtime='nodejs';
+type Recipient={email:string;name?:string;consentAt?:string;consentSource?:string;unsubscribedAt?:string;trackingConsent?:boolean};
+const emailOkay=(v:unknown)=>typeof v==='string'&&v.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+const escape=(v:string)=>v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const noStore={'Cache-Control':'no-store'};
+const refuse=(error:string,status:number)=>NextResponse.json({error},{status,headers:noStore});
+const websiteOrigin=(req:NextRequest):string=>{
+ const from=process.env.NEXT_PUBLIC_APP_URL;
+ const value=from||new URL(req.url).origin;
+ const url=new URL(value);
+ if(url.protocol!=='https:'&&url.hostname!=='localhost'&&url.hostname!=='127.0.0.1')throw new Error('INVALID_APP_ORIGIN');
+ return url.origin;
+};
 
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'RESEND_API_KEY tanımlanmamış. Lütfen .env dosyanıza ekleyin.' },
-        { status: 500 }
-      );
-    }
+export async function POST(req:NextRequest){
+ const identity=await requireSignedInUser();
+ if(identity.error)return identity.error;
+ const err=checkSameOrigin(req);if(err)return err;
+ let value:unknown;
+ try{value=await boundedJson(req,270_000);}catch(e){return requestProblem(e);}
+ const body=value as {
+  subject?:unknown;html?:unknown;customMsg?:unknown;
+  listId?:unknown;isTest?:unknown;testEmail?:unknown;trackingEnabled?:unknown;
+ };
+ if(typeof body?.subject!=='string'||!body.subject.trim()||body.subject.length>180||
+    typeof body?.html!=='string'||body.html.length<1||body.html.length>250_000||
+    (body.customMsg!==undefined&&(typeof body.customMsg!=='string'||body.customMsg.length>3000))||
+    (body.isTest!==undefined&&typeof body.isTest!=='boolean')||
+    (body.trackingEnabled!==undefined&&typeof body.trackingEnabled!=='boolean'))
+   return refuse('Gönderim içeriği veya büyüklüğü geçersiz.',400);
+ const test=body.isTest===true;
+ if((!test&&(typeof body.listId!=='string'||!/^[A-Za-z0-9_-]{4,100}$/.test(body.listId)))||
+    (test&&!emailOkay(body.testEmail)))return refuse('Gönderim listesi veya test e-postası geçersiz.',400);
 
-    if (!contacts || contacts.length === 0) {
-      return NextResponse.json({ error: 'Gönderilecek kişi bulunamadı.' }, { status: 400 });
-    }
+ const resend=process.env.RESEND_API_KEY;
+ const from=process.env.RESEND_FROM_EMAIL;
+ const supabaseUrl=process.env.NEXT_PUBLIC_SUPABASE_URL;
+ const supabaseSecret=process.env.SUPABASE_SERVICE_ROLE_KEY;
+ if(!resend||!from||!process.env.CAMPAIGN_SECURITY_SECRET||
+    process.env.CAMPAIGN_SECURITY_SECRET.length<32)
+   return refuse('Güvenli e-posta gönderimi yapılandırılmamış.',503);
+ if(!test&&(!supabaseUrl||!supabaseSecret))
+   return refuse('Abonelik ve izin kayıtları için veritabanı yapılandırılmamış.',503);
+ let recipients:Recipient[]=[];
+ let listId:string;
+ try{
+   if(test){
+     const owner=await currentUser();
+     const allowed=(owner?.emailAddresses||[]).filter(e=>e.verification?.status==='verified')
+       .map(e=>e.emailAddress.toLowerCase());
+     if(!allowed.includes(String(body.testEmail).toLowerCase()))
+       return refuse('Test e-postası yalnızca hesabınızdaki doğrulanmış adrese gönderilebilir.',403);
+     recipients=[{email:String(body.testEmail).toLowerCase(),name:owner?.firstName||'Test'}];
+     listId='test';
+   }else{
+     listId=body.listId as string;
+     const db=createClient(supabaseUrl!,supabaseSecret!);
+     const {data,error}=await db.from('mailing_lists').select('id,contacts')
+       .eq('id',listId).eq('user_id',identity.userId).maybeSingle();
+     if(error||!data)return refuse('Size ait gönderim listesi bulunamadı.',404);
+     const list=Array.isArray(data.contacts)?data.contacts as Recipient[]:[];
+     recipients=list.filter(c=>emailOkay(c.email)&&!c.unsubscribedAt&&
+       Boolean(c.consentAt)&&typeof c.consentSource==='string'&&c.consentSource.trim().length>2);
+     if(recipients.length<1)return refuse('İzin kaydı bulunan aktif alıcı yok. Önce abonelik izinlerini kaydedin.',422);
+     if(recipients.length>30)return refuse('Tek seferde en fazla 30 alıcıya gönderin. Listeyi gruplara ayırın.',413);
+     const hashes=recipients.map(c=>suppressionHash(c.email));
+     const {data:blocked,error:blockError}=await db.from('email_suppressions')
+       .select('email_hash').eq('user_id',identity.userId).in('email_hash',hashes);
+     if(blockError)throw blockError;
+     const blacklist=new Set((blocked||[]).map(v=>v.email_hash));
+     recipients=recipients.filter(c=>!blacklist.has(suppressionHash(c.email)));
+     if(!recipients.length)return refuse('Bu listedeki tüm izinli alıcılar abonelikten ayrılmış.',422);
+   }
+ }catch{return refuse('Alıcı izinleri doğrulanamadı.',503);}
+ const quotaCount=recipients.length;
+ try{
+   const quota=await reserveQuota(identity.userId,'email',quotaCount);
+   if(!quota.allowed)return refuse(quota.reason,429);
+ }catch{return refuse('E-posta kotası doğrulanamadı.',503);}
 
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Project Factory <onboarding@resend.dev>';
-
-    // Generate a unique campaign ID for this batch
-    const campaignId = Math.random().toString(36).substring(2, 15);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'; // Change in production
-
-    // Prepare batch requests
-    const batchData = contacts.map((contact: { email: string, name?: string }) => {
-      // Very simple merge tag replacement for {{isim}} or [Ad]
-      const contactName = contact.name || 'Değerli Üyemiz';
-      let personalizedHtml = html;
-      let personalizedSubject = subject;
-      
-      // Replace basic tags if they exist
-      personalizedHtml = personalizedHtml.replace(/\{\{isim\}\}/gi, contactName).replace(/\[Ad\]/gi, contactName);
-      personalizedSubject = personalizedSubject.replace(/\{\{isim\}\}/gi, contactName).replace(/\[Ad\]/gi, contactName);
-
-      if (customMsg) {
-         // Insert custom message before the newsletter content, maybe inside the body
-         const customHtml = `<div style="padding: 20px; font-family: sans-serif; font-size: 14px;">${customMsg.replace(/\\n/g, '<br/>').replace(/\{\{isim\}\}/gi, contactName)}</div>`;
-         personalizedHtml = personalizedHtml.replace('<div id="bulten-body">', `<div id="bulten-body">${customHtml}`);
-      }
-
-      // ── Analytics Tracking (Open & Click) ──
-      const trackingId = Buffer.from(contact.email).toString('base64');
-      
-      // 1. Replace all links with our click tracking endpoint
-      // We use a regex to find <a href="..."> and replace the href
-      personalizedHtml = personalizedHtml.replace(/(<a[^>]+)href="([^"]+)"([^>]*>)/gi, (match: string, before: string, url: string, after: string) => {
-        // Skip mailto: or anchor links
-        if (url.startsWith('mailto:') || url.startsWith('#')) return match;
-        const encodedUrl = encodeURIComponent(url);
-        const trackUrl = `${appUrl}/api/track/click?c=${campaignId}&e=${trackingId}&u=${encodedUrl}`;
-        return `${before}href="${trackUrl}"${after}`;
+ const origin=websiteOrigin(req);
+ const campaignId=randomUUID();
+ const text=escape(body.customMsg?String(body.customMsg):'').replace(/\r?\n/g,'<br>');
+ const cleaned=sanitizeHtml(body.html,{
+   allowedTags:[...sanitizeHtml.defaults.allowedTags,'img','table','thead','tbody','tr','td','th','figure','figcaption','section','main','header','footer'],
+   allowedAttributes:{
+     '*':['style','class','id','width','height','align','role','aria-label'],
+     a:['href','target','rel','style'],
+     img:['src','alt','width','height','style','loading'],
+   },
+   allowedSchemes:['https','http','mailto'],
+   disallowedTagsMode:'discard',
+ });
+ const batches=recipients.map((recipient)=>{
+   const first=escape((recipient.name||'Değerli Okurumuz').slice(0,120));
+   let html=cleaned.replace(/\{\{isim\}\}|\[Ad\]/gi,first);
+   if(text)html='<div style="padding:18px 20px;font:14px sans-serif;">'+text+'</div>'+html;
+   let subject=body.subject!.toString().replace(/\{\{isim\}\}|\[Ad\]/gi,recipient.name||'');
+   const common={userId:identity.userId,listId,campaignId,email:recipient.email.toLowerCase()};
+   if(body.trackingEnabled===true&&recipient.trackingConsent===true&&!test){
+      html=html.replace(/(<a\b[^>]*?)href="(https?:\/\/[^"]+)"([^>]*>)/gi,(full,before,url,after)=>{
+        try{
+          const token=makeCampaignToken({...common,kind:'click',url});
+          return before+'href="'+origin+'/api/track/click?t='+encodeURIComponent(token)+'"'+after;
+        }catch{return full;}
       });
-
-      // 2. Append a 1x1 invisible tracking pixel at the end of the body
-      const trackingPixel = `<img src="${appUrl}/api/track/open?c=${campaignId}&e=${trackingId}" width="1" height="1" alt="" style="display:none; visibility:hidden; width:1px; height:1px;" />`;
-      if (personalizedHtml.includes('</body>')) {
-        personalizedHtml = personalizedHtml.replace('</body>', `${trackingPixel}</body>`);
-      } else {
-        personalizedHtml += trackingPixel;
-      }
-
-      return {
-        from: fromEmail,
-        to: contact.email,
-        subject: personalizedSubject,
-        html: personalizedHtml,
-      };
-    });
-
-    // Send via Resend Batch API
-    const response = await fetch('https://api.resend.com/emails/batch', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(batchData),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Resend Error:', errText);
-      return NextResponse.json({ error: `E-posta gönderim hatası: ${errText}` }, { status: response.status });
-    }
-
-    const data = await response.json();
-    return NextResponse.json({ success: true, data });
-
-  } catch (error: any) {
-    console.error('Send Email Route Error:', error);
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
-  }
+      const openToken=makeCampaignToken({...common,kind:'open'});
+      html+='<img src="'+origin+'/api/track/open?t='+encodeURIComponent(openToken)+'" alt="" width="1" height="1" style="display:none" />';
+   }
+   if(!test){
+     const unsubscribeToken=makeCampaignToken({...common,kind:'unsubscribe'},365);
+     html+='<div style="border-top:1px solid #e2e8f0;padding:16px;font:12px sans-serif;color:#475569;">'+
+       'Bu e-posta, kayıtlı abonelik izniniz kapsamında gönderilmiştir. '+
+       '<a href="'+origin+'/api/unsubscribe?t='+encodeURIComponent(unsubscribeToken)+'">Abonelikten ayrıl</a></div>';
+   }
+   return {from,to:recipient.email,subject,html};
+ });
+ try{
+   const upstream=await fetch('https://api.resend.com/emails/batch',{
+     method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+resend},
+     body:JSON.stringify(batches),signal:AbortSignal.timeout(45_000),
+   });
+   if(!upstream.ok){
+     console.error('Resend request failed',upstream.status);
+     return refuse('E-posta hizmeti gönderimi kabul etmedi. Ayarları kontrol edin.',502);
+   }
+   return NextResponse.json({success:true,sent:recipients.length,campaignId,
+     trackingEnabled:body.trackingEnabled===true&&!test},{headers:noStore});
+ }catch{return refuse('E-posta hizmetine bağlanılamadı.',502);}
 }

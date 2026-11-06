@@ -1,10 +1,8 @@
 'use client';
 import React, { useState, useCallback } from 'react';
-// Note: Clerk auth is handled in layout.tsx - these are placeholder no-ops for SSR safety
-const SignInButton = null as any;
-const UserButton = null as any;
 import dynamic from 'next/dynamic';
 import { TemplateGallery } from '@/components/TemplateGallery';
+import {AccountAction} from '@/components/AccountAction';
 import { downloadNewsletterPdf, printNewsletter } from '@/lib/newsletter-pdf';
 import {prepareNewsletterForSharing} from '@/lib/publish-newsletter-media';
 import type { GalleryTemplate } from '@/lib/gallery-templates';
@@ -933,16 +931,19 @@ export default function BultenReadPage() {
   // Fetch real analytics when modal opens
   const openAnalytics = async () => {
     try {
-      const res = await fetch('/api/db/analytics');
+      const res = await fetch('/api/db/analytics',{cache:'no-store'});
       const data = await res.json();
+      if(!res.ok)throw new Error(data.error||'Analitik servisi kullanılamıyor.');
       setAnalytics({
         views: data.totalOpens || 0,
         opens: data.uniqueOpens || 0,
         clicks: data.totalClicks || 0,
-        lastWeek: data.uniqueOpens || 0
+        lastWeek: data.lastWeek || 0
       });
-    } catch(e) {}
-    setShowAnalyticsModal(true);
+      setShowAnalyticsModal(true);
+    } catch(e) {
+      alert(e instanceof Error?e.message:'Analitik bilgileri alınamadı.');
+    }
   };
   // Derived analytics from blocks
   const wordCount = blocks.filter(b=>b.type==='paragraph'||b.type==='title').reduce((acc,b)=>acc+(b.data.text||'').split(/\s+/).length,0);
@@ -956,7 +957,7 @@ export default function BultenReadPage() {
 
   // ── Mailing List ─────────────────────────────────────────────────
   const ML_KEY = 'bulten_mailing_lists';
-  type MLContact = { email:string; name:string; addedAt:string };
+  type MLContact = {email:string;name:string;addedAt:string;consentAt?:string;consentSource?:string;trackingConsent?:boolean;unsubscribedAt?:string};
   type MailingList = { id:string; name:string; contacts:MLContact[]; createdAt:string };
   const [showMailModal, setShowMailModal] = React.useState(false);
   const [mailingLists, setMailingLists] = React.useState<MailingList[]>([]);
@@ -1011,6 +1012,11 @@ export default function BultenReadPage() {
   const [newListName, setNewListName] = React.useState('');
   const [newContactEmail, setNewContactEmail] = React.useState('');
   const [newContactName, setNewContactName] = React.useState('');
+  const [contactConsent,setContactConsent]=React.useState(false);
+  const [contactTrackingConsent,setContactTrackingConsent]=React.useState(false);
+  const [csvConsent,setCsvConsent]=React.useState(false);
+  const [consentSource,setConsentSource]=React.useState('');
+  const [trackingEnabled,setTrackingEnabled]=React.useState(false);
   const [mlSearch, setMlSearch] = React.useState('');
   const [mlError, setMlError] = React.useState('');
   const [csvInput, setCsvInput] = React.useState('');
@@ -1020,14 +1026,20 @@ export default function BultenReadPage() {
   const [testEmail, setTestEmail] = React.useState('');
 
   const saveLists = async (lists: MailingList[]) => {
+    const before=mailingLists;
     setMailingLists(lists);
     try {
-      await fetch('/api/db/mailing-lists', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lists)
+      const res=await fetch('/api/db/mailing-lists',{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lists),
       });
-    } catch(e) {}
+      if(!res.ok){
+        const message=await res.json().catch(()=>({}));
+        throw new Error(message.error||'Listeyi kaydetmek için hesabınıza giriş yapın.');
+      }
+    }catch(error){
+      setMailingLists(before);
+      setMlError(error instanceof Error?error.message:'Aboneler güvenli depoya kaydedilemedi.');
+    }
   };
   const activeList = mailingLists.find(l=>l.id===activeListId)||null;
   const filteredContacts = (activeList?.contacts||[]).filter(c=>
@@ -1045,11 +1057,18 @@ export default function BultenReadPage() {
     const email = newContactEmail.trim().toLowerCase();
     if(!email||!/^[^@]+@[^@]+\.[^@]+$/.test(email)){setMlError('Geçerli e-posta girin');return;}
     if(activeList.contacts.some(c=>c.email===email)){setMlError('Bu e-posta zaten listede');return;}
+    if(!contactConsent||!consentSource.trim()){
+      setMlError('Bu kişinin bülten alma iznini ve izin kaynağını kaydedin.');return;
+    }
     setMlError('');
     const next = mailingLists.map(l=>l.id===activeListId
-      ?{...l,contacts:[...l.contacts,{email,name:newContactName.trim()||email,addedAt:new Date().toISOString()}]}
+      ?{...l,contacts:[...l.contacts,{
+        email,name:newContactName.trim()||email,addedAt:new Date().toISOString(),
+        consentAt:new Date().toISOString(),consentSource:consentSource.trim().slice(0,200),
+        trackingConsent:contactTrackingConsent,
+      }]}
       :l);
-    saveLists(next); setNewContactEmail(''); setNewContactName('');
+    saveLists(next);setNewContactEmail('');setNewContactName('');setContactConsent(false);setContactTrackingConsent(false);
   };
   const removeContact = (email:string) => {
     const next = mailingLists.map(l=>l.id===activeListId
@@ -1058,6 +1077,9 @@ export default function BultenReadPage() {
   };
   const importCsv = () => {
     if(!activeList||!csvInput.trim()) return;
+    if(!csvConsent||!consentSource.trim()){
+      setMlError('CSV aktarımı için izin beyanı ve izin kaynağı gerekli.');return;
+    }
     const lines = csvInput.trim().split('\n');
     const existing = new Set(activeList.contacts.map(c=>c.email));
     let added=0, dupes=0;
@@ -1068,12 +1090,16 @@ export default function BultenReadPage() {
       if(!email||!/^[^@]+@[^@]+\.[^@]+$/.test(email)) return;
       if(existing.has(email)){dupes++;return;}
       existing.add(email);
-      newContacts.push({email,name:rawName.trim()||email,addedAt:new Date().toISOString()});
+      newContacts.push({
+        email,name:rawName.trim()||email,addedAt:new Date().toISOString(),
+        consentAt:new Date().toISOString(),consentSource:consentSource.trim().slice(0,200),
+        trackingConsent:false,
+      });
       added++;
     });
     const next=mailingLists.map(l=>l.id===activeListId?{...l,contacts:[...l.contacts,...newContacts]}:l);
     saveLists(next);
-    setCsvInput(''); setShowCsvPanel(false);
+    setCsvInput(''); setShowCsvPanel(false);setCsvConsent(false);
     setMlError(`${added} kişi eklendi${dupes>0?`, ${dupes} tekrar atlandı`:''}`);
     setTimeout(()=>setMlError(''),4000);
   };
@@ -1154,53 +1180,40 @@ ${text}`;
     return body;
   };
 
-  const executeSend = async (isTest: boolean) => {
-    setMlError('Gönderiliyor, lütfen bekleyin...');
-    try {
-      const htmlContent = generateHTML();
-      let payload;
-
-      if (isTest) {
-        if (!testEmail) { setMlError('Lütfen geçerli bir test e-posta adresi girin'); setTimeout(()=>setMlError(''),3000); return; }
-        payload = {
-          subject: '[TEST] ' + title,
-          html: htmlContent,
-          customMsg: customMsg,
-          contacts: [{ email: testEmail, name: 'Test Kullanıcısı' }]
-        };
-      } else {
-        if(!activeList||activeList.contacts.length===0) return;
-        payload = {
-          subject: title,
-          html: htmlContent,
-          customMsg: customMsg,
-          contacts: activeList.contacts
-        };
-      }
-
-      const res = await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+  const executeSend = async (isTest:boolean) => {
+    setMlError('Gönderim izni ve hesap doğrulanıyor…');
+    const active=activeList;
+    if(!isTest && (!active||active.contacts.filter(c=>
+      Boolean(c.consentAt&&c.consentSource&&!c.unsubscribedAt)).length===0)){
+      setMlError('Gönderim için izin kaydı bulunan aktif alıcı yok.');return;
+    }
+    const html=publication?.url
+      ?'<div style="font:16px/1.7 sans-serif"><h1>'+escapeShareHtml(title)+'</h1>'+
+       '<p>'+escapeShareHtml(subtitle)+'</p>'+
+       '<p><a href="'+escapeShareHtml(publication.url)+'">Bülteni web üzerinden oku</a></p></div>'
+      :generateHTML();
+    try{
+      const res=await fetch('/api/send-email',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          isTest,listId:active?.id||'',testEmail: isTest?testEmail:undefined,
+          subject:isTest?'[TEST] '+title:title,html,customMsg,trackingEnabled,
+        }),
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Bilinmeyen bir hata oluştu');
-
-      setMlError(isTest ? 'Test maili başarıyla gönderildi!' : 'Bülten başarıyla listeye gönderildi!');
-      setTimeout(() => setMlError(''), 4000);
-      if (!isTest) {
-        setShowSendPrompt(false);
-        setCustomMsg('');
-      }
-
-    } catch (err: any) {
-      setMlError(`Hata: ${err.message}`);
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(data.error||'Gönderim doğrulanamadı.');
+      setMlError(isTest?'Doğrulanmış adresinize test e-postası gönderildi.':
+        data.sent+' izinli kişiye gönderim başlatıldı. Abonelik iptal bağlantısı eklendi.');
+      if(!isTest){setShowSendPrompt(false);setCustomMsg('');}
+    }catch(error){
+      setMlError('Gönderim yapılmadı: '+(error instanceof Error?error.message:'Bilinmeyen hata.'));
     }
   };
 
   const bulkSend = () => {
-    if(!activeList||activeList.contacts.length===0) return;
+    if(!activeList||activeList.contacts.filter(c=>c.consentAt&&c.consentSource&&!c.unsubscribedAt).length===0){
+      setMlError('Önce izinli bir abone ekleyin.');return;
+    }
     setShowSendPrompt(true);
   };
   const btnCount = blocks.filter(b=>b.type==='button').length;
@@ -1552,6 +1565,27 @@ ${text}`;
     }finally{setShareBusy(false);setShareProgress('');}
   };
 
+  const handleUnpublish=async()=>{
+    if(!publication||shareBusy)return;
+    if(!window.confirm('Bu bültenin herkese açık okuyucu bağlantısı kapatılacak. Mevcut bağlantı artık çalışmayacak. Taslağınız bu tarayıcıda korunacak. Devam edilsin mi?'))return;
+    setShareBusy(true);setShareError('');setShareProgress('Yayın kaldırılıyor…');
+    try{
+      const res=await fetch('/api/unpublish',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({slug:publication.slug,editToken:publication.editToken}),
+      });
+      const result=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(result.error||'Yayından kaldırma başarısız.');
+      setPublication(null);setPublicNewsletterUrl('');lastSharedSnapshot.current='';
+      const draft={...savedEntry(null,''),publication:null,publicNewsletterUrl:'',publishedSnapshot:''};
+      persistSavedLocally(draft);
+      setShowShareModal(false);
+      alert('Yayın kaldırıldı. Düzenleme taslağınız kayıtlıdır. Daha önce ayrı yüklenmiş görseller için ayrıca veri silme talebi gerekebilir.');
+    }catch(error){
+      alert(error instanceof Error?error.message:'Yayından kaldırma servisi kullanılamıyor.');
+    }finally{setShareBusy(false);setShareProgress('');}
+  };
+
   const handleExport = ()=>{
     const html=generateHTML();
     const a=document.createElement('a');
@@ -1584,8 +1618,6 @@ ${text}`;
 
   // ── Styles ──
   const panelHdr: React.CSSProperties = { fontSize:10,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',color:'#9ca3af',padding:'12px 14px 8px',borderBottom:'1px solid #e5e7eb',background:'#f9fafb' };
-  // Auth state: set to false when Clerk is not configured (no NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)
-  const isSignedIn = false;
 
   return (
     <>
@@ -1641,6 +1673,12 @@ ${text}`;
             style={{display:'flex',alignItems:'center',gap:6,background:'#0e7490',border:'1px solid #0e7490',color:'#fff',fontSize:13,fontWeight:800,cursor:shareBusy?'progress':'pointer',padding:'8px 14px',borderRadius:8,opacity:shareBusy?.7:1}}>
             {shareBusy?'⏳':publication?'↻':'🚀'} {shareBusy?'Yayımlanıyor…':publication?'Güncelle':'Yayınla'}
           </button>
+          {publication&&<button type="button" onClick={handleUnpublish} disabled={shareBusy}
+            title="Bu bültenin herkese açık bağlantısını kaldır (taslak korunur)"
+            aria-label="Bülteni yayından kaldır"
+            style={{display:'flex',alignItems:'center',gap:6,background:'#fff1f2',border:'1px solid #fecdd3',color:'#9f1239',fontSize:12,fontWeight:800,cursor:shareBusy?'wait':'pointer',padding:'8px 12px',borderRadius:8}}>
+            <span aria-hidden="true">⊘</span> Yayından Kaldır
+          </button>}
           {/* Share the currently open newsletter, publishing changes if needed. */}
           <button type="button" onClick={handleShareCurrent} disabled={shareBusy}
             title="Açık bülteni yayımla ve paylaş"
@@ -1707,10 +1745,8 @@ ${text}`;
 
           <div style={{width:1,height:24,background:'#e2e8f0',margin:'0 4px'}}/>
           
-          {/* Auth button — Clerk keys required for full login functionality */}
-          <button style={{padding:'8px 16px',borderRadius:8,border:'1px solid #e2e8f0',background:'#fff',color:'#475569',fontWeight:700,fontSize:13,cursor:'default',opacity:0.6}} title="Giriş yapmak için Clerk API anahtarları gerekli">
-            👤 Hesap
-          </button>
+          {/* Authenticated account and real sign-in controls, never a fake button. */}
+          <AccountAction/>
         </div>
       </div>
 
@@ -2454,10 +2490,15 @@ ${text}`;
                         </div>
                       </div>
 
+                      <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12,color:'#475569',marginBottom:16}}>
+                        <input type="checkbox" checked={trackingEnabled} onChange={e=>setTrackingEnabled(e.target.checked)}/>
+                        Yalnızca ayrıca izni olan alıcıların e-posta açma/tıklama analitiğini kaydet
+                      </label>
+                      <p style={{fontSize:11,color:'#64748b',margin:'0 0 14px'}}>Test gönderimi sadece kendi hesabınızın doğrulanmış e-posta adresine yapılabilir. Normal gönderim yalnızca abonelik izni kaydedilmiş kişilere yapılır; her e-postaya abonelikten ayrıl bağlantısı eklenir.</p>
                       <div style={{marginTop:'auto',display:'flex',justifyContent:'flex-end',gap:12,borderTop:'1px solid #e5e7eb',paddingTop:16}}>
                         <button onClick={()=>setShowSendPrompt(false)} style={{padding:'10px 20px',background:'#fff',border:'1px solid #cbd5e1',color:'#475569',borderRadius:8,fontWeight:700,fontSize:13,cursor:'pointer'}}>İptal</button>
                         <button onClick={()=>executeSend(false)} style={{padding:'10px 24px',background:'#ec4899',color:'#fff',border:'none',borderRadius:8,fontWeight:800,fontSize:13,cursor:'pointer'}}>
-                          🚀 Listeye Gönder ({activeList.contacts.length} Kişi)
+                          🚀 İzinli Alıcılara Gönder ({activeList.contacts.filter(c=>Boolean(c.consentAt&&c.consentSource&&!c.unsubscribedAt)).length})
                         </button>
                       </div>
                     </div>
@@ -2492,7 +2533,12 @@ ${text}`;
                         </div>
                         <textarea value={csvInput} onChange={e=>setCsvInput(e.target.value)}
                           rows={4} placeholder="ali@ornek.com, Ali Yılmaz&#10;ayse@ornek.com&#10;..." style={{width:'100%',padding:'6px 8px',borderRadius:6,border:'1px solid #f9a8d4',fontSize:11,outline:'none',fontFamily:'monospace',resize:'vertical',boxSizing:'border-box'}}/>
-                        <button onClick={importCsv} style={{marginTop:6,padding:'5px 14px',borderRadius:7,border:'none',background:'#ec4899',color:'#fff',fontWeight:700,fontSize:11,cursor:'pointer'}}>İmport Et</button>
+                        <label style={{display:'flex',gap:6,alignItems:'flex-start',fontSize:11,color:'#334155',marginTop:8}}>
+                          <input type="checkbox" checked={csvConsent} onChange={e=>setCsvConsent(e.target.checked)}/>
+                          Bu CSV listesindeki her kişi için bülten gönderme izninin bulunduğunu ve kanıtını sakladığımı beyan ediyorum.
+                        </label>
+                        <button onClick={importCsv} disabled={!csvConsent||!consentSource.trim()}
+                          style={{marginTop:6,padding:'5px 14px',borderRadius:7,border:'none',background:'#ec4899',color:'#fff',fontWeight:700,fontSize:11,cursor:csvConsent?'pointer':'not-allowed',opacity:csvConsent?1:.55}}>İzinli Kişileri İçe Aktar</button>
                       </div>
                     )}
 
@@ -2506,7 +2552,23 @@ ${text}`;
                         placeholder="İsim (opsiyonel)" style={{flex:1.5,padding:'5px 8px',borderRadius:6,border:'1px solid #d1d5db',fontSize:11,outline:'none'}}/>
                       <button onClick={addContact} style={{padding:'5px 12px',borderRadius:6,border:'none',background:'#ec4899',color:'#fff',fontSize:11,fontWeight:800,cursor:'pointer'}}>+ Ekle</button>
                     </div>
-                    {mlError && <div style={{padding:'6px 14px',fontSize:11,color:mlError.includes('eklendi')?'#059669':'#dc2626',background:mlError.includes('eklendi')?'#ecfdf5':'#fef2f2'}}>{mlError}</div>}
+                    <div style={{padding:'8px 14px',background:'#fffbeb',borderBottom:'1px solid #fde68a',display:'flex',flexDirection:'column',gap:5}}>
+                      <label style={{display:'flex',gap:7,alignItems:'center',fontSize:11,color:'#78350f'}}>
+                        <input type="checkbox" checked={contactConsent} onChange={e=>setContactConsent(e.target.checked)}/>
+                        Yeni eklediğim kişinin bülten e-postası alma izni var.
+                      </label>
+                      <label style={{display:'flex',gap:7,alignItems:'center',fontSize:11,color:'#78350f'}}>
+                        <input type="checkbox" checked={contactTrackingConsent}
+                          onChange={e=>setContactTrackingConsent(e.target.checked)} disabled={!contactConsent}/>
+                        Bu kişi ayrıca e-posta açılma ve bağlantı tıklama takibine izin verdi.
+                      </label>
+                      <input type="text" value={consentSource} onChange={e=>setConsentSource(e.target.value)}
+                        placeholder="İzin kanıtı/kaynağı: tarihli e-posta, imzalı form, çevrimiçi abonelik..."
+                        aria-label="Abonelik izin kaynağı"
+                        style={{width:'100%',padding:'6px 8px',fontSize:11,border:'1px solid #fbbf24',borderRadius:6}}/>
+                      <span style={{fontSize:10,color:'#92400e'}}>Eski, izni kaydedilmemiş kişiler için otomatik gönderim yapılmaz.</span>
+                    </div>
+                    {mlError && <div role="status" style={{padding:'6px 14px',fontSize:11,color:mlError.includes('eklendi')?'#059669':'#dc2626',background:mlError.includes('eklendi')?'#ecfdf5':'#fef2f2'}}>{mlError}</div>}
 
                     {/* Search */}
                     <div style={{padding:'6px 14px',borderBottom:'1px solid #e5e7eb',flexShrink:0}}>
@@ -2528,6 +2590,9 @@ ${text}`;
                             <div style={{flex:1,minWidth:0}}>
                               <div style={{fontWeight:700,fontSize:12,color:'#374151',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.name}</div>
                               <div style={{fontSize:11,color:'#6b7280',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.email}</div>
+                            <div style={{fontSize:10,color:c.unsubscribedAt?'#b91c1c':c.consentAt?'#047857':'#9a3412'}}>
+                              {c.unsubscribedAt?'Abonelik iptal':c.consentAt?'✓ İzin kaydedildi':'⚠ İzin kaydı yok'}
+                            </div>
                             </div>
                             <div style={{fontSize:10,color:'#9ca3af',flexShrink:0}}>{new Date(c.addedAt).toLocaleDateString('tr-TR')}</div>
                             <button onClick={()=>removeContact(c.email)}
