@@ -49,3 +49,18 @@ test('privacy deletion clears both stored browser data and owner web events',()=
   assert.match(privacy,/newsletter_web_events/);
   assert.match(privacy,/range\(page\*pageSize/);
 });
+
+test('Netlify publication independently verifies Supabase bearer tokens and preserves existing edit-token checks',()=>{
+  const native=read('netlify/functions/newsletter-publication.ts');
+  const client=read('lib/supabase/client.ts');
+  const page=read('app/page.tsx');
+  const api=read('app/api/publish/route.ts');
+  assert.match(native,/client\.auth\.getUser\(match\[1\]\)/);
+  assert.match(native,/publisherAuthEnabled\(\)&&!owner/);
+  assert.match(native,/matchesEditToken\(body\.editToken,previous\?\.editTokenHash\)/);
+  assert.match(native,/existing\.ownerUserId!==await verifiedPublisher\(req\)/);
+  assert.match(client,/publisherAuthorizationHeaders/);
+  assert.match(page,/\.\.\.\(await publisherAuthorizationHeaders\(\)\)/);
+  assert.match(api,/requireSignedInUser\(\)/);
+  assert.doesNotMatch(native,/@clerk\/|CLERK_/);
+});
