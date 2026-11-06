@@ -97,4 +97,18 @@ const newHtml=await refreshed.text();
 assert.ok(newHtml.includes('Bu bülten yeniden düzenlendi; yeni sürüm yayında.'),'The published URL did not update');
 assert.ok(!newHtml.includes(snippet),'Old newsletter body remained visible');
 
-console.log('PASS: Netlify preview public publish, unauthorized edit rejected, authorized edit updated same URL');
+const forbiddenRemoval=await fetch(BASE+'/api/unpublish',{
+  method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},
+  body:JSON.stringify({slug:result.slug,editToken:'B'.repeat(43)}),
+  signal:AbortSignal.timeout(25000),
+});
+assert.equal(forbiddenRemoval.status,403,'Anyone who sees the public URL must not be able to unpublish.');
+const removed=await fetch(BASE+'/api/unpublish',{
+  method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},
+  body:JSON.stringify({slug:result.slug,editToken:result.editToken}),
+  signal:AbortSignal.timeout(25000),
+});
+assert.equal(removed.status,200,'Publisher should be able to revoke newsletter URL.');
+const afterRemoval=await fetch(BASE+'/b/'+result.slug,{cache:'no-store',signal:AbortSignal.timeout(25000)});
+assert.equal(afterRemoval.status,404,'Revoked public newsletter must no longer be readable.');
+console.log('PASS: Netlify preview publish, private update, denied foreign access, and owner unpublish');
