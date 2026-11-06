@@ -9,6 +9,19 @@ async function check(){
   const homepage=await home.text();
   if(home.status!==200)return {ok:false,reason:'Homepage HTTP '+home.status};
   if(!homepage.includes('BÜLTEN') && !homepage.includes('READ'))return {ok:false,reason:'Homepage did not contain BÜLTEN READ branding'};
+  // Old static bookmarks and embedded browsers sometimes open index.html.
+  // This exact path formerly returned Next.js's generic 404 page.
+  const legacy=await fetch(base+'/index.html',{
+    redirect:'manual',
+    headers:{'User-Agent':'Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36'},
+    cache:'no-store',signal:AbortSignal.timeout(20000),
+  });
+  if(![301,302,307,308].includes(legacy.status))
+    return {ok:false,reason:'Legacy index.html still returns HTTP '+legacy.status+' instead of redirect'};
+  const target=new URL(legacy.headers.get('location')||'',base);
+  if(target.origin!==base||target.pathname!=='/')
+    return {ok:false,reason:'Legacy index.html redirects to an unexpected destination'};
+
   // The editor is now private: anonymous homepages intentionally lack
   // Düzenle, Yayınla, mobile palette and HTML preview controls.
   if(!homepage.includes('bulten-private-gate')){
