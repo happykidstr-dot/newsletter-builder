@@ -17,7 +17,7 @@ function SignedInAccount(){
     }catch(error){setPrivacyStatus(error instanceof Error?error.message:'Veriler alınamadı.');}
   }
   async function erasePersonalData(){
-    if(window.prompt('Kayıtlı listelerinizi, taslaklarınızı ve analitik verilerinizi silmek için SİL yazın:')!=='SİL')return;
+    if(window.prompt('Hesabınızdaki ve bu tarayıcıdaki kayıtlı listeler, taslaklar ve analitik veriler silinecek. Yayımlanmış bültenlerin bağlantıları ayrıca Yayından Kaldır ile kapatılmalıdır. Onaylamak için SİL yazın:')!=='SİL')return;
     setPrivacyStatus('Veriler siliniyor…');
     try{
       const response=await fetch('/api/account/privacy',{
@@ -25,7 +25,11 @@ function SignedInAccount(){
         body:JSON.stringify({confirmation:'DELETE-MY-DATA'}),
       });
       if(!response.ok)throw new Error((await response.json()).error||'Silme başarısız.');
-      setPrivacyStatus('Sunucudaki hesap verileri silindi. Ayrı yayımlanmış bültenleri de Yayından Kaldır ile kapatın.');
+      for(const key of ['bulten_saved_newsletters_v2','bulten_draft_v1','bulten_mailing_lists','bulten_published_media_cache_v1']){
+        try{window.localStorage.removeItem(key);}catch{}
+      }
+      setPrivacyStatus('Kişisel veriler silindi. Yayınlanmış bültenleri ayrıca Yayından Kaldır ile kapatın.');
+      window.location.reload();
     }catch(error){setPrivacyStatus(error instanceof Error?error.message:'Silme işlemi tamamlanamadı.');}
   }
   if(!isLoaded)return <span style={{fontSize:12,color:'#64748b'}}>Hesap yükleniyor…</span>;
