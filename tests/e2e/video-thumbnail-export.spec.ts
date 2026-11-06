@@ -2,7 +2,8 @@ import {test,expect} from '../helpers/authorized-editor-test';
 import {readFileSync} from 'node:fs';
 
 const VIDEO_ID='dQw4w9WgXcQ';
-const SAMPLE_JPEG=Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAcFBQYFBAcGBgYIBwcICxILCwoKCxYPEA0SGhYbGhkWGRgcICgiHB4mHhgZIzAkJiorLS4tGyIyNTEsNSgsLSz/2wBDAQcICAsJCxULCxUsHRkdLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCz/wAARCABkALQDASIAAhEBAxEB/8QAGgABAQEBAQEBAAAAAAAAAAAAAAUHCAYCA//EADYQAAIBAgIIAwYEBwAAAAAAAAABAgMRBAUGBxIWIWSj4RMiMQgUFTdBUTJ1kbMzNEJDRGHR/8QAGQEBAAMBAQAAAAAAAAAAAAAAAAEDBAIF/8QAIREBAAICAgIDAQEAAAAAAAAAAAECAxETUSExBBIyIlL/2gAMAwEAAhEDEQA/AMlAB6byQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2bVVq+yDTbV3i5Zph5xxVLMJwp4qhLYqwjsUna/FNevCSdtp2s3ci1orG5d1rNp1DGQe40v1S6S6J+LiPd/iWXQvL3rCpy2Yrad5w9YWjG7fGKultM8OImJ9Ims18SAAlyAAAAAAAAAAAAAAAAAAAAAAAAHRvs9fL7HfmVT9qkc5HRvs9fL7HfmVT9qkVZvyvwftqpn+m2qDItL6rxlB/Ccxd9qvQpRcKrctpyqQ4bUvxcU0+PFuyRoAMkTMeYbJrFo1LkfSvVvpLodtVcwwXi4Nf5mGbqUf6fV2Tjxkl5kru9rnlTt6vQpYrD1KFelCtRqxcJ05xUozi1Zpp8GmvoZdpfqJyXOPFxeQ1PhGMleXhWcsPN+Z2t6wu2l5eCS4RNNc3+ma+CfdXOQLGk2imcaJZpPBZthJ0WpONOsk3SrJW80JWtJWa/2r2aT4Ecvids0xrxIAAgAAAAAAAABa3e5rp9xu9zXT7nWpVc1O0UFrd7mun3G73NdPuNSc1O0UFrd7mun3G73NdPuNSc1O0UFrd7mun3G73NdPuNSc1O0U6N9nr5fY78yqftUjDN3ua6fc33UVgvcdBsZS8TxL5hOV7W/t0/+FOaP5aPj5K2vqJaWASdINJcr0ZwccRmWI8PbuqdOK2p1GleyX6cXZK6u1cxxEz4h6NrRWNyrHitNdaeQaFzqYStOeNzSMVJYOh6xum47cnwinZfeVpJ7LTM5001l53pBP3bJcZVyTApNN0/41XzXUnNWcOCXCL+sruSfDMt3ua6fc00wT7sw3+bT1WVTTLWVn+meIrQxOKnhstlJuGBoytTUbppSas6jvFO8vrdpL0PIlrd7mun3G73NdPuaIrrxDLOeszuZRQWt3ua6fcbvc10+5OpRzU7RQWt3ua6fcbvc10+41JzU7RQWt3ua6fcbvc10+41JzU7RQWt3ua6fcDUnNTtaAB288AAAAAAAANl1UY/C5Xq+zDG42vGhh6OMnKc5eiXh0/1f0SXFvgY0fbq1HRjRdSTpQk5Rg35U3ZNpfd7K/RfY4vT7xpdhy8VvtpqOlGt+VSE8Lo7TlTal/OVYq7SbvswafB8OMuNm/KnxMxxWLxGOxMsRi69XEV522qlWbnKVlZXb4+iR+IFaRT0jLmvlndpAAdqgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//2Q==','base64');
+const SAMPLE_JPEG=Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAASACADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCMAppAAAAAAD//2Q==','base64');
+if(SAMPLE_JPEG.length!==292)throw new Error('Sample JPEG fixture must be 292 bytes.');
 
 async function addYoutubeVideo(page:import('@playwright/test').Page){
   await page.goto('/');
@@ -30,7 +31,7 @@ test('downloaded HTML shows a true YouTube still image, watch link and on-page p
 });
 
 test('visual PDF fetches and embeds a video frame thumbnail instead of printing iframe URL',async({page})=>{
-  test.setTimeout(120000);
+  test.setTimeout(60000);
   let posterRequests=0;
   await page.route('**/api/video-thumbnail?id='+VIDEO_ID,async route=>{
     posterRequests++;
@@ -38,7 +39,7 @@ test('visual PDF fetches and embeds a video frame thumbnail instead of printing 
   });
   await addYoutubeVideo(page);
   const [download]=await Promise.all([
-    page.waitForEvent('download',{timeout:100000}),
+    page.waitForEvent('download',{timeout:45000}),
     page.getByRole('button',{name:'PDF indir'}).click(),
   ]);
   const saved=await download.path();
@@ -50,7 +51,7 @@ test('visual PDF fetches and embeds a video frame thumbnail instead of printing 
 });
 
 test('text PDF also embeds a real video still and a readable watch link',async({page})=>{
-  test.setTimeout(120000);
+  test.setTimeout(60000);
   let posterRequests=0;
   await page.route('**/api/video-thumbnail?id='+VIDEO_ID,async route=>{
     posterRequests++;
@@ -59,7 +60,7 @@ test('text PDF also embeds a real video still and a readable watch link',async({
   await addYoutubeVideo(page);
   await page.getByTestId('advanced-tools-toggle').click();
   const [download]=await Promise.all([
-    page.waitForEvent('download',{timeout:100000}),
+    page.waitForEvent('download',{timeout:45000}),
     page.getByTestId('pdf-readable').click(),
   ]);
   const raw=readFileSync((await download.path())!);
