@@ -7,13 +7,16 @@ const native=read('netlify/functions/newsletter-publication.ts');
 const api=read('app/api/publish/route.ts');
 const credential=read('lib/publication-edit-credentials.ts');
 
-test('saved records use stable id, local storage and preserve owner publication data',()=>{
+test('saved records use stable id, IndexedDB and preserve owner publication data',()=>{
   assert.match(app,/bulten_saved_newsletters_v2/);
-  assert.match(app,/savedList\.filter\(x=>x\.id!==entry\.id\)/);
+  assert.match(app,/saveLocalNewsletter\(entry\)/);
+  assert.match(app,/previous\.filter\(x=>x\.id!==entry\.id\)/);
   assert.match(app,/setPublication\(record\.publication\?\.editToken/);
   assert.match(app,/setActiveNewsletterId\(record\.id\)/);
   assert.match(app,/if\(!draftReady\)return/);
   assert.match(app,/publishedSnapshot/);
+  assert.match(app,/loadLocalDraft/);
+  assert.match(app,/listLocalNewsletters/);
 });
 test('there is exactly one saved gallery with OPEN and double click',()=>{
   assert.equal((app.match(/\{showSavedModal &&/g)||[]).length,1);
