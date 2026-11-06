@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from '../helpers/authorized-editor-test';
 import {readFileSync} from 'node:fs';
 
 async function downloadNewsletter(page:import('@playwright/test').Page):Promise<string>{

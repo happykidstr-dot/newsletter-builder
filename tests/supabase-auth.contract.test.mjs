@@ -55,12 +55,12 @@ test('Netlify publication independently verifies Supabase bearer tokens and pres
   const client=read('lib/supabase/client.ts');
   const page=read('app/page.tsx');
   const api=read('app/api/publish/route.ts');
-  assert.match(native,/client\.auth\.getUser\(match\[1\]\)/);
-  assert.match(native,/publisherAuthEnabled\(\)&&!owner/);
+  assert.match(read('lib/security/netlify-publisher.ts'),/client\.auth\.getUser\(match\[1\]\)/);
+  assert.match(native,/verifyNetlifyPublisher\(req\)/);
   assert.match(native,/matchesEditToken\(body\.editToken,previous\?\.editTokenHash\)/);
-  assert.match(native,/existing\.ownerUserId!==await verifiedPublisher\(req\)/);
+  assert.match(native,/existing\.ownerUserId!==decision\.userId/);
   assert.match(client,/publisherAuthorizationHeaders/);
   assert.match(page,/\.\.\.\(await publisherAuthorizationHeaders\(\)\)/);
-  assert.match(api,/requireSignedInUser\(\)/);
+  assert.match(api,/requireAuthorizedPublisher\(\)/);
   assert.doesNotMatch(native,/@clerk\/|CLERK_/);
 });

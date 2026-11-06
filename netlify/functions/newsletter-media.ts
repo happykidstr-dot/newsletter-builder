@@ -1,6 +1,7 @@
 import type {Config,Context} from '@netlify/functions';
 import {allowedSiteOrigin} from '../../lib/publication-origin';
 import {servePublicMedia,storePublicMedia} from '../../lib/public-newsletter-media';
+import {verifyNetlifyPublisher} from '../../lib/security/netlify-publisher';
 
 export const config:Config={path:['/api/media','/media/:asset']};
 
@@ -24,6 +25,8 @@ export default async function publicMedia(req:Request,context:Context):Promise<R
     const origin=req.headers.get('origin');
     if(!origin||!allowedSiteOrigin(origin)||new URL(origin).hostname!==host)
       return json({error:'Görsel yüklemek için bülten editörünü kullanın.'},403);
+    const publisher=await verifyNetlifyPublisher(req);
+    if(publisher.error)return json({error:publisher.error},publisher.status);
     if(req.headers.get('content-type')?.split(';')[0]!=='application/json')
       return json({error:'JSON isteği gerekli.'},415);
     if(Number(req.headers.get('content-length')||0)>MAX_JSON_BYTES)

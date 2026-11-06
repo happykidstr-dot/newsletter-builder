@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {createClient} from '@supabase/supabase-js';
-import {requireSignedInUser,checkSameOrigin,boundedJson,requestProblem} from '@/lib/security/access';
+import {requireAuthorizedPublisher,checkSameOrigin,boundedJson,requestProblem} from '@/lib/security/access';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -38,7 +38,7 @@ function parseDraft(input:unknown):Draft {
 }
 // Never accept publication.editToken or other browser-held publishing secrets.
 export async function GET(){
-  const identity=await requireSignedInUser();if(identity.error)return identity.error;
+  const identity=await requireAuthorizedPublisher();if(identity.error)return identity.error;
   const client=db();if(!client)return error('Bulut arşiv bağlantısı yapılandırılmadı.',503);
   try{
     const {data,error:readError}=await client.from('newsletters')
@@ -59,7 +59,7 @@ export async function GET(){
   }catch{return error('Bulut arşivi okunamadı. Faz 2 veritabanı geçişi gerekli olabilir.',503);}
 }
 export async function POST(req:NextRequest){
-  const identity=await requireSignedInUser();if(identity.error)return identity.error;
+  const identity=await requireAuthorizedPublisher();if(identity.error)return identity.error;
   const origin=checkSameOrigin(req);if(origin)return origin;
   const client=db();if(!client)return error('Bulut arşiv bağlantısı yapılandırılmadı.',503);
   let input:unknown;try{input=await boundedJson(req,900_000);}catch(e){return requestProblem(e);}
@@ -89,7 +89,7 @@ export async function POST(req:NextRequest){
   }catch{return error('Bulut kaydı başarısız. Faz 2 şemasını ve depolama sınırını kontrol edin.',503);}
 }
 export async function DELETE(req:NextRequest){
-  const identity=await requireSignedInUser();if(identity.error)return identity.error;
+  const identity=await requireAuthorizedPublisher();if(identity.error)return identity.error;
   const origin=checkSameOrigin(req);if(origin)return origin;
   const client=db();if(!client)return error('Bulut arşiv bağlantısı yapılandırılmadı.',503);
   const id=new URL(req.url).searchParams.get('id');

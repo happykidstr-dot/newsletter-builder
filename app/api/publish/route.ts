@@ -4,8 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {publicationStore, checkPublishQuota, type PublishedNewsletter} from '@/lib/newsletter-publication-store';
 import {sanitiseNewsletterBody} from '@/lib/public-newsletter-render';
 import {allowedSiteOrigin, publicOriginForRequest} from '@/lib/publication-origin';
-import {requireSignedInUser} from '@/lib/security/access';
-import {serverAuthConfigured} from '@/lib/supabase/server';
+import {requireAuthorizedPublisher} from '@/lib/security/access';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,12 +42,9 @@ export async function POST(req:NextRequest){
     return NextResponse.json({error:'JSON isteği gerekli.'},{status:415});
   }
   try{
-    let verifiedPublisher:string|undefined;
-    if(serverAuthConfigured()){
-      const identity=await requireSignedInUser();
-      if(identity.error)return identity.error;
-      verifiedPublisher=identity.userId;
-    }
+    const identity=await requireAuthorizedPublisher();
+    if(identity.error)return identity.error;
+    const verifiedPublisher=identity.userId;
     const publicOrigin=publicOriginForRequest(req);
     const raw=await readWithLimit(req);
     const body=JSON.parse(raw);

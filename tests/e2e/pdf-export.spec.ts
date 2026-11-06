@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/authorized-editor-test';
 import {readFileSync} from 'node:fs';
 
 test('PDF İndir creates a real downloadable PDF without opening the print window', async ({page})=>{

@@ -3,6 +3,18 @@
 Profesyonel e-bültenler oluşturmak için bağımsız web uygulaması.  
 **Project Factory AI** platformunun Bülten READ alt projesinden ayrıştırılmıştır.
 
+## 🔐 Özel Yayıncı Erişimi
+
+BÜLTEN READ bülten editörünü yalnızca e-postası Supabase Auth tarafından doğrulanmış
+`happykidstr@gmail.com` ve `projefabrikasitr@gmail.com` hesapları kullanabilir.
+Bülten hazırlama, kaydetme, yayımlama, yayından kaldırma, görsel yükleme ve
+özel yönetim API'leri **sunucu tarafında** denetlenir. Diğer kullanıcılar
+sadece yayımlanmış bültenleri kendi `/b/...` bağlantılarından okuyabilir.
+
+Supabase veya Netlify anahtarları henüz yapılandırılmamışsa editör
+güvenlik için kapalı kalır. Kurulum ve erişim kabul testleri:
+[İki yayıncı kurulum kılavuzu](docs/PRIVATE_PUBLISHERS.md).
+
 ## ✨ Özellikler
 
 - **Sürükle & Bırak Editör** — 15+ blok tipi (başlık, metin, fotoğraf, video, etkinlik, anket, form, vb.)

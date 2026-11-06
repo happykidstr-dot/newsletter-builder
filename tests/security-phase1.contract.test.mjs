@@ -43,7 +43,7 @@ test('Supabase Auth validates owner identity server-side and Next 16 proxy refre
 });
 test('all billable endpoints validate session, origin, body and per-user quotas',()=>{
   for(const code of [ai,chat,mail]){
-    assert.match(code,/requireSignedInUser\(\)/);
+    assert.match(code,/requireAuthorizedPublisher\(\)/);
     assert.match(code,/checkSameOrigin\(req\)/);
     assert.match(code,/boundedJson\(req,/);
     assert.match(code,/reserveQuota\(identity\.userId|reserveQuota\(session\.userId/);
@@ -65,7 +65,7 @@ test('email sends only from owned DB list and explicitly consented recipients',(
   assert.match(page,/csvConsent/);
 });
 test('analytics never returns raw address list or another owner events',()=>{
-  assert.match(analytics,/requireSignedInUser\(\)/);
+  assert.match(analytics,/requireAuthorizedPublisher\(\)/);
   assert.match(analytics,/\.eq\('user_id',identity\.userId\)/);
   assert.doesNotMatch(analytics,/rawEvents/);
   assert.match(schema,/DROP POLICY IF EXISTS "Users can read analytics"/);

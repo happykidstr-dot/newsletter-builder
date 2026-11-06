@@ -3,6 +3,7 @@ import React, { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { TemplateGallery } from '@/components/TemplateGallery';
 import {AccountAction} from '@/components/AccountAction';
+import {EditorAccessGate} from '@/components/EditorAccessGate';
 import {publisherAuthorizationHeaders} from '@/lib/supabase/client';
 import { downloadNewsletterPdf, printNewsletter } from '@/lib/newsletter-pdf';
 import {downloadReadableNewsletterPdf} from '@/lib/newsletter-text-pdf';
@@ -580,7 +581,7 @@ function BlockEditor({ block, onChange, onAI, aiLoading }: {
 }
 
 // ── Main ───────────────────────────────────────────────────────────────
-export default function BultenReadPage() {
+function BultenReadEditor() {
   const a11y = useAccessibility({ storagePrefix: 'bulten_a11y_' });
   const dragTypeRef = React.useRef<BT|null>(null);
   const [dropIndicator, setDropIndicator] = React.useState<number|null>(null);
@@ -2661,4 +2662,10 @@ ${text}`;
 
     </>
   );
+}
+
+// Public HTML readers are separate; / is an editorial workspace that requires
+// the server to approve the current account before editor hooks are mounted.
+export default function BultenReadPage(){
+  return <EditorAccessGate><BultenReadEditor/></EditorAccessGate>;
 }

@@ -1,0 +1,59 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+
+test('only the two explicitly approved, verified mailboxes can edit',()=>{
+  const allowed=read('lib/security/publisher-allowlist.ts');
+  assert.deepEqual([...allowed.matchAll(/'[a-z0-9._%+-]+@[a-z0-9.-]+'+/g)].map(m=>m[0].replaceAll("'","")).sort(),
+    ['happykidstr@gmail.com','projefabrikasitr@gmail.com']);
+  assert.match(allowed,/verified===true/);
+  assert.match(allowed,/trim\(\)\.toLowerCase\(\)/);
+});
+test('the editor is never mounted until server authorization grants access',()=>{
+  const page=read('app/page.tsx');
+  const gate=read('components/EditorAccessGate.tsx');
+  const access=read('app/api/editor-access/route.ts');
+  assert.match(page,/<EditorAccessGate><BultenReadEditor\/><\/EditorAccessGate>/);
+  assert.match(gate,/status==='allowed'/);
+  assert.match(gate,/fetch\('\/api\/editor-access'/);
+  assert.match(access,/requireAuthorizedPublisher\(\)/);
+  assert.match(gate,/Bu hesap için bülten hazırlama veya yayımlama yetkisi verilmemiştir/);
+});
+test('all billable and owner-only API routes require the publisher allowlist',()=>{
+  for(const path of [
+    'app/api/ai-generate/route.ts','app/api/chat/route.ts',
+    'app/api/send-email/route.ts','app/api/parse-file/route.ts',
+    'app/api/db/analytics/route.ts','app/api/db/newsletters/route.ts',
+    'app/api/db/mailing-lists/route.ts','app/api/media/route.ts',
+    'app/api/publish/route.ts','app/api/unpublish/route.ts',
+  ]){
+    assert.match(read(path),/requireAuthorizedPublisher\(\)/,path);
+  }
+  const access=read('lib/security/access.ts');
+  assert.match(access,/isApprovedPublisher\(identity\.email,identity\.emailVerified\)/);
+  assert.match(access,/status:403/);
+  assert.match(access,/status:503/);
+});
+test('Netlify function routes also independently reject anonymous and nonallowlisted writes',()=>{
+  const functionAuth=read('lib/security/netlify-publisher.ts');
+  const publication=read('netlify/functions/newsletter-publication.ts');
+  const media=read('netlify/functions/newsletter-media.ts');
+  assert.match(functionAuth,/client\.auth\.getUser\(match\[1\]\)/);
+  assert.match(functionAuth,/isApprovedPublisher\(user\.email,Boolean\(user\.email_confirmed_at\)\)/);
+  assert.match(functionAuth,/status:503/);
+  assert.match(functionAuth,/status:403/);
+  assert.match(publication,/const decision=await verifyNetlifyPublisher\(req\);/);
+  assert.match(publication,/if\(decision\.error\)return reply/);
+  assert.match(media,/const publisher=await verifyNetlifyPublisher\(req\)/);
+  assert.match(media,/if\(publisher\.error\)return json/);
+  assert.doesNotMatch(publication,/publisherAuthEnabled\(\)&&!owner/);
+  assert.doesNotMatch(publication,/let verifiedPublisher:string\|undefined/);
+});
+test('media upload browser forwards Supabase token and anonymous readers remain public',()=>{
+  const media=read('lib/publish-newsletter-media.ts');
+  assert.match(media,/publisherAuthorizationHeaders\(\)/);
+  assert.match(read('netlify/functions/newsletter-media.ts'),/req\.method==='GET'/);
+  assert.match(read('netlify/functions/newsletter-publication.ts'),/req\.method==='GET'/);
+  assert.match(read('app/api/account/privacy/route.ts'),/requireSignedInUser\(\)/);
+});

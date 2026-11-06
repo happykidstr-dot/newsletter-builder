@@ -1,11 +1,11 @@
 import {NextResponse} from 'next/server';
 import {createClient} from '@supabase/supabase-js';
-import {requireSignedInUser} from '@/lib/security/access';
+import {requireAuthorizedPublisher} from '@/lib/security/access';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export async function GET(){
-  const identity=await requireSignedInUser();if(identity.error)return identity.error;
+  const identity=await requireAuthorizedPublisher();if(identity.error)return identity.error;
   const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!url||!key)return NextResponse.json({error:'Analitik veritabanı yapılandırılmadı.'},{status:503});
   try{

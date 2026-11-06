@@ -1,5 +1,6 @@
 import {createServerSupabaseClient,serverAuthConfigured} from '@/lib/supabase/server';
 import {NextResponse} from 'next/server';
+import {isApprovedPublisher} from '@/lib/security/publisher-allowlist';
 
 export type AccessResult=
   |{userId:string;email:string|null;emailVerified:boolean;displayName:string;error?:never}
@@ -30,6 +31,18 @@ export async function requireSignedInUser():Promise<AccessResult>{
       {status:401,headers:{'Cache-Control':'no-store'}})};
   }
 }
+
+/** Editorial and billable operations require one of two named, verified accounts. */
+export async function requireAuthorizedPublisher():Promise<AccessResult>{
+  const identity=await requireSignedInUser();
+  if(identity.error)return {error:identity.error};
+  if(!isApprovedPublisher(identity.email,identity.emailVerified))
+    return {error:NextResponse.json(
+      {error:'BÜLTEN READ yalnızca izin verilen iki doğrulanmış hesap tarafından yönetilebilir.'},
+      {status:403,headers:{'Cache-Control':'no-store'}})};
+  return identity;
+}
+
 export function checkSameOrigin(req:Request):NextResponse|null{
   const origin=req.headers.get('origin');
   // Only accept writes from the site's own browser origin.

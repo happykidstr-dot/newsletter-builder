@@ -1,5 +1,5 @@
-// Verifies a REAL deployment preview of the Netlify Blobs publish/get workflow.
-// This test posts a synthetic QA document only; never accesses user newsletters.
+// Verifies a REAL Netlify deploy preview is locked to approved Supabase publishers.
+// No synthetic newsletter is published by unauthenticated CI runners.
 import assert from 'node:assert/strict';
 
 const BASE=process.env.PREVIEW_URL?.replace(/\/$/,'');
@@ -48,92 +48,57 @@ const badUnsubscribe=await fetch(BASE+'/api/unsubscribe?t=fake',{
 assert.equal(badUnsubscribe.status,400,'Invalid unsubscribe token must not change subscriber data.');
 
 
-// Test the independent media store before publishing an image-rich article.
-const pngOnePixel='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL2VQAAAABJRU5ErkJggg==';
-const mediaSent=await fetch(BASE+'/api/media',{
+// Only the two email-confirmed Supabase identities may publish.
+// The GitHub runner has no user credentials: verify a real preview rejects
+// every attempted anonymous write, rather than creating QA publications.
+const access=await fetch(BASE+'/api/editor-access',{signal:AbortSignal.timeout(20000)});
+assert.ok([401,403,503].includes(access.status),
+  'Editor unexpectedly open without approved credentials: '+access.status);
+
+const tinyPng='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL2VQAAAABJRU5ErkJggg==';
+const deniedMedia=await fetch(BASE+'/api/media',{
   method:'POST',
-  headers:{Origin:BASE,'Content-Type':'application/json','User-Agent':'bulten-preview-e2e'},
-  body:JSON.stringify({mime:'image/png',base64:pngOnePixel}),
-  signal:AbortSignal.timeout(25000),
+  headers:{Origin:BASE,'Content-Type':'application/json','User-Agent':'bulten-read-security-smoke'},
+  body:JSON.stringify({mime:'image/png',base64:tinyPng}),
+  signal:AbortSignal.timeout(20000),
 });
-const mediaSaved=await mediaSent.json().catch(()=>({}));
-assert.equal(mediaSent.status,201,'Media upload failed: '+JSON.stringify(mediaSaved));
-const mediaUrl=new URL(mediaSaved.url);
-assert.equal(mediaUrl.origin,BASE,'Media must have a public same-origin reader URL.');
-assert.match(mediaUrl.pathname,/^\/media\/[A-Za-z0-9_-]{22}$/);
-const servedImage=await fetch(mediaSaved.url,{signal:AbortSignal.timeout(25000)});
-assert.equal(servedImage.status,200,'Published image is not accessible to social readers.');
-assert.match(servedImage.headers.get('content-type')||'',/image\/png/);
-const bytes=Buffer.from(await servedImage.arrayBuffer());
-assert.equal(bytes.subarray(0,4).toString('hex'),'89504e47','Media bytes changed during delivery.');
+assert.ok([401,403,503].includes(deniedMedia.status),
+  'Anonymous media upload incorrectly accepted: '+deniedMedia.status);
 
-const title='BÜLTEN READ QA — Paylaşım Denemesi';
-const snippet='Yalnızca otomatik test içerir; gerçek kullanıcı verisi yoktur.';
-const fakeHtml=`<!doctype html><html lang="tr"><body><div style="max-width:640px">
-  <h1>${title}</h1>
-  <div id="bulten-reading-content"><p>${snippet}</p><img src="${mediaSaved.url}" alt="Test görseli"><script>window.__SHOULD_NOT_EXECUTE__=1;</script>
-  <a href="javascript:alert(1)" onclick="alert(2)">Test Bağlantısı</a></div>
-  </div></body></html>`;
-const posted=await fetch(BASE+'/api/publish',{
+const synthetic={
+  title:'BÜLTEN READ unauthorized QA',subtitle:'automated write denial',
+  headerImgUrl:'',html:'<!doctype html><html lang="tr"><body><h1>Denied</h1></body></html>',
+};
+const deniedPublication=await fetch(BASE+'/api/publish',{
   method:'POST',
-  headers:{'Origin':BASE,'Content-Type':'application/json','User-Agent':'bulten-preview-e2e'},
-  body:JSON.stringify({title,subtitle:'Otomatik test',headerImgUrl:'',html:fakeHtml}),
-  signal:AbortSignal.timeout(25000),
+  headers:{Origin:BASE,'Content-Type':'application/json','User-Agent':'bulten-read-security-smoke'},
+  body:JSON.stringify(synthetic),signal:AbortSignal.timeout(20000),
 });
-const result=await posted.json().catch(()=>({}));
-assert.equal(posted.status,201,'publish failed: '+JSON.stringify(result));
-assert.match(result.slug,/^[A-Za-z0-9_-]{16}$/);
-assert.match(result.editToken,/^[A-Za-z0-9_-]{43}$/,'New publication must return a private edit credential');
-assert.equal(result.revision,1);
+assert.ok([401,403,503].includes(deniedPublication.status),
+  'Anonymous newsletter publication incorrectly accepted: '+deniedPublication.status);
 
-const doc=await fetch(BASE+'/b/'+result.slug,{signal:AbortSignal.timeout(25000)});
-assert.equal(doc.status,200,'Published newsletter not readable.');
-assert.match(doc.headers.get('content-type')||'',/text\/html/);
-assert.match(doc.headers.get('content-security-policy')||'',/sandbox/);
-const html=await doc.text();
-assert.ok(html.includes(snippet),'Published document lost current newsletter content.');
-assert.ok(html.includes(mediaSaved.url),'Reader article lost its separately stored image URL.');
-assert.ok(html.includes('og:title'),'Social previews lack Open Graph title.');
-assert.ok(html.includes('linkedin.com/sharing/share-offsite'),'Reader share links were not generated.');
-assert.ok(!html.includes('__SHOULD_NOT_EXECUTE__'),'Untrusted scripts leaked into published document.');
-assert.ok(!html.includes('javascript:alert'),'Unsafe user links survived sanitisation.');
-assert.ok(html.includes('SpeechSynthesisUtterance'),'Browser voice reader did not remain available.');
-const revisedHtml=fakeHtml.replace(snippet,'Bu bülten yeniden düzenlendi; yeni sürüm yayında.');
-const malicious=await fetch(BASE+'/api/publish',{
-  method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},
-  body:JSON.stringify({title,subtitle:'Otomatik test',headerImgUrl:'',
-    html:revisedHtml,slug:result.slug,editToken:'B'.repeat(43),expectedRevision:1}),
-  signal:AbortSignal.timeout(25000),
+const fakeAuthPublication=await fetch(BASE+'/api/publish',{
+  method:'POST',
+  headers:{Origin:BASE,'Content-Type':'application/json',
+    Authorization:'Bearer '+ 'A'.repeat(70)},
+  body:JSON.stringify(synthetic),signal:AbortSignal.timeout(20000),
 });
-assert.equal(malicious.status,403,'Another reader must not overwrite the published newsletter.');
-const edited=await fetch(BASE+'/api/publish',{
-  method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},
-  body:JSON.stringify({title,subtitle:'Otomatik test',headerImgUrl:'',
-    html:revisedHtml,slug:result.slug,editToken:result.editToken,expectedRevision:1}),
-  signal:AbortSignal.timeout(25000),
-});
-const update=await edited.json().catch(()=>({}));
-assert.equal(edited.status,200,'Publisher update failed: '+JSON.stringify(update));
-assert.equal(update.slug,result.slug,'Updated newsletter must retain its original link.');
-assert.equal(update.revision,2,'Revision did not increase');
-const refreshed=await fetch(BASE+'/b/'+result.slug,{cache:'no-store',signal:AbortSignal.timeout(25000)});
-assert.equal(refreshed.status,200,'Updated newsletter is not readable');
-const newHtml=await refreshed.text();
-assert.ok(newHtml.includes('Bu bülten yeniden düzenlendi; yeni sürüm yayında.'),'The published URL did not update');
-assert.ok(!newHtml.includes(snippet),'Old newsletter body remained visible');
+assert.ok([401,403,503].includes(fakeAuthPublication.status),
+  'Forged publisher token incorrectly accepted: '+fakeAuthPublication.status);
 
-const forbiddenRemoval=await fetch(BASE+'/api/unpublish',{
-  method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},
-  body:JSON.stringify({slug:result.slug,editToken:'B'.repeat(43)}),
-  signal:AbortSignal.timeout(25000),
+const deniedUnpublish=await fetch(BASE+'/api/unpublish',{
+  method:'POST',
+  headers:{Origin:BASE,'Content-Type':'application/json'},
+  body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM',editToken:'A'.repeat(43)}),
+  signal:AbortSignal.timeout(20000),
 });
-assert.equal(forbiddenRemoval.status,403,'Anyone who sees the public URL must not be able to unpublish.');
-const removed=await fetch(BASE+'/api/unpublish',{
-  method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},
-  body:JSON.stringify({slug:result.slug,editToken:result.editToken}),
-  signal:AbortSignal.timeout(25000),
+assert.ok([401,403,503].includes(deniedUnpublish.status),
+  'Anonymous unpublish not blocked: '+deniedUnpublish.status);
+
+const invalidReader=await fetch(BASE+'/b/not-a-valid-id',{
+  signal:AbortSignal.timeout(20000),
 });
-assert.equal(removed.status,200,'Publisher should be able to revoke newsletter URL.');
-const afterRemoval=await fetch(BASE+'/b/'+result.slug,{cache:'no-store',signal:AbortSignal.timeout(25000)});
-assert.equal(afterRemoval.status,404,'Revoked public newsletter must no longer be readable.');
-console.log('PASS: Netlify preview publish, private update, denied foreign access, and owner unpublish');
+assert.equal(invalidReader.status,404,'Unrecognized reader URL should not expose content.');
+
+console.log('PASS: real Netlify preview blocks unauthorised editor, uploads, publish and unpublish.');
+console.log('NOTE: approved-owner publishing requires a separately configured Supabase Auth account and private acceptance test.');

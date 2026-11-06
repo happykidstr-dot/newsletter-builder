@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {createClient} from '@supabase/supabase-js';
-import {requireSignedInUser,checkSameOrigin,boundedJson,requestProblem} from '@/lib/security/access';
+import {requireAuthorizedPublisher,checkSameOrigin,boundedJson,requestProblem} from '@/lib/security/access';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -11,7 +11,7 @@ function db(){
  return url&&secret?createClient(url,secret):null;
 }
 export async function GET(){
- const user=await requireSignedInUser();if(user.error)return user.error;
+ const user=await requireAuthorizedPublisher();if(user.error)return user.error;
  const client=db();if(!client)return error('Abonelik veritabanı yapılandırılmadı.',503);
  try{
    const {data,error:readError}=await client.from('mailing_lists').select('*')
@@ -21,7 +21,7 @@ export async function GET(){
  }catch{return error('Listeler okunamadı.',503);}
 }
 export async function POST(req:NextRequest){
- const user=await requireSignedInUser();if(user.error)return user.error;
+ const user=await requireAuthorizedPublisher();if(user.error)return user.error;
  const origin=checkSameOrigin(req);if(origin)return origin;
  const client=db();if(!client)return error('Abonelik veritabanı yapılandırılmadı.',503);
  let input:unknown;try{input=await boundedJson(req,300_000);}catch(e){return requestProblem(e);}
@@ -85,7 +85,7 @@ export async function POST(req:NextRequest){
  }
 }
 export async function DELETE(req:NextRequest){
- const user=await requireSignedInUser();if(user.error)return user.error;
+ const user=await requireAuthorizedPublisher();if(user.error)return user.error;
  const origin=checkSameOrigin(req);if(origin)return origin;
  const client=db();if(!client)return error('Veritabanı yapılandırılmadı.',503);
  const id=new URL(req.url).searchParams.get('id');
