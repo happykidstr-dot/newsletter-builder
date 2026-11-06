@@ -10,7 +10,7 @@ const TYPES:Record<string,string>={
   ogg:'audio/ogg',oga:'audio/ogg',opus:'audio/ogg',spx:'audio/ogg',
   flac:'audio/flac',aac:'audio/aac',webm:'audio/webm',weba:'audio/webm',
   aif:'audio/aiff',aiff:'audio/aiff',aifc:'audio/aiff',caf:'audio/x-caf',
-  wma:'audio/x-ms-wma',amr:'audio/amr',3gp:'audio/3gpp',3ga:'audio/3gpp',
+  wma:'audio/x-ms-wma',amr:'audio/amr','3gp':'audio/3gpp','3ga':'audio/3gpp',
   alac:'audio/mp4',ape:'audio/x-ape',au:'audio/basic',ra:'audio/x-realaudio',
   ram:'audio/x-realaudio',dsf:'audio/x-dsf',dff:'audio/x-dff',
   mid:'audio/midi',midi:'audio/midi',mka:'audio/x-matroska',
