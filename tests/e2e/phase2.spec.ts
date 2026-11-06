@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from '../helpers/authorized-editor-test';
 import {readFile} from 'node:fs/promises';
 
 test('mobile editor has working content, preview and properties panels',async({page})=>{
