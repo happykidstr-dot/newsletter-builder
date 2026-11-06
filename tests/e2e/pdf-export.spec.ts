@@ -22,7 +22,8 @@ test('PDF İndir creates a real downloadable PDF without opening the print windo
 test('Yazdır is a separate toolbar action and opens a printable page', async ({page})=>{
   await page.goto('/');
   await expect(page.getByRole('button',{name:'PDF indir'})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Bülteni yazdır'})).toBeVisible();
+  await expect(page.getByTestId('advanced-tools-toggle')).toBeVisible();
+  await page.getByTestId('advanced-tools-toggle').click();
   const popup = page.waitForEvent('popup',{timeout:15000});
   await page.getByRole('button',{name:'Bülteni yazdır'}).click();
   const printable = await popup;
