@@ -27,7 +27,8 @@ async function check(){
   if(![302,303,307,308].includes(callback.status)||
      callbackTarget.origin!==base||
      callbackTarget.searchParams.get('auth_error')!=='callback')
-    return {ok:false,reason:'Supabase Auth PKCE callback is not deployed yet ('+callback.status+')'};
+    return {ok:false,reason:'Supabase Auth callback redirect mismatch: HTTP '+callback.status+
+      ' target='+callbackTarget.origin+callbackTarget.pathname+callbackTarget.search};
   // Private editor is an enforced allowlisted workspace. Confirm deployment
   // before sending anonymous same-origin write probes to avoid the old version.
   const access=await fetch(base+'/api/editor-access',{cache:'no-store',signal:AbortSignal.timeout(20000)});
@@ -98,7 +99,7 @@ async function check(){
 }
 
 let last='';
-for(let n=1;n<=18;n++){
+for(let n=1;n<=8;n++){
   try{
     const result=await check();
     console.log('Production check #'+n+': '+result.reason);
@@ -108,7 +109,7 @@ for(let n=1;n<=18;n++){
     }
     last=result.reason;
   }catch(e){last=String(e);console.error('Production check #'+n+': '+last);}
-  if(n<18)await sleep(10000);
+  if(n<8)await sleep(10000);
 }
 console.error('Production was not verifiably deployed: '+last);
 process.exit(1);
