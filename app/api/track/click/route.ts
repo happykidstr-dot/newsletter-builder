@@ -1,48 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import {NextRequest,NextResponse} from 'next/server';
+import {createClient} from '@supabase/supabase-js';
+import {randomUUID} from 'node:crypto';
+import {readCampaignToken} from '@/lib/security/campaign-token';
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key);
-}
-
-export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const campaignId = searchParams.get('c');
-    const encodedEmail = searchParams.get('e');
-    const encodedUrl = searchParams.get('u');
-
-    if (!encodedUrl) {
-      return NextResponse.redirect(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
-    }
-
-    const targetUrl = decodeURIComponent(encodedUrl);
-
-    if (campaignId && encodedEmail) {
-      const email = Buffer.from(encodedEmail, 'base64').toString('ascii');
-      const supabase = getSupabase();
-      if (supabase) {
-        // Log to database asynchronously without blocking the redirect
-        supabase.from('campaign_analytics').insert({
-          id: Math.random().toString(36).slice(2, 11),
-          campaign_id: campaignId,
-          event_type: 'click',
-          email: email,
-          url: targetUrl,
-          created_at: new Date().toISOString()
-        }).then(({ error }) => {
-          if (error) console.error('Click tracking insert error:', error);
-        });
-      }
-    }
-
-    // Redirect the user to the actual destination URL
-    return NextResponse.redirect(targetUrl);
-  } catch (error) {
-    // If anything fails, redirect to homepage
-    return NextResponse.redirect(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+export const runtime='nodejs';
+export async function GET(req:NextRequest){
+  const token=readCampaignToken(new URL(req.url).searchParams.get('t')||'','click');
+  if(!token?.url)return new NextResponse('Bağlantı geçerli değil.',{status:400});
+  if(process.env.NEXT_PUBLIC_SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY){
+    try{
+      const db=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);
+      await db.from('campaign_analytics').insert({
+        id:randomUUID(),user_id:token.userId,campaign_id:token.campaignId,
+        event_type:'click',email:token.email,url:token.url,created_at:new Date().toISOString(),
+      });
+    }catch{}
   }
+  // Target URL was authenticated inside an encrypted, short-lived token,
+  // not accepted from a public ?u= parameter (old open-redirect vulnerability).
+  return NextResponse.redirect(token.url,{status:302,headers:{
+    'Referrer-Policy':'no-referrer','Cache-Control':'no-store'
+  }});
 }
