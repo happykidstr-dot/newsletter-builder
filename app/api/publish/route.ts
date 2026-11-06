@@ -41,10 +41,12 @@ export async function POST(req:NextRequest){
     return NextResponse.json({error:'JSON isteği gerekli.'},{status:415});
   }
   try{
+    let verifiedPublisher:string|undefined;
     if(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY&&process.env.CLERK_SECRET_KEY){
       const {auth}=await import('@clerk/nextjs/server');
       const session=await auth();
       if(!session.userId)return NextResponse.json({error:'Bülteni yayımlamak için oturum açın.'},{status:401});
+      verifiedPublisher=session.userId;
     }
     const publicOrigin=publicOriginForRequest(req);
     const raw=await readWithLimit(req);
@@ -70,6 +72,8 @@ export async function POST(req:NextRequest){
     if(editing&&!previous)return NextResponse.json({error:'Yayınlanmış bülten bulunamadı.'},{status:404});
     if(editing&&!matchesEditToken(body.editToken,previous?.editTokenHash))
       return NextResponse.json({error:'Bu bülten için düzenleme yetkiniz yok.'},{status:403});
+    if(editing&&previous?.ownerUserId&&previous.ownerUserId!==verifiedPublisher)
+      return NextResponse.json({error:'Bu yayın farklı bir kullanıcı hesabına ait.'},{status:403});
     if(editing&&Number.isInteger(body.expectedRevision)&&body.expectedRevision!==(previous?.revision||1))
       return NextResponse.json({error:'Yayının daha yeni bir sürümü bulunuyor.'},{status:409});
     const credential=editing?null:newPublicationCredential();
@@ -79,6 +83,7 @@ export async function POST(req:NextRequest){
       headerImgUrl:body.headerImgUrl,createdAt:previous?.createdAt||timestamp,
       updatedAt:timestamp,revision:(previous?.revision||0)+1,
       editTokenHash:previous?.editTokenHash||credential!.hash,
+      ownerUserId:previous?.ownerUserId||verifiedPublisher,
     };
     await store.setJSON(slug,record);
     return NextResponse.json({
