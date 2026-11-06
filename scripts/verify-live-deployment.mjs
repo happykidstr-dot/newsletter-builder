@@ -26,6 +26,20 @@ async function check(){
      !homepage.includes('advanced-tools-toggle')){
     return {ok:false,reason:'Phase 3 editor controls are missing from Netlify production'};
   }
+  // Supabase Auth rollout marker: before this migration the callback route
+  // returned 404. This checks deploy presence without requiring real login.
+  if(!homepage.includes('BÜLTEN READ | Project Factory'))
+    return {ok:false,reason:'Supabase Auth build metadata is not live yet'};
+  const callback=await fetch(base+'/auth/callback',{
+    redirect:'manual',signal:AbortSignal.timeout(20000),
+  });
+  let callbackTarget;
+  try{callbackTarget=new URL(callback.headers.get('location')||'',base);}
+  catch{return {ok:false,reason:'Auth callback returned invalid redirect'};}
+  if(![302,303,307,308].includes(callback.status)||
+     callbackTarget.origin!==base||
+     callbackTarget.searchParams.get('auth_error')!=='callback')
+    return {ok:false,reason:'Supabase Auth PKCE callback is not deployed yet ('+callback.status+')'};
   // A live Netlify publication endpoint denies cross-site POST with 403.
   // Legacy versions responded 404 or redirected, so this tests new deployment.
   const publish=await fetch(base+'/api/publish',{
