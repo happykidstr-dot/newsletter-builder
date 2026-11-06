@@ -11,3 +11,15 @@ export function createBrowserSupabaseClient(){
   if(!url||!key)throw new Error('Supabase Auth ayarları henüz tamamlanmadı.');
   return createBrowserClient(url,key,{auth:{flowType:'pkce'}});
 }
+
+/**
+ * Netlify's explicit publication function does not run through Next.js proxy.
+ * Send the current access token; the function validates it against Supabase Auth.
+ * getSession is used ONLY to forward the token, never as a server-side trust check.
+ */
+export async function publisherAuthorizationHeaders():Promise<Record<string,string>>{
+  if(!browserAuthConfigured())return {};
+  const {data:{session},error}=await createBrowserSupabaseClient().auth.getSession();
+  if(error||!session?.access_token)throw new Error('Yayımlamak veya yayından kaldırmak için giriş yapın.');
+  return {Authorization:'Bearer '+session.access_token};
+}
