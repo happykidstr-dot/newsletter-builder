@@ -2464,10 +2464,15 @@ ${text}`;
                         </div>
                       </div>
 
+                      <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12,color:'#475569',marginBottom:16}}>
+                        <input type="checkbox" checked={trackingEnabled} onChange={e=>setTrackingEnabled(e.target.checked)}/>
+                        Yalnızca ayrıca izni olan alıcıların e-posta açma/tıklama analitiğini kaydet
+                      </label>
+                      <p style={{fontSize:11,color:'#64748b',margin:'0 0 14px'}}>Test gönderimi sadece kendi hesabınızın doğrulanmış e-posta adresine yapılabilir. Normal gönderim yalnızca abonelik izni kaydedilmiş kişilere yapılır; her e-postaya abonelikten ayrıl bağlantısı eklenir.</p>
                       <div style={{marginTop:'auto',display:'flex',justifyContent:'flex-end',gap:12,borderTop:'1px solid #e5e7eb',paddingTop:16}}>
                         <button onClick={()=>setShowSendPrompt(false)} style={{padding:'10px 20px',background:'#fff',border:'1px solid #cbd5e1',color:'#475569',borderRadius:8,fontWeight:700,fontSize:13,cursor:'pointer'}}>İptal</button>
                         <button onClick={()=>executeSend(false)} style={{padding:'10px 24px',background:'#ec4899',color:'#fff',border:'none',borderRadius:8,fontWeight:800,fontSize:13,cursor:'pointer'}}>
-                          🚀 Listeye Gönder ({activeList.contacts.length} Kişi)
+                          🚀 İzinli Alıcılara Gönder ({activeList.contacts.filter(c=>Boolean(c.consentAt&&c.consentSource&&!c.unsubscribedAt)).length})
                         </button>
                       </div>
                     </div>
@@ -2502,7 +2507,12 @@ ${text}`;
                         </div>
                         <textarea value={csvInput} onChange={e=>setCsvInput(e.target.value)}
                           rows={4} placeholder="ali@ornek.com, Ali Yılmaz&#10;ayse@ornek.com&#10;..." style={{width:'100%',padding:'6px 8px',borderRadius:6,border:'1px solid #f9a8d4',fontSize:11,outline:'none',fontFamily:'monospace',resize:'vertical',boxSizing:'border-box'}}/>
-                        <button onClick={importCsv} style={{marginTop:6,padding:'5px 14px',borderRadius:7,border:'none',background:'#ec4899',color:'#fff',fontWeight:700,fontSize:11,cursor:'pointer'}}>İmport Et</button>
+                        <label style={{display:'flex',gap:6,alignItems:'flex-start',fontSize:11,color:'#334155',marginTop:8}}>
+                          <input type="checkbox" checked={csvConsent} onChange={e=>setCsvConsent(e.target.checked)}/>
+                          Bu CSV listesindeki her kişi için bülten gönderme izninin bulunduğunu ve kanıtını sakladığımı beyan ediyorum.
+                        </label>
+                        <button onClick={importCsv} disabled={!csvConsent||!consentSource.trim()}
+                          style={{marginTop:6,padding:'5px 14px',borderRadius:7,border:'none',background:'#ec4899',color:'#fff',fontWeight:700,fontSize:11,cursor:csvConsent?'pointer':'not-allowed',opacity:csvConsent?1:.55}}>İzinli Kişileri İçe Aktar</button>
                       </div>
                     )}
 
@@ -2516,7 +2526,18 @@ ${text}`;
                         placeholder="İsim (opsiyonel)" style={{flex:1.5,padding:'5px 8px',borderRadius:6,border:'1px solid #d1d5db',fontSize:11,outline:'none'}}/>
                       <button onClick={addContact} style={{padding:'5px 12px',borderRadius:6,border:'none',background:'#ec4899',color:'#fff',fontSize:11,fontWeight:800,cursor:'pointer'}}>+ Ekle</button>
                     </div>
-                    {mlError && <div style={{padding:'6px 14px',fontSize:11,color:mlError.includes('eklendi')?'#059669':'#dc2626',background:mlError.includes('eklendi')?'#ecfdf5':'#fef2f2'}}>{mlError}</div>}
+                    <div style={{padding:'8px 14px',background:'#fffbeb',borderBottom:'1px solid #fde68a',display:'flex',flexDirection:'column',gap:5}}>
+                      <label style={{display:'flex',gap:7,alignItems:'center',fontSize:11,color:'#78350f'}}>
+                        <input type="checkbox" checked={contactConsent} onChange={e=>setContactConsent(e.target.checked)}/>
+                        Yeni eklediğim kişinin bülten e-postası alma izni var.
+                      </label>
+                      <input type="text" value={consentSource} onChange={e=>setConsentSource(e.target.value)}
+                        placeholder="İzin kanıtı/kaynağı: tarihli e-posta, imzalı form, çevrimiçi abonelik..."
+                        aria-label="Abonelik izin kaynağı"
+                        style={{width:'100%',padding:'6px 8px',fontSize:11,border:'1px solid #fbbf24',borderRadius:6}}/>
+                      <span style={{fontSize:10,color:'#92400e'}}>Eski, izni kaydedilmemiş kişiler için otomatik gönderim yapılmaz.</span>
+                    </div>
+                    {mlError && <div role="status" style={{padding:'6px 14px',fontSize:11,color:mlError.includes('eklendi')?'#059669':'#dc2626',background:mlError.includes('eklendi')?'#ecfdf5':'#fef2f2'}}>{mlError}</div>}
 
                     {/* Search */}
                     <div style={{padding:'6px 14px',borderBottom:'1px solid #e5e7eb',flexShrink:0}}>
@@ -2538,6 +2559,9 @@ ${text}`;
                             <div style={{flex:1,minWidth:0}}>
                               <div style={{fontWeight:700,fontSize:12,color:'#374151',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.name}</div>
                               <div style={{fontSize:11,color:'#6b7280',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.email}</div>
+                            <div style={{fontSize:10,color:c.unsubscribedAt?'#b91c1c':c.consentAt?'#047857':'#9a3412'}}>
+                              {c.unsubscribedAt?'Abonelik iptal':c.consentAt?'✓ İzin kaydedildi':'⚠ İzin kaydı yok'}
+                            </div>
                             </div>
                             <div style={{fontSize:10,color:'#9ca3af',flexShrink:0}}>{new Date(c.addedAt).toLocaleDateString('tr-TR')}</div>
                             <button onClick={()=>removeContact(c.email)}
