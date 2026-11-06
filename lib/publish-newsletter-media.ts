@@ -1,3 +1,4 @@
+import {publisherAuthorizationHeaders} from '@/lib/supabase/client';
 /**
  * Prepare a lightweight, shareable newsletter. Embedded raster photographs are
  * published as independent media files; their size no longer inflates the
@@ -83,7 +84,7 @@ async function publishSingleImage(original:string,cache:Record<string,string>):P
   const mime=fitted.type==='image/png'||fitted.type==='image/jpeg'||
     fitted.type==='image/gif'||fitted.type==='image/webp'?fitted.type:'image/webp';
   const response=await fetch('/api/media',{
-    method:'POST',headers:{'Content-Type':'application/json'},
+    method:'POST',headers:{'Content-Type':'application/json',...(await publisherAuthorizationHeaders())},
     body:JSON.stringify({mime,base64:await base64Of(fitted)}),
   });
   const json=await response.json().catch(()=>({}));
