@@ -31,6 +31,14 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser gallery scenarios
         run: npm run test:gallery:e2e
+      - name: Save tablet screenshots for visual verification
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tablet-visual-checks
+          path: test-results/tablet-*.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Verify live Netlify Deploy Preview publishing
         if: github.event_name == 'pull_request'
         timeout-minutes: 6
