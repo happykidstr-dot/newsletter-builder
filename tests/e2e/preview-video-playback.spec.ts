@@ -3,8 +3,20 @@ import {test,expect} from '../helpers/authorized-editor-test';
 const id='dQw4w9WgXcQ';
 async function insertVideo(page:import('@playwright/test').Page){
   await page.goto('/');
-  await page.getByRole('group',{name:'İçerik blokları seviyesi'}).getByRole('button',{name:'Gelişmiş'}).click();
+  // Narrow layouts hide the palette behind the mobile "＋ İçerik" tab.
+  // The previous test attempted to click a hidden Gelişmiş button and
+  // timed out before ever exercising the video player.
+  const mobileTabs=page.getByRole('navigation',{name:'Mobil editör panelleri'});
+  if(await mobileTabs.isVisible()){
+    await mobileTabs.getByRole('button',{name:/İçerik/}).click();
+    await expect(mobileTabs.getByRole('button',{name:/İçerik/})).toHaveAttribute('aria-pressed','true');
+  }
+  const mode=page.getByRole('group',{name:'İçerik blokları seviyesi'});
+  await expect(mode).toBeVisible();
+  await mode.getByRole('button',{name:'Gelişmiş'}).click();
   await page.getByTestId('palette-video').click();
+  // Adding a block automatically selects the properties pane on mobile.
+  await expect(page.getByPlaceholder('https://youtu.be/...')).toBeVisible();
   await page.getByPlaceholder('https://youtu.be/...').fill('https://youtu.be/'+id);
   await page.getByPlaceholder('Video açıklaması...').fill('Örnek video');
   await page.getByRole('button',{name:'Yayın önizlemesi'}).click();
@@ -46,14 +58,33 @@ test('trusted separate YouTube preview plays without allowing user HTML scripts'
   await expect(page.getByRole('dialog',{name:'Gerçek yayın önizlemesi'})).toBeVisible();
 });
 
-test('small-screen preview offers playback and returns safely to the newsletter',async({page})=>{
-  await page.setViewportSize({width:375,height:730});
-  await insertVideo(page);
-  await page.getByTestId('preview-play-video').click();
-  await expect(page.getByRole('dialog',{name:'YouTube videosunu oynat'})).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog',{name:'YouTube videosunu oynat'})).toHaveCount(0);
-  await page.getByRole('button',{name:'Yayın önizlemesini kapat'}).click();
-  await expect(page.getByRole('dialog',{name:'Gerçek yayın önizlemesi'})).toHaveCount(0);
-  await expect(page.getByPlaceholder('Bülten başlığı...')).toBeVisible();
-});
+for(const viewport of [{width:375,height:730},{width:390,height:844}]){
+  test('mobile '+viewport.width+'px preview opens video, safely closes, then returns to editor',async({page})=>{
+    await page.setViewportSize(viewport);
+    await page.route('https://www.youtube-nocookie.com/**',route=>route.fulfill({
+      status:200,contentType:'text/html',
+      body:'<!doctype html><title>Mock video player</title><p>Player loaded</p>',
+    }));
+    await insertVideo(page);
+    const preview=page.getByRole('dialog',{name:'Gerçek yayın önizlemesi'});
+    await expect(preview).toBeVisible();
+    const sandboxed=preview.locator('iframe[data-testid="editor-live-publication-preview"]');
+    await expect(sandboxed).toHaveAttribute('sandbox','allow-popups allow-popups-to-escape-sandbox');
+    await expect(preview.getByTestId('preview-play-video')).toBeVisible();
+    await preview.getByTestId('preview-play-video').click();
+    const playerDialog=page.getByRole('dialog',{name:'YouTube videosunu oynat'});
+    await expect(playerDialog).toBeVisible();
+    await expect(playerDialog.getByTestId('preview-youtube-player'))
+      .toHaveAttribute('src','https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1');
+    await expect(playerDialog.getByRole('link',{name:"Oynatılmazsa YouTube'da aç"}))
+      .toHaveAttribute('href','https://www.youtube.com/watch?v='+id);
+    // Both touch-friendly close and Escape are covered on mobile layouts.
+    if(viewport.width===375)await playerDialog.getByRole('button',{name:'Video oynatıcıyı kapat'}).click();
+    else await page.keyboard.press('Escape');
+    await expect(playerDialog).toHaveCount(0);
+    await expect(preview).toBeVisible();
+    await preview.getByRole('button',{name:'Yayın önizlemesini kapat'}).click();
+    await expect(preview).toHaveCount(0);
+    await expect(page.getByPlaceholder('Bülten başlığı...')).toBeVisible();
+  });
+}
