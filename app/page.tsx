@@ -6,7 +6,7 @@ import {AccountAction} from '@/components/AccountAction';
 import {AudioFileField} from '@/components/AudioFileField';
 import {safeReaderLinkUrl} from '@/lib/reader-social-share';
 import {EditorAccessGate} from '@/components/EditorAccessGate';
-import {publisherAuthorizationHeaders} from '@/lib/supabase/client';
+import {browserAuthConfigured,publisherAuthorizationHeaders} from '@/lib/supabase/client';
 import {youtubeVideoId,youtubeWatchUrl} from '@/lib/video-thumbnail';
 import {safeNewsletterPreviewHtml} from '@/lib/safe-newsletter-preview';
 import { downloadNewsletterPdf, printNewsletter } from '@/lib/newsletter-pdf';
@@ -1498,6 +1498,20 @@ ${text}`;
    */
   const handleShareCurrent = async () => {
     if(shareBusy)return;
+    // Local-first mode must not try to upload assets or submit private writes
+    // before the owner has configured a verified publishing identity. Offer
+    // a complete standalone HTML export, never a fake public newsletter URL.
+    if(!browserAuthConfigured()){
+      setShareError('Çevrimiçi yayın için yetkili hesap doğrulaması henüz kurulmadı.');
+      if(window.confirm(
+        'BÜLTEN READ şifresiz olarak bülten hazırlamanıza izin veriyor, ancak '+
+        'internette bir /b/... yayın adresi oluşturmak için yalnızca izinli iki hesaptan biriyle '+
+        'giriş yapılması gerekir. Şimdilik bülteni paylaşabileceğiniz HTML dosyasını indirmek ister misiniz?'
+      )){
+        handleExport();
+      }
+      return;
+    }
     const snapshot=currentSnapshot();
     if(publication && lastSharedSnapshot.current===snapshot){
       setShareError('');
