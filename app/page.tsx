@@ -1579,8 +1579,13 @@ ${text}`;
       setShowShareModal(true);
     }catch(error){
       const message=error instanceof Error?error.message:'Yayınlama başarısız.';
-      setShareError(message);
-      alert(message+' Mevcut bülten taslağı korunuyor.');
+      if(browserAuthConfigured()&&message.includes('giriş yapın')){
+        setShareError('Çevrimiçi yayın için izinli hesabınızla giriş yapın. Taslağınız korunuyor.');
+        window.dispatchEvent(new Event('bulten-open-publisher-login'));
+      }else{
+        setShareError(message);
+        alert(message+' Mevcut bülten taslağı korunuyor.');
+      }
     }finally{setShareBusy(false);setShareProgress('');}
   };
 
