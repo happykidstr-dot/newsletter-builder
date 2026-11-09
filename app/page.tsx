@@ -1508,6 +1508,8 @@ ${text}`;
     const updating=Boolean(publication?.editToken);
     const confirmText=updating
       ? 'Bu bültenin yayımlanmış sürümü aynı bağlantıda güncellenecek. Okuyucular yeni içeriği görecek. Devam edilsin mi?'
+      : !browserAuthConfigured()
+      ? 'Çevrimiçi Yayınla işlemi şu anda yalnızca izinli hesaplara açık fakat hesap bağlantısı henüz kurulmadı. Devam ederseniz bülteni HTML olarak indirip paylaşma seçeneği sunulacak. Devam edilsin mi?'
       : 'Açık olan bültenin tamamı herkese açık bir web adresinde yayımlanacak. Bağlantıya sahip herkes okuyabilir ve paylaşabilir. Devam edilsin mi?';
     if(!window.confirm(confirmText))return;
     setShareBusy(true);setShareError('');
@@ -1565,8 +1567,7 @@ ${text}`;
       setShowShareModal(true);
     }catch(error){
       const message=error instanceof Error?error.message:'Yayınlama başarısız.';
-      if(!browserAuthConfigured()&&
-          /(yayıncı girişi|oturum|doğrulaması|kimliği|403|yetki|ses|görsel|yüklenemedi|medya)/i.test(message)){
+      if(!browserAuthConfigured()){
         setShareError('Çevrimiçi yayın henüz kurulmadı. Taslağınız kaydedildi; HTML veya PDF indirebilirsiniz.');
         if(window.confirm(
           'Çevrimiçi bülten adresi oluşturmak için onaylı yayıncı hesabının '+
