@@ -6,7 +6,7 @@ import {AccountAction} from '@/components/AccountAction';
 import {AudioFileField} from '@/components/AudioFileField';
 import {safeReaderLinkUrl} from '@/lib/reader-social-share';
 import {EditorAccessGate} from '@/components/EditorAccessGate';
-import {publisherAuthorizationHeaders} from '@/lib/supabase/client';
+import {browserAuthConfigured,publisherAuthorizationHeaders} from '@/lib/supabase/client';
 import {youtubeVideoId,youtubeWatchUrl} from '@/lib/video-thumbnail';
 import {safeNewsletterPreviewHtml} from '@/lib/safe-newsletter-preview';
 import { downloadNewsletterPdf, printNewsletter } from '@/lib/newsletter-pdf';
@@ -1508,6 +1508,8 @@ ${text}`;
     const updating=Boolean(publication?.editToken);
     const confirmText=updating
       ? 'Bu bültenin yayımlanmış sürümü aynı bağlantıda güncellenecek. Okuyucular yeni içeriği görecek. Devam edilsin mi?'
+      : !browserAuthConfigured()
+      ? 'Çevrimiçi Yayınla işlemi şu anda yalnızca izinli hesaplara açık fakat hesap bağlantısı henüz kurulmadı. Devam ederseniz bülteni HTML olarak indirip paylaşma seçeneği sunulacak. Devam edilsin mi?'
       : 'Açık olan bültenin tamamı herkese açık bir web adresinde yayımlanacak. Bağlantıya sahip herkes okuyabilir ve paylaşabilir. Devam edilsin mi?';
     if(!window.confirm(confirmText))return;
     setShareBusy(true);setShareError('');
@@ -1565,8 +1567,20 @@ ${text}`;
       setShowShareModal(true);
     }catch(error){
       const message=error instanceof Error?error.message:'Yayınlama başarısız.';
-      setShareError(message);
-      alert(message+' Mevcut bülten taslağı korunuyor.');
+      if(!browserAuthConfigured()){
+        setShareError('Çevrimiçi yayın henüz kurulmadı. Taslağınız kaydedildi; HTML veya PDF indirebilirsiniz.');
+        if(window.confirm(
+          'Çevrimiçi bülten adresi oluşturmak için onaylı yayıncı hesabının '+
+          'kurulması gerekiyor. Şifresiz hazırlama kullanılabilir. '+
+          'Şimdilik bülteninizin HTML dosyasını indirmek ister misiniz?'
+        ))handleExport();
+      }else if(browserAuthConfigured()&&message.includes('giriş yapın')){
+        setShareError('Çevrimiçi yayın için izinli hesabınızla giriş yapın. Taslağınız korunuyor.');
+        window.dispatchEvent(new Event('bulten-open-publisher-login'));
+      }else{
+        setShareError(message);
+        alert(message+' Mevcut bülten taslağı korunuyor.');
+      }
     }finally{setShareBusy(false);setShareProgress('');}
   };
 
