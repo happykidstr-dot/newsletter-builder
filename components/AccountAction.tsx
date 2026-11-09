@@ -41,6 +41,17 @@ function ConfiguredAccount(){
     return ()=>{cancelAnimationFrame(raf);previous?.focus();};
   },[open,mode]);
 
+  // The editor can stay passwordless while a publisher signs in ONLY when
+  // they choose to publish. This event does not grant any server permission.
+  React.useEffect(()=>{
+    const openPublisherSignIn=()=>{
+      setMode('login');setMessage('Çevrimiçi yayın için onaylı hesabınızla giriş yapın.');
+      setPassword('');setOpen(true);
+    };
+    window.addEventListener('bulten-open-publisher-login',openPublisherSignIn);
+    return ()=>window.removeEventListener('bulten-open-publisher-login',openPublisherSignIn);
+  },[]);
+
   React.useEffect(()=>{
     if(new URLSearchParams(window.location.search).get('auth_error')==='callback'){
       setMessage('Giriş bağlantısı doğrulanamadı veya süresi doldu. Yeniden deneyin.');
@@ -196,7 +207,10 @@ export function AccountAction(){
   // Do not display a login warning in the default passwordless editor.
   // A password/account UI becomes relevant only when the owner enables the
   // explicit private-mode setting later.
-  if(process.env.NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN!=='true')return null;
+  // In open-editor mode the account button stays hidden until Supabase Auth
+  // is actually configured. Once configured, approved publishers can sign in
+  // when they want to publish without locking local editing for anyone else.
+  if(process.env.NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN!=='true'&&!browserAuthConfigured())return null;
   if(!browserAuthConfigured())return <span
     role="status" title="Supabase URL ve publishable key Netlify ortam değişkenlerine eklenmeli."
     style={{fontSize:11,color:'#64748b',padding:'6px 8px',border:'1px dashed #cbd5e1',borderRadius:7}}>
