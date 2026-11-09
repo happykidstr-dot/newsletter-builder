@@ -1498,20 +1498,6 @@ ${text}`;
    */
   const handleShareCurrent = async () => {
     if(shareBusy)return;
-    // Local-first mode must not try to upload assets or submit private writes
-    // before the owner has configured a verified publishing identity. Offer
-    // a complete standalone HTML export, never a fake public newsletter URL.
-    if(!browserAuthConfigured()){
-      setShareError('Çevrimiçi yayın için yetkili hesap doğrulaması henüz kurulmadı.');
-      if(window.confirm(
-        'BÜLTEN READ şifresiz olarak bülten hazırlamanıza izin veriyor, ancak '+
-        'internette bir /b/... yayın adresi oluşturmak için yalnızca izinli iki hesaptan biriyle '+
-        'giriş yapılması gerekir. Şimdilik bülteni paylaşabileceğiniz HTML dosyasını indirmek ister misiniz?'
-      )){
-        handleExport();
-      }
-      return;
-    }
     const snapshot=currentSnapshot();
     if(publication && lastSharedSnapshot.current===snapshot){
       setShareError('');
@@ -1579,7 +1565,15 @@ ${text}`;
       setShowShareModal(true);
     }catch(error){
       const message=error instanceof Error?error.message:'Yayınlama başarısız.';
-      if(browserAuthConfigured()&&message.includes('giriş yapın')){
+      if(!browserAuthConfigured()&&
+          /(yayıncı girişi|oturum|doğrulaması|kimliği|403|yetki|ses|görsel|yüklenemedi|medya)/i.test(message)){
+        setShareError('Çevrimiçi yayın henüz kurulmadı. Taslağınız kaydedildi; HTML veya PDF indirebilirsiniz.');
+        if(window.confirm(
+          'Çevrimiçi bülten adresi oluşturmak için onaylı yayıncı hesabının '+
+          'kurulması gerekiyor. Şifresiz hazırlama kullanılabilir. '+
+          'Şimdilik bülteninizin HTML dosyasını indirmek ister misiniz?'
+        ))handleExport();
+      }else if(browserAuthConfigured()&&message.includes('giriş yapın')){
         setShareError('Çevrimiçi yayın için izinli hesabınızla giriş yapın. Taslağınız korunuyor.');
         window.dispatchEvent(new Event('bulten-open-publisher-login'));
       }else{
