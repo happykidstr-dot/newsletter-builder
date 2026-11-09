@@ -118,8 +118,11 @@ body {
   .wk-a11y-fab { display: none !important; }
 }
 
-/* BÜLTEN READ: real single-column editor on narrow touch screens. */
-@media (max-width: 900px) {
+/* BÜLTEN READ: single-pane workspace on phones AND portrait/landscape
+   tablets. The three 240px / fluid / 280px panels leave only ~504px for the
+   canvas at a 1024px iPad viewport, making editing and video preview cramped.
+   Keep the three-column desktop editor only above 1100px. */
+@media (max-width: 1100px) {
   .bulten-editor-root { min-height: 0 !important; height: calc(100dvh - 60px) !important; }
   .bulten-mobile-nav { display: flex !important; flex-shrink: 0; }
   .bulten-editor-layout {
@@ -143,6 +146,10 @@ body {
     overflow-y: auto !important;
   }
   .bulten-editor-layout > .bulten-properties.is-mobile-active { padding-bottom: 24px; }
+  /* The header may wrap onto several rows on tablets. Do not let intrinsic
+     input/button widths push the entire page sideways. */
+  .bulten-editor-root > div:first-child { max-width:100%; }
+  .bulten-editor-root > div:first-child input { max-width:100%; min-width:0; }
 }
 @media (max-width: 560px) {
   .bulten-editor-root > div:first-child { padding: 8px !important; }
