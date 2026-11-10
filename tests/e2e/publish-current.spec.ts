@@ -68,7 +68,7 @@ test('edited newsletter updates the SAME public URL with its private edit token'
   await page.getByRole('button',{name:'Paylaşım penceresini kapat'}).click();
   await title.fill('Değiştirilmiş Bülten');
   await page.getByRole('button',{name:'Yayını güncelle'}).click();
-  expect(posted).toHaveLength(2);
+  await expect.poll(()=>posted.length).toBe(2);
   expect(posted[0].slug).toBeUndefined();
   expect(posted[1].slug).toBe('AQIDBAUGBwgJCgsM');
   expect(posted[1].editToken).toBe('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
@@ -85,4 +85,18 @@ test('server publication failure shows an error but does not claim a public URL 
   page.on('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'Bülteni yayınla'}).click();
   await expect(page.getByRole('dialog',{name:'Bu Bülteni Paylaş'})).toHaveCount(0);
+});
+
+test('immediate reload after publishing preserves the private update capability',async({page})=>{
+  await page.goto('/');
+  await page.route('**/api/publish',route=>route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({slug:'AQIDBAUGBwgJCgsM',editToken:'A'.repeat(43),revision:1})}));
+  page.on('dialog',dialog=>dialog.accept());
+  await page.getByPlaceholder('Bülten başlığı...').fill('Kalıcı Yayın Yetkisi');
+  await page.getByRole('button',{name:'Bülteni yayınla'}).click();
+  await expect(page.getByRole('dialog',{name:'Bu Bülteni Paylaş'})).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button',{name:'Yayını güncelle'})).toBeVisible();
+  await expect(page.getByPlaceholder('Bülten başlığı...')).toHaveValue('Kalıcı Yayın Yetkisi');
+  await page.getByRole('button',{name:'Mevcut bülteni paylaş'}).click();
+  await expect(page.getByRole('textbox',{name:'Yayımlanmış bülten adresi'})).toHaveValue(/AQIDBAUGBwgJCgsM/);
 });

@@ -1,4 +1,4 @@
-// Verifies a REAL Netlify deploy preview is locked to approved Supabase publishers.
+// Verifies the real preview private APIs and anonymous publishing acceptance.
 // No synthetic newsletter is published by unauthenticated CI runners.
 import assert from 'node:assert/strict';
 
@@ -86,7 +86,7 @@ const badUnsubscribe=await fetch(BASE+'/api/unsubscribe?t=fake',{
 assert.equal(badUnsubscribe.status,400,'Invalid unsubscribe token must not change subscriber data.');
 
 
-// Only the two email-confirmed Supabase identities may publish.
+// Private editor access remains account-controlled; public writes need a proof.
 // The GitHub runner has no user credentials: verify a real preview rejects
 // every attempted anonymous write, rather than creating QA publications.
 const access=await fetch(BASE+'/api/editor-access',{signal:AbortSignal.timeout(20000)});
@@ -139,4 +139,4 @@ const invalidReader=await fetch(BASE+'/b/not-a-valid-id',{
 assert.equal(invalidReader.status,404,'Unrecognized reader URL should not expose content.');
 
 console.log('PASS: real Netlify preview blocks unauthorised editor, uploads, publish and unpublish.');
-console.log('NOTE: approved-owner publishing requires a separately configured Supabase Auth account and private acceptance test.');
+await import('./verify-anonymous-publish.mjs');

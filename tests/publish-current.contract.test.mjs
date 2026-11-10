@@ -56,7 +56,7 @@ test('API limits uploads and source origin and anonymous publishing frequency',(
   assert.match(api,/MAX_BYTES/);
   assert.match(api,/allowedSiteOrigin\(origin\)/);
   assert.match(api,/checkPublishQuota/);
-  assert.match(storage,/current\.count >= 12/);
+  assert.match(storage,/reserveQuota\(rateStore\(hostname\),key,0,12,0\)/);
 });
 
 test('Netlify public origins and preview domains are validated before publishing',()=>{

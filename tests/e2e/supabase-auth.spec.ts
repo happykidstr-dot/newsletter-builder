@@ -31,7 +31,7 @@ test('passwordless mode saves drafts locally and downloads standalone HTML witho
   await page.getByTestId('advanced-tools-toggle').click();
   const [download]=await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button',{name:/HTML/}).click(),
+    page.getByRole('button',{name:/⬇️ HTML/}).click(),
   ]);
   expect(download.suggestedFilename()).toMatch(/\.html$/);
   const {readFileSync}=await import('node:fs');

@@ -25,7 +25,7 @@ test('HTML download retains native audio player and permanent listening/download
   await addLinkedAudio(page);
   await page.getByTestId('advanced-tools-toggle').click();
   const [download]=await Promise.all([page.waitForEvent('download'),
-    page.getByRole('button',{name:/HTML/}).click()]);
+    page.getByRole('button',{name:/⬇️ HTML/}).click()]);
   const html=readFileSync((await download.path())!,'utf8');
   expect(html).toContain('class="bulten-audio-block"');
   expect(html).toContain('<audio controls preload="metadata"');

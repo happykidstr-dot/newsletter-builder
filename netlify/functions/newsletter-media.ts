@@ -1,9 +1,9 @@
 import type {Config,Context} from '@netlify/functions';
 import {allowedSiteOrigin} from '../../lib/publication-origin';
 import {servePublicMedia,storePublicMedia} from '../../lib/public-newsletter-media';
-import {verifyNetlifyPublisher} from '../../lib/security/netlify-publisher';
+import {verifyAnonymousWrite} from '../../lib/anonymous-publish-guard';
 
-export const config:Config={path:['/api/media','/media/:asset']};
+export const config:Config={path:['/api/media','/media/:asset'],rateLimit:{windowLimit:300,windowSize:60,aggregateBy:['ip','domain']}};
 
 const MAX_JSON_BYTES=3_600_000;
 const json=(value:unknown,status:number)=>Response.json(value,{
@@ -25,8 +25,7 @@ export default async function publicMedia(req:Request,context:Context):Promise<R
     const origin=req.headers.get('origin');
     if(!origin||!allowedSiteOrigin(origin)||new URL(origin).hostname!==host)
       return json({error:'Görsel yüklemek için bülten editörünü kullanın.'},403);
-    const publisher=await verifyNetlifyPublisher(req);
-    if(publisher.error)return json({error:publisher.error},publisher.status);
+    const verification=await verifyAnonymousWrite(req);if(verification)return verification;
     if(req.headers.get('content-type')?.split(';')[0]!=='application/json')
       return json({error:'JSON isteği gerekli.'},415);
     if(Number(req.headers.get('content-length')||0)>MAX_JSON_BYTES)

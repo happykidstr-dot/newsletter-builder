@@ -6,9 +6,11 @@ import {sanitiseNewsletterBody, renderPublishedNewsletter} from '../../lib/publi
 import {allowedSiteOrigin} from '../../lib/publication-origin';
 import {createClient} from '@supabase/supabase-js';
 import {verifyNetlifyPublisher} from '../../lib/security/netlify-publisher';
+import {verifyAnonymousWrite} from '../../lib/anonymous-publish-guard';
 
 export const config:Config = {
   path:['/api/publish','/api/unpublish','/b/:slug'],
+  rateLimit:{windowLimit:300,windowSize:60,aggregateBy:['ip','domain']},
 };
 
 const MAX_BYTES=5_700_000;
@@ -44,10 +46,11 @@ export default async (req:Request,context:Context):Promise<Response>=>{
   const host=new URL(req.url).hostname;
   if(req.method==='POST'&&new URL(req.url).pathname==='/api/publish'){
     const origin=req.headers.get('origin')||'';
-    if(!allowedSiteOrigin(origin))return reply({error:'Yayınlama yalnızca BÜLTEN READ editöründen yapılabilir.'},403);
+    if(!allowedSiteOrigin(origin)||new URL(origin).hostname!==host)return reply({error:'Yayınlama yalnızca BÜLTEN READ editöründen yapılabilir.'},403);
     if(req.headers.get('content-type')?.split(';')[0]!=='application/json')
       return reply({error:'JSON isteği gerekli.'},415);
     try{
+      const verification=await verifyAnonymousWrite(req);if(verification)return verification;
       const body=await parseBoundedRequest(req);
       if(typeof body?.html!=='string'||body.html.length>MAX_BYTES||
         typeof body?.title!=='string'||!body.title.trim()||body.title.length>180||
@@ -55,9 +58,6 @@ export default async (req:Request,context:Context):Promise<Response>=>{
         typeof body?.headerImgUrl!=='string'||body.headerImgUrl.length>3000){
         return reply({error:'Bülten bilgileri geçersiz veya çok uzun.'},400);
       }
-      const decision=await verifyNetlifyPublisher(req);
-      if(decision.error)return reply({error:decision.error},decision.status);
-      const owner=decision.userId;
       const clean=sanitiseNewsletterBody(body.html);
       const ip=req.headers.get('x-nf-client-connection-ip')||
         req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'anonymous';
@@ -72,8 +72,12 @@ export default async (req:Request,context:Context):Promise<Response>=>{
       if(editing && !previous)return reply({error:'Yayınlanmış bülten bulunamadı.'},404);
       if(editing && !matchesEditToken(body.editToken,previous?.editTokenHash))
         return reply({error:'Bu yayını değiştirmek için düzenleme yetkisi gerekiyor.'},403);
-      if(editing&&previous?.ownerUserId&&previous.ownerUserId!==owner)
-        return reply({error:'Bu yayın farklı bir kullanıcı hesabına ait.'},403);
+      if(previous?.ownerUserId){
+        const decision=await verifyNetlifyPublisher(req);
+        if(decision.error)return reply({error:decision.error},decision.status);
+        if(previous.ownerUserId!==decision.userId)
+          return reply({error:'Bu yayın farklı bir kullanıcı hesabına ait.'},403);
+      }
       if(editing && Number.isInteger(body.expectedRevision) &&
          body.expectedRevision!==(previous?.revision||1))
         return reply({error:'Bu bülten başka bir oturumda güncellenmiş. Son sürümü açıp tekrar deneyin.'},409);
@@ -86,7 +90,7 @@ export default async (req:Request,context:Context):Promise<Response>=>{
         updatedAt:timestamp,
         revision:(previous?.revision||0)+1,
         editTokenHash:previous?.editTokenHash||credential!.hash,
-        ownerUserId:previous?.ownerUserId||owner,
+        ownerUserId:previous?.ownerUserId,
       };
       await store.setJSON(slug,record);
       return reply({
@@ -108,8 +112,7 @@ export default async (req:Request,context:Context):Promise<Response>=>{
     if(req.headers.get('content-type')?.split(';')[0]!=='application/json')
       return reply({error:'JSON bekleniyor.'},415);
     try{
-      const decision=await verifyNetlifyPublisher(req);
-      if(decision.error)return reply({error:decision.error},decision.status);
+      const verification=await verifyAnonymousWrite(req);if(verification)return verification;
       const raw=await req.text();
       if(raw.length>4_000)return reply({error:'İstek çok büyük.'},413);
       const body=JSON.parse(raw);
@@ -117,8 +120,12 @@ export default async (req:Request,context:Context):Promise<Response>=>{
       const store=publicationStore(host);
       const existing=await store.get(body.slug,{type:'json'}) as PublishedNewsletter|null;
       if(!existing)return reply({error:'Bülten bulunamadı.'},404);
-      if(existing.ownerUserId&&existing.ownerUserId!==decision.userId)
-        return reply({error:'Bu yayın başka kullanıcı hesabına ait.'},403);
+      if(existing.ownerUserId){
+        const decision=await verifyNetlifyPublisher(req);
+        if(decision.error)return reply({error:decision.error},decision.status);
+        if(existing.ownerUserId!==decision.userId)
+          return reply({error:'Bu yayın başka kullanıcı hesabına ait.'},403);
+      }
       if(!matchesEditToken(body.editToken,existing.editTokenHash))
         return reply({error:'Bu bülteni yayından kaldırma yetkiniz yok.'},403);
       await store.delete(body.slug);

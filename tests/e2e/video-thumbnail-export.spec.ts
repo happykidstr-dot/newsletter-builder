@@ -34,7 +34,7 @@ test('downloaded HTML shows a true YouTube still image, watch link and on-page p
   await page.getByTestId('advanced-tools-toggle').click();
   const [download]=await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button',{name:/HTML/}).click(),
+    page.getByRole('button',{name:/⬇️ HTML/}).click(),
   ]);
   const file=await download.path();
   const html=readFileSync(file!,'utf8');

@@ -74,7 +74,7 @@ test('actual template HTML preview and exported newsletter use the same content 
   page.once('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:/Örnek içerikle yeni bülten oluştur/}).click();
   await page.getByTestId('advanced-tools-toggle').click();
-  const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:/HTML/}).click()]);
+  const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:/⬇️ HTML/}).click()]);
   const html=readFileSync((await download.path())!,'utf8');
   expect(html).toContain('<h1 style=');
   expect(html).toContain(previewTitle);

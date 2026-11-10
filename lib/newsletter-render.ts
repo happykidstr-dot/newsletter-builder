@@ -1,3 +1,4 @@
+import {sanitiseHtmlBlock} from './safe-html-block';
 import { escapeShareHtml, normalisePublicNewsletterUrl, readerShareBar, READER_SHARE_RUNTIME, safeReaderImageUrl, safeReaderLinkUrl } from './reader-social-share';
 import {youtubeVideoId,youtubePosterUrl,youtubeWatchUrl} from './video-thumbnail';
 
@@ -12,6 +13,7 @@ export type NewsletterRenderOptions = {
 };
 export function renderNewsletterHTML({blocks,D,title,subtitle,showTOC,headerImgUrl,logoUrl,lang,publicNewsletterUrl}:NewsletterRenderOptions):string {
     const blockHtml = blocks.map(b=>{
+      if(b.type==='html')return `<section class="bulten-html-block">${sanitiseHtmlBlock(b.data.html||'')}</section>`;
       const d:Record<string,string> = Object.fromEntries(Object.entries(b.data).map(([k,raw])=>{
         const value=String(raw??'');
         if(k==='size') return [k,['h1','h2','h3'].includes(value)?value:'h2'];

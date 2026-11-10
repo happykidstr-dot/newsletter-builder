@@ -1,4 +1,3 @@
-import type {NextRequest} from 'next/server';
 
 function parsed(value:string|undefined|null):URL|null{
   if(!value)return null;
@@ -29,7 +28,7 @@ export function allowedSiteOrigin(value:string):boolean {
 }
 
 /** The actual browser-facing URL is not necessarily equal to NextRequest.url. */
-export function publicOriginForRequest(req:NextRequest):string {
+export function publicOriginForRequest(req:Request):string {
   const clientOrigin=req.headers.get('origin');
   if(clientOrigin&&allowedSiteOrigin(clientOrigin))return new URL(clientOrigin).origin;
   const candidates=[

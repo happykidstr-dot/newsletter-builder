@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {publicationStore, checkPublishQuota, type PublishedNewsletter} from '@/lib/newsletter-publication-store';
 import {sanitiseNewsletterBody} from '@/lib/public-newsletter-render';
 import {allowedSiteOrigin, publicOriginForRequest} from '@/lib/publication-origin';
-import {requireAuthorizedPublisher} from '@/lib/security/access';
+import {verifyAnonymousWrite} from '@/lib/anonymous-publish-guard';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,9 +42,8 @@ export async function POST(req:NextRequest){
     return NextResponse.json({error:'JSON isteği gerekli.'},{status:415});
   }
   try{
-    const identity=await requireAuthorizedPublisher();
-    if(identity.error)return identity.error;
-    const verifiedPublisher=identity.userId;
+    const verification=await verifyAnonymousWrite(req);
+    if(verification)return verification;
     const publicOrigin=publicOriginForRequest(req);
     const raw=await readWithLimit(req);
     const body=JSON.parse(raw);
@@ -69,8 +68,9 @@ export async function POST(req:NextRequest){
     if(editing&&!previous)return NextResponse.json({error:'Yayınlanmış bülten bulunamadı.'},{status:404});
     if(editing&&!matchesEditToken(body.editToken,previous?.editTokenHash))
       return NextResponse.json({error:'Bu bülten için düzenleme yetkiniz yok.'},{status:403});
-    if(editing&&previous?.ownerUserId&&previous.ownerUserId!==verifiedPublisher)
-      return NextResponse.json({error:'Bu yayın farklı bir kullanıcı hesabına ait.'},{status:403});
+    // Legacy account-owned publications remain account-managed, never anonymously editable.
+    if(editing&&previous?.ownerUserId)
+      return NextResponse.json({error:'Bu eski yayın hesap sahibi tarafından yönetiliyor.'},{status:403});
     if(editing&&Number.isInteger(body.expectedRevision)&&body.expectedRevision!==(previous?.revision||1))
       return NextResponse.json({error:'Yayının daha yeni bir sürümü bulunuyor.'},{status:409});
     const credential=editing?null:newPublicationCredential();
@@ -80,7 +80,7 @@ export async function POST(req:NextRequest){
       headerImgUrl:body.headerImgUrl,createdAt:previous?.createdAt||timestamp,
       updatedAt:timestamp,revision:(previous?.revision||0)+1,
       editTokenHash:previous?.editTokenHash||credential!.hash,
-      ownerUserId:previous?.ownerUserId||verifiedPublisher,
+      ownerUserId:previous?.ownerUserId,
     };
     await store.setJSON(slug,record);
     return NextResponse.json({
