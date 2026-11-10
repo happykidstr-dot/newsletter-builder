@@ -4,10 +4,13 @@ for(const [name,width,height] of [['desktop',1366,900],['tablet',820,1180],['mob
   test(`safe HTML content edits, persists and exports on ${name}`,async({page})=>{
     await page.setViewportSize({width,height});
     await page.goto('/');
+    const nav=page.getByRole('navigation',{name:'Mobil editör panelleri'});
+    if(await nav.isVisible())await nav.getByRole('button',{name:/İçerik/}).click();
     await page.getByRole('button',{name:'Gelişmiş',exact:true}).click();
     await page.getByRole('button',{name:'</> HTML',exact:true}).click();
     const field=page.getByLabel('HTML içeriği',{exact:true});
     await field.fill('<p>Denetim <strong>HTML içeriği</strong></p><script>window.htmlInjected=true</script><img src="x" onerror="window.htmlInjected=true">');
+    if(await nav.isVisible())await nav.getByRole('button',{name:/Bülten/}).click();
     await expect(page.getByText('Denetim HTML içeriği',{exact:true})).toBeVisible();
     expect(await page.evaluate(()=>Boolean((window as any).htmlInjected))).toBe(false);
     await page.getByRole('button',{name:'💾 Kaydet',exact:true}).click();
