@@ -173,3 +173,14 @@ test('social preview exists without a header, follows revisions and only loads o
   assert.equal(socialCoverPath({...row,headerImgUrl:origin+'/api/account/privacy'},origin),'');
   assert.equal(socialCoverPath({...row,bodyHtml:'<img src="'+origin+'/media/'+ 'A'.repeat(22)+'">'},origin),'/media/'+'A'.repeat(22));
 });
+
+test('public preview data exposes only published content and never ownership credentials',async()=>{
+  let row={version:1,title:'Public title',subtitle:'News',bodyHtml:'<p>Public content</p>',headerImgUrl:'',revision:3,ownerUserId:'private-owner',editTokenHash:'private-hash'};
+  const handler=load('netlify/functions/newsletter-preview-data.ts',{'../../lib/newsletter-publication-store':{publicationStore:()=>({get:async()=>row})}}).default;
+  const req=new Request(origin+'/api/share-image-data/AQIDBAUGBwgJCgsM');
+  const response=await handler(req,{params:{slug:'AQIDBAUGBwgJCgsM'}});assert.equal(response.status,200);
+  const data=await response.json();assert.deepEqual(Object.keys(data).sort(),['version','title','subtitle','bodyHtml','headerImgUrl','revision'].sort());
+  assert.ok(!JSON.stringify(data).includes('private-'));
+  row=null;assert.equal((await handler(req,{params:{slug:'AQIDBAUGBwgJCgsM'}})).status,404);
+  assert.equal((await handler(req,{params:{slug:'invalid'}})).status,404);
+});

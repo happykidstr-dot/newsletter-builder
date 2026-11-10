@@ -1,35 +1,32 @@
 import {createHash} from 'node:crypto';
 import {NextRequest} from 'next/server';
-import {publicationStore,mediaStore,type PublishedNewsletter} from '@/lib/newsletter-publication-store';
+import type {PublishedNewsletter} from '@/lib/newsletter-publication-store';
 import {publicOriginForRequest} from '@/lib/publication-origin';
-import {servePublicMedia} from '@/lib/public-newsletter-media';
 import {socialCoverPath} from '@/lib/social-preview';
 import {renderSocialPreview} from '@/lib/social-preview-image';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
+// Bounded warm-instance cache; publication existence is checked first.
+const cache=new Map<string,ArrayBuffer>();
 
 export async function GET(req:NextRequest,{params}:{params:Promise<{slug:string}>}){
   const {slug}=await params;
   if(!/^[A-Za-z0-9_-]{16}$/.test(slug))return new Response('Bülten bulunamadı.',{status:404});
   try{
-    const origin=publicOriginForRequest(req),host=new URL(origin).hostname;
-    const record=await publicationStore(host).get(slug,{type:'json'}) as PublishedNewsletter|null;
-    if(!record||record.version!==1||typeof record.title!=='string'||typeof record.bodyHtml!=='string')
-      return new Response('Bülten bulunamadı.',{status:404,headers:{'Cache-Control':'no-store'}});
-    const imageStore=mediaStore(host),cacheKey='social-preview-v1-'+slug;
-    const fingerprint=createHash('sha256').update(JSON.stringify([record.title,record.subtitle,record.bodyHtml,record.headerImgUrl,record.revision])).digest('hex');
+    const origin=publicOriginForRequest(req);
+    const data=await fetch(origin+'/api/share-image-data/'+slug,{cache:'no-store',redirect:'error',signal:AbortSignal.timeout(8000)});
+    if(!data.ok)return new Response('Bülten bulunamadı.',{status:data.status===404?404:503,headers:{'Cache-Control':'no-store'}});
+    const record=await data.json() as PublishedNewsletter;
+    if(record.version!==1||typeof record.title!=='string'||typeof record.bodyHtml!=='string')throw Error('Invalid preview data');
+    const fingerprint=createHash('sha256').update(origin+JSON.stringify(record)).digest('hex');
     const headers={'Content-Type':'image/png','Cache-Control':'public, max-age=0, must-revalidate','X-Content-Type-Options':'nosniff'};
-    try{
-      const cached=await imageStore.getWithMetadata(cacheKey,{type:'blob'});
-      if(cached?.data&&cached.metadata?.fingerprint===fingerprint)return new Response(cached.data as Blob,{headers});
-    }catch{/* Rendering is still possible if the optional image cache fails. */}
+    const cached=cache.get(fingerprint);if(cached)return new Response(cached,{headers});
     let cover:string|undefined;
     const path=socialCoverPath(record,origin);
     if(path){
       try{
-        const response=path.startsWith('/media/')?await servePublicMedia(path.slice(7),host):
-          await fetch(origin+path,{redirect:'error',signal:AbortSignal.timeout(4000)});
+        const response=await fetch(origin+path,{redirect:'error',signal:AbortSignal.timeout(4000)});
         const mime=response.headers.get('content-type')?.split(';')[0]||'';
         if(response.ok&&/^image\/(?:png|jpeg|webp|gif)$/.test(mime)){
           const reader=response.body?.getReader();let total=0;const chunks:Uint8Array[]=[];
@@ -42,8 +39,10 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{slug:string}
     let png:ArrayBuffer;
     try{png=await renderSocialPreview(record,cover).arrayBuffer();}
     catch{png=await renderSocialPreview(record).arrayBuffer();}
-    try{await imageStore.set(cacheKey,new Blob([new Uint8Array(png)],{type:'image/png'}),{metadata:{fingerprint}});}
-    catch{/* A cache write must not hide a successfully rendered cover. */}
+    if(png.byteLength<=2_500_000){
+      if(cache.size>=8)cache.delete(cache.keys().next().value!);
+      cache.set(fingerprint,png);
+    }
     return new Response(png,{headers});
   }catch(error){
     console.error('Share image unavailable:',error instanceof Error?error.message:'unknown');
