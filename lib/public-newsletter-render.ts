@@ -1,6 +1,7 @@
 import {randomBytes} from 'node:crypto';
 import sanitizeHtml from 'sanitize-html';
 import {escapeShareHtml, normalisePublicNewsletterUrl, readerShareBar, READER_SHARE_RUNTIME} from './reader-social-share';
+import {socialPreviewImageUrl,SOCIAL_IMAGE_WIDTH,SOCIAL_IMAGE_HEIGHT} from './social-preview';
 import type {PublishedNewsletter} from './newsletter-publication-store';
 
 const allowedTags = [
@@ -91,8 +92,12 @@ export function renderPublishedNewsletter(
   const description=escapeShareHtml(record.subtitle||'Project Factory bülteni');
   const canonical=normalisePublicNewsletterUrl(url);
   const safeUrl=escapeShareHtml(canonical);
-  const image=normalisePublicNewsletterUrl(record.headerImgUrl||'');
-  const metaImage=image?`<meta property="og:image" content="${escapeShareHtml(image)}">`:'';
+  const image=socialPreviewImageUrl(record,canonical);
+  const metaImage=image?`<meta property="og:image" content="${escapeShareHtml(image)}">
+<meta property="og:image:secure_url" content="${escapeShareHtml(image)}">
+<meta property="og:image:type" content="image/png"><meta property="og:image:width" content="${SOCIAL_IMAGE_WIDTH}"><meta property="og:image:height" content="${SOCIAL_IMAGE_HEIGHT}">
+<meta property="og:image:alt" content="${title}">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${title}"><meta name="twitter:description" content="${description}"><meta name="twitter:image" content="${escapeShareHtml(image)}">`:'';
   const shareBar=readerShareBar(record.title,canonical);
   const shareSlug=canonical.match(/\/b\/([A-Za-z0-9_-]{16})(?:[?#]|$)/)?.[1]||'';
   const editHref=shareSlug?`/?edit=${encodeURIComponent(shareSlug)}`:'/';

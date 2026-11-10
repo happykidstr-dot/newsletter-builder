@@ -156,3 +156,20 @@ test('native proof is signed, origin/client/action bound, expiring and atomicall
     assert.equal((await verifyNativePublishProof(request('/api/publish',{}))).status,403);
   }finally{for(const k of Object.keys(process.env))if(!(k in env))delete process.env[k];Object.assign(process.env,env);}
 });
+
+
+test('social preview exists without a header, follows revisions and only loads owned raster assets',()=>{
+  const {renderPublishedNewsletter}=load('lib/public-newsletter-render.ts');
+  const {socialCoverPath}=load('lib/social-preview.ts');
+  const row={version:1,title:'Engelsiz Yaşam & Eğitim',subtitle:'Yeni sayı',headerImgUrl:'',bodyHtml:'<div id="bulten-reading-content"><p>Güncel haberler</p></div>',revision:1,editTokenHash:'never-public'};
+  const url=origin+'/b/AQIDBAUGBwgJCgsM';
+  const result=renderPublishedNewsletter(row,url).html;
+  assert.match(result,/<meta property="og:image" content="https:\/\/bultenoku.netlify.app\/api\/share-image\/AQIDBAUGBwgJCgsM\?v=1"/);
+  assert.match(result,/og:image:width" content="1200"/);assert.match(result,/og:image:height" content="630"/);
+  assert.match(result,/twitter:card" content="summary_large_image"/);assert.doesNotMatch(result,/never-public/);
+  assert.match(renderPublishedNewsletter({...row,revision:2},url).html,/share-image\/AQIDBAUGBwgJCgsM\?v=2/);
+  assert.equal(socialCoverPath({...row,headerImgUrl:'/bulten_resimler/kapak.jpg'},origin),'/bulten_resimler/kapak.jpg');
+  assert.equal(socialCoverPath({...row,headerImgUrl:'http://127.0.0.1/private'},origin),'');
+  assert.equal(socialCoverPath({...row,headerImgUrl:origin+'/api/account/privacy'},origin),'');
+  assert.equal(socialCoverPath({...row,bodyHtml:'<img src="'+origin+'/media/'+ 'A'.repeat(22)+'">'},origin),'/media/'+'A'.repeat(22));
+});
