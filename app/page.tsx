@@ -1579,6 +1579,8 @@ ${text}`;
       });
       if(!await persistSavedLocally(lightweight)){
         alert('Bülten yayımlandı ancak düzenleme kaydı bu tarayıcıda saklanamadı. Sayfadan ayrılmadan önce bir yedek alın.');
+      }else{
+        await saveLocalDraft({...lightweight,activeNewsletterId:lightweight.id});
       }
       setShowShareModal(true);
     }catch(error){
@@ -1617,6 +1619,7 @@ ${text}`;
       setPublication(null);setPublicNewsletterUrl('');lastSharedSnapshot.current='';
       const draft={...savedEntry(null,''),publication:null,publicNewsletterUrl:'',publishedSnapshot:''};
       await persistSavedLocally(draft);
+      await saveLocalDraft({...draft,activeNewsletterId:draft.id});
       setShowShareModal(false);
       alert('Yayın kaldırıldı. Düzenleme taslağınız kayıtlıdır. Daha önce ayrı yüklenmiş görseller için ayrıca veri silme talebi gerekebilir.');
     }catch(error){
@@ -1809,7 +1812,7 @@ ${text}`;
           <div style={{width:1,height:24,background:'#e2e8f0',margin:'0 4px'}}/>
           
           {process.env.NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN!=='true' &&
-            <span title="Şifresiz: yalnızca bu tarayıcıda kaydedilen taslaklar. Yayımlama ve sunucu yüklemeleri için yetkili hesap gerekir."
+            <span title="Taslaklar ve düzenleme anahtarınız bu tarayıcıda saklanır. Yayımlamak için hesap gerekmez; güvenlik kotaları uygulanır."
               style={{fontSize:11,color:'#475569',padding:'5px 9px',border:'1px solid #cbd5e1',borderRadius:7,whiteSpace:'nowrap'}}>
               🔓 Şifresiz · Yerel düzenleme
             </span>}

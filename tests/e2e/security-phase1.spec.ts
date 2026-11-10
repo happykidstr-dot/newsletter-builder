@@ -22,7 +22,8 @@ test('publish can be explicitly revoked only with its secret, preserving the edi
     return route.fulfill({status:200,contentType:'application/json',
       body:JSON.stringify({success:true,slug})});
   });
-  page.on('dialog',dialog=>dialog.accept());
+  let revoked=false;
+  page.on('dialog',dialog=>{if(dialog.message().startsWith('Yayın kaldırıldı.'))revoked=true;void dialog.accept();});
   await page.getByPlaceholder('Bülten başlığı...').fill('Yayından Kaldırma Denemesi');
   await page.getByRole('button',{name:'Bülteni yayınla'}).click();
   await page.getByRole('button',{name:'Paylaşım penceresini kapat'}).click();
@@ -30,5 +31,8 @@ test('publish can be explicitly revoked only with its secret, preserving the edi
   await expect.poll(()=>posted.length).toBe(1);
   expect(posted[0]).toEqual({slug,editToken:token});
   await expect(page.getByPlaceholder('Bülten başlığı...')).toHaveValue('Yayından Kaldırma Denemesi');
+  await expect(page.getByRole('button',{name:'Bülteni yayınla'})).toBeVisible();
+  await expect.poll(()=>revoked).toBe(true);
+  await page.reload();
   await expect(page.getByRole('button',{name:'Bülteni yayınla'})).toBeVisible();
 });

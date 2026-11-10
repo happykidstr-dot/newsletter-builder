@@ -12,7 +12,17 @@ async function proof(path){
   }
   throw Error('Work budget exhausted');
 }
-async function post(path,body,headers){return fetch(BASE+path,{method:'POST',headers:{Origin:BASE,'Content-Type':'application/json',...(headers||await proof(path))},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});}
+async function post(path,body,headers){
+  // A runner/mobile network may change egress IP between requests. Reissue once;
+  // never retry explicit/replay proofs or hide ownership/revision failures.
+  for(let attempt=0;attempt<2;attempt++){
+    const response=await fetch(BASE+path,{method:'POST',headers:{Origin:BASE,'Content-Type':'application/json',...(headers||await proof(path))},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
+    if(headers||attempt===1||response.status!==403)return response;
+    const detail=await response.clone().json().catch(()=>({}));
+    if(detail.code!=='proof_network_changed')return response;
+    console.log('Network changed during proof exchange; reissuing this operation once.');
+  }
+}
 const tinyPng='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL2VQAAAABJRU5ErkJggg==';
 const image=await post('/api/media',{mime:'image/png',base64:tinyPng});assert.equal(image.status,201,'Image upload failed');const photo=await image.json();
 assert.equal((await fetch(photo.url)).status,200);
@@ -35,7 +45,8 @@ try{
   assert.equal((await post('/api/unpublish',{slug:record.slug,editToken:'W'.repeat(43)})).status,403);
   const updated=await post('/api/publish',{...initial,title:'UPDATED acceptance',html:initial.html.replace('Native acceptance','Updated public content'),slug:record.slug,editToken:record.editToken,expectedRevision:1});assert.equal(updated.status,200);
   assert.equal((await updated.json()).url,record.url);assert.ok((await (await fetch(record.url)).text()).includes('Updated public content'));
-  assert.equal((await post('/api/publish',{...initial,slug:record.slug,editToken:record.editToken,expectedRevision:1})).status,409);
+  const stale=await post('/api/publish',{...initial,slug:record.slug,editToken:record.editToken,expectedRevision:1});
+  assert.equal(stale.status,409,'Stale revision: '+await stale.clone().text());
 }catch(error){console.error('Acceptance step failed:',error.message);throw error;}finally{
   const removed=await post('/api/unpublish',{slug:record.slug,editToken:record.editToken});
   const detail=await removed.clone().json().catch(()=>({}));

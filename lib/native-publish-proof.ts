@@ -21,7 +21,7 @@ async function signingKey(host:string):Promise<string>{
   return existing.secret;
 }
 function signature(payload:string,key:string){return createHmac('sha256',key).update(payload).digest('base64url');}
-function denial(message:string,status=403){return Response.json({error:message},{status,headers:{'Cache-Control':'no-store'}});}
+function denial(message:string,status=403,code?:string){return Response.json({error:message,...(code?{code}:{})},{status,headers:{'Cache-Control':'no-store'}});}
 function sameOrigin(req:Request):string|null {
   const origin=req.headers.get('origin')||'';
   if(!allowedSiteOrigin(origin))return null;
@@ -55,9 +55,10 @@ export async function verifyNativePublishProof(req:Request):Promise<Response|nul
     const expected=signature(payload,await signingKey(host));
     if(!timingSafeEqual(Buffer.from(sig),Buffer.from(expected)))return denial('Doğrulama geçersiz.');
     const value=JSON.parse(Buffer.from(payload,'base64url').toString('utf8'));
-    if(value.v!==1||value.origin!==origin||value.ip!==ipHash(req)||value.path!==new URL(req.url).pathname||value.bits!==BITS||
+    if(value.v!==1||value.origin!==origin||value.path!==new URL(req.url).pathname||value.bits!==BITS||
        typeof value.expires!=='number'||value.expires<Date.now()||value.expires>Date.now()+ttl+5000||! /^[a-f0-9]{32}$/.test(value.nonce))
       return denial('Doğrulama süresi dolmuş veya farklı bir işleme ait.');
+    if(value.ip!==ipHash(req))return denial('Ağ bağlantısı değişti. Yeniden deneyin.',403,'proof_network_changed');
     const hash=createHash('sha256').update(ticket+'.'+counter).digest();
     if(hash[0]!==0||hash[1]!==0||hash[2]>=64)return denial('Doğrulama hesaplaması geçersiz.');
     const store=abuseStore(host);

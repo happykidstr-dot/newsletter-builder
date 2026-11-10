@@ -5,7 +5,7 @@ export function anonymousPublishingEnabled():boolean {
   return process.env.ENABLE_ANONYMOUS_PUBLISHING!=='false';
 }
 
-/** Turnstile verification is mandatory for every anonymous write. Fail closed. */
+/** Every anonymous write requires a valid native proof or optional Turnstile. */
 export async function verifyAnonymousWrite(req:Request):Promise<Response|null> {
   if(!anonymousPublishingEnabled())
     return Response.json({error:'Anonim yayınlama henüz etkinleştirilmedi.'},{status:503});
