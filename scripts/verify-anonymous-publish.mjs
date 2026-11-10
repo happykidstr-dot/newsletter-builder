@@ -28,14 +28,27 @@ const audioRead=await fetch(BASE+sound.url,{headers:{Range:'bytes=0-43'}});asser
 const initial={title:'BültenOku gerçek anonim kabul testi',subtitle:'Disposable automated acceptance',headerImgUrl:'',html:`<html><body><div id="bulten-reading-content"><h1>Native acceptance</h1><img src="${photo.url}" onerror="auditXssHandler()"><audio controls src="${BASE+sound.url}"></audio><script>auditXssScript()</script></div></body></html>`};
 const firstProof=await proof('/api/publish');const created=await post('/api/publish',initial,firstProof);assert.equal(created.status,201,'Anonymous publish failed: '+await created.clone().text());
 const record=await created.json();assert.match(record.slug,/^[A-Za-z0-9_-]{16}$/);assert.match(record.editToken,/^[A-Za-z0-9_-]{43}$/);
+let socialImage='';
 try{
   const reader=await fetch(record.url,{headers:{'User-Agent':'Mozilla/5.0 independent-reader'}});assert.equal(reader.status,200);
   const page=await reader.text();assert.ok(page.includes('Native acceptance'));assert.ok(!page.includes('auditXssHandler')&&!page.includes('auditXssScript')&&!page.includes(record.editToken));assert.match(reader.headers.get('content-security-policy')||'',/sandbox/);
+  const imageMatch=page.match(/<meta property="og:image" content="([^"]+)"/);
+  assert.ok(imageMatch,'A coverless newsletter must still have a social preview');
+  socialImage=imageMatch[1].replace(/&amp;/g,'&');
+  assert.equal(new URL(socialImage).origin,BASE);
+  const card=await fetch(socialImage,{headers:{'User-Agent':'LinkedInBot/1.0'},signal:AbortSignal.timeout(30000)});
+  assert.equal(card.status,200,'Public social image: '+await card.clone().text().then(t=>t.slice(0,150)));
+  assert.match(card.headers.get('content-type')||'',/^image\/png/);
+  const png=Buffer.from(await card.arrayBuffer());
+  assert.equal(png.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+  assert.equal(png.readUInt32BE(16),1200);assert.equal(png.readUInt32BE(20),630);assert.ok(png.length<5_000_000);
+  assert.ok(page.includes('twitter:card')&&page.includes('og:image:width'));
   assert.equal((await post('/api/publish',initial,firstProof)).status,403,'Replayed proof accepted');
   assert.equal((await post('/api/publish',{...initial,slug:record.slug,editToken:'W'.repeat(43)})).status,403);
   assert.equal((await post('/api/unpublish',{slug:record.slug,editToken:'W'.repeat(43)})).status,403);
   const updated=await post('/api/publish',{...initial,title:'UPDATED acceptance',html:initial.html.replace('Native acceptance','Updated public content'),slug:record.slug,editToken:record.editToken,expectedRevision:1});assert.equal(updated.status,200);
-  assert.equal((await updated.json()).url,record.url);assert.ok((await (await fetch(record.url)).text()).includes('Updated public content'));
+  assert.equal((await updated.json()).url,record.url);const updatedPage=await (await fetch(record.url)).text();assert.ok(updatedPage.includes('Updated public content'));
+  assert.ok(updatedPage.includes('/api/share-image/'+record.slug+'?v=2'),'Image URL must change when publication is updated');
   const stale=await post('/api/publish',{...initial,slug:record.slug,editToken:record.editToken,expectedRevision:1});
   assert.equal(stale.status,409,'Stale revision: '+await stale.clone().text());
 }catch(error){console.error('Acceptance step failed:',error.message);throw error;}finally{
@@ -43,5 +56,6 @@ try{
   const detail=await removed.clone().json().catch(()=>({}));
   assert.equal(removed.status,200,'Unpublish: '+(detail.error||'unknown'));
   assert.equal((await fetch(record.url)).status,404);
+  if(socialImage)assert.equal((await fetch(socialImage)).status,404,'Unpublished newsletter must not expose its cached social image');
 }
-console.log('PASS: REAL anonymous image/audio upload, audio ownership/range, publish, independent reader, XSS removal, replay rejection, wrong edit/delete key, same-URL update, stale revision and unpublish.');
+console.log('PASS: REAL anonymous image/audio upload, audio ownership/range, publish, independent reader, XSS removal, replay rejection, wrong edit/delete key, same-URL update, stale revision, 1200x630 PNG social preview and unpublish.');
