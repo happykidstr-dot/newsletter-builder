@@ -11,6 +11,12 @@ export const test=base.extend({
       status:200,contentType:'application/json',body:JSON.stringify({allowed:true}),
       headers:{'Cache-Control':'no-store'},
     }));
+    // Only browser regression tests fake the third-party challenge. No server
+    // route accepts a bypass token, and CI's public key is confined to its build.
+    await page.addInitScript(()=>{
+      let options:Record<string,any>={};
+      (window as any).turnstile={render:(_el:HTMLElement,value:Record<string,any>)=>{options=value;return 'test-widget';},execute:()=>options.callback?.('E2E_CHALLENGE_TOKEN_NEVER_VALID_ON_SERVER'),remove:()=>{}};
+    });
     await use(page);
   },
 });

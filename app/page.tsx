@@ -6,6 +6,7 @@ import {AccountAction} from '@/components/AccountAction';
 import {AudioFileField} from '@/components/AudioFileField';
 import {safeReaderLinkUrl} from '@/lib/reader-social-share';
 import {EditorAccessGate} from '@/components/EditorAccessGate';
+import {sanitiseHtmlBlock,MAX_HTML_BLOCK_CHARS} from '@/lib/safe-html-block';
 import {anonymousWriteHeaders} from '@/lib/anonymous-turnstile';
 import {youtubeVideoId,youtubeWatchUrl} from '@/lib/video-thumbnail';
 import {safeNewsletterPreviewHtml} from '@/lib/safe-newsletter-preview';
@@ -31,7 +32,7 @@ const T = {
     designLabel:'Design', allBg:'All Backgrounds', customUrl:'Custom URL',
     noBlocks:'Add content from the left panel',
     // block types
-    title:'Title', paragraph:'Paragraph', photos:'Photos', video:'Video', audio:'Add audio',
+    html:'HTML', title:'Title', paragraph:'Paragraph', photos:'Photos', video:'Video', audio:'Add audio',
     event:'Event', separator:'Separator', link:'Link', button:'Button', poll:'Poll', attachment:'Attachment',
     // editors
     titleText:'Title Text', size:'Size', h1:'H1 — Large', h2:'H2 — Medium', h3:'H3 — Small',
@@ -52,7 +53,7 @@ const T = {
     designLabel:'Tasarım', allBg:'Tüm Arka Planlar', customUrl:'Özel URL',
     noBlocks:'Sol panelden içerik ekleyin',
     // block types
-    title:'Başlık', paragraph:'Metin', photos:'Görsel', video:'Video', audio:'Ses Ekle',
+    html:'HTML', title:'Başlık', paragraph:'Metin', photos:'Görsel', video:'Video', audio:'Ses Ekle',
     event:'Etkinlik', separator:'Ayırıcı', link:'Bağlantı', button:'Buton', poll:'Anket', attachment:'Ek Dosya',
     // editors
     titleText:'Başlık Metni', size:'Boyut', h1:'H1 — Büyük', h2:'H2 — Orta', h3:'H3 — Küçük',
@@ -68,7 +69,7 @@ const T = {
 };
 
 // ── Types ──────────────────────────────────────────────────────────────
-type BT = 'title'|'paragraph'|'photos'|'video'|'audio'|'event'|'separator'|'link'|'button'|'poll'|'attachment'|'textphoto'|'photogrid'|'author'|'form'|'googleform';
+type BT = 'title'|'paragraph'|'photos'|'video'|'audio'|'event'|'separator'|'link'|'button'|'poll'|'attachment'|'textphoto'|'photogrid'|'author'|'form'|'googleform'|'html';
 
 interface Block { id: string; type: BT; data: Record<string,string> }
 
@@ -103,6 +104,7 @@ const DESIGNS: Record<Design, DesignConfig> = {
 const BASIC_BLOCK_TYPES:ReadonlySet<BT>=new Set(['title','paragraph','photos','textphoto','event','link','button','separator','audio']);
 const PALETTE: { type: BT; icon: string; label: string; def: Record<string,string> }[] = [
   { type:'title',      icon:'T',   label:'Title',       def:{ text:'Başlık', size:'h2' } },
+  { type:'html', icon:'</>', label:'HTML', def:{html:'<p>HTML içeriğinizi buraya ekleyin.</p>'} },
   { type:'paragraph',  icon:'¶',   label:'Paragraph',   def:{ text:'Buraya metin yazın...' } },
   { type:'photos',     icon:'🖼',  label:'Photos',      def:{ url:'', layout:'1', caption:'' } },
   { type:'textphoto',  icon:'🗒',  label:'Text+Photo',  def:{ text:'Metin buraya...', url:'', imagePos:'right' } },
@@ -142,6 +144,8 @@ function CanvasBlock({ block, design, selected, onClick }: {
     inner = d.url
       ? <a href={d.url} target="_blank" rel="noreferrer" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>{titleEl}<span style={{fontSize:13,opacity:.5}}>↗️</span></a>
       : titleEl;
+  } else if(block.type === 'html'){
+    inner = <div style={{fontFamily:ff,color:tc,overflowWrap:'anywhere'}} dangerouslySetInnerHTML={{__html:sanitiseHtmlBlock(d.html)}}/>;
   } else if(block.type === 'paragraph'){
     inner = <p style={{margin:0,fontFamily:ff,fontSize:15,lineHeight:1.75,color:tc,whiteSpace:'pre-wrap'}}>{d.text}</p>;
   } else if(block.type === 'photos'){
@@ -354,11 +358,15 @@ function CanvasBlock({ block, design, selected, onClick }: {
 // ── Image uploader (URL + file upload) ───────────────────────────────
 function ImageUpload({ value, onChange, label }: { value: string; onChange: (url: string)=>void; label?: string }) {
   const [tab, setTab] = React.useState<'url'|'file'>('url');
+  const [fileError,setFileError]=React.useState('');
   const inp: React.CSSProperties = {width:'100%',padding:'7px 10px',borderRadius:8,border:'1px solid #d1d5db',fontSize:13,outline:'none',boxSizing:'border-box',background:'#fff',color:'#1e293b'};
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if(!['image/png','image/jpeg','image/gif','image/webp'].includes(file.type)){setFileError('PNG, JPEG, GIF veya WebP dosyası seçin.');return;}
+    if(file.size>10*1024*1024){setFileError('Görsel en fazla 10 MB olabilir.');return;}
+    setFileError('');
     const reader = new FileReader();
     reader.onload = ev => onChange(ev.target?.result as string);
     reader.readAsDataURL(file);
@@ -381,9 +389,10 @@ function ImageUpload({ value, onChange, label }: { value: string; onChange: (url
         ? <input style={inp} value={value} onChange={e=>onChange(e.target.value)} placeholder="https://site.com/gorsel.png"/>
         : <label style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',border:'2px dashed #d1d5db',borderRadius:8,cursor:'pointer',color:'#6b7280',fontSize:13,fontWeight:600,background:'#f9fafb'}}>
             📤 Görsel Seç
-            <input type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
+            <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" style={{display:'none'}} onChange={handleFile}/>
           </label>
       }
+      {fileError&&<p role="alert" style={{color:'#b91c1c',fontSize:12}}>{fileError}</p>}
       {value && (
         <div style={{marginTop:8,position:'relative',display:'inline-block'}}>
           <img src={value} alt="" style={{height:60,borderRadius:6,boxShadow:'0 1px 6px rgba(0,0,0,.12)',display:'block'}}/>
@@ -437,6 +446,7 @@ function BlockEditor({ block, onChange, onAI, aiLoading }: {
             🔗 Bu başlığı bağlantıya dönüştür
           </button>}
     </div>;
+    case 'html': return <div style={row}><label style={lbl} htmlFor="html-block-source">HTML içeriği</label><textarea id="html-block-source" style={{...inp,minHeight:220,fontFamily:'monospace',resize:'vertical'}} value={block.data.html||''} maxLength={MAX_HTML_BLOCK_CHARS} onChange={e=>set('html',e.target.value)}/><p style={{fontSize:12,color:'#64748b'}}>Metin, bağlantı, görsel ve tablolar ekleyebilirsiniz. Betikler, formlar ve gömülü çerçeveler kaldırılır. En fazla 100.000 karakter.</p></div>;
     case 'paragraph': return <div>
       <div style={row}><label style={lbl}>Metin ({block.data.text?.length||0} karakter)</label>
         <textarea style={{...inp,minHeight:110,resize:'vertical'}} value={block.data.text} onChange={e=>set('text',e.target.value)} placeholder="Metin yazın..."/>

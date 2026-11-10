@@ -103,3 +103,29 @@ test('anonymous audio uploads require a challenge and a private per-file key on 
     assert.equal((await route(new Request(origin+'/audio/'+id),{params:{asset:id}})).status,200);
   }finally{globalThis.fetch=savedFetch;for(const k of Object.keys(process.env))if(!(k in savedEnv))delete process.env[k];Object.assign(process.env,savedEnv);}
 });
+
+test('HTML fragments preserve static content while removing executable and embedding payloads',()=>{
+  const {sanitiseHtmlBlock}=load('lib/safe-html-block.ts');
+  const result=sanitiseHtmlBlock('<p>Merhaba <strong>Dünya</strong></p><table><tr><td>Haber</td></tr></table><script>alert(1)</script><img src="https://example.org/test.png" onerror="alert(1)"><a href="javascript:alert(1)">X</a><iframe src="https://example.org"></iframe><svg onload="alert(1)"></svg><style>body{display:none}</style><form><input name="secret"></form>');
+  assert.match(result,/<strong>Dünya<\/strong>/);assert.match(result,/<td>Haber<\/td>/);
+  assert.doesNotMatch(result,/<script|<iframe|<svg|<form|<input|<style|onerror|onload|javascript:/i);
+  assert.ok(sanitiseHtmlBlock('A'.repeat(100_001)).length<=100_000);
+});
+
+test('conditional quota reservations do not overspend under concurrent requests',async()=>{
+  const entries=new Map();let version=0;
+  const memory={
+    getWithMetadata:async key=>{const row=entries.get(key);return row?{data:{...row.data},etag:row.etag}:null;},
+    setJSON:async(key,data,options)=>{
+      const row=entries.get(key);
+      if(options.onlyIfNew&&row||options.onlyIfMatch&&row?.etag!==options.onlyIfMatch)return {modified:false};
+      entries.set(key,{data,etag:String(++version)});return {modified:true};
+    },
+  };
+  const {checkPublishQuota,checkMediaUploadQuota}=load('lib/newsletter-publication-store.ts',{'@netlify/blobs':{getStore:()=>memory,getDeployStore:()=>memory}});
+  const results=await Promise.all(Array.from({length:40},()=>checkPublishQuota('quota-test')));
+  assert.equal(results.filter(Boolean).length,12);
+  assert.equal(await checkPublishQuota('quota-test'),false);
+  const uploads=await Promise.all(Array.from({length:20},()=>checkMediaUploadQuota('media-quota',40*1024*1024)));
+  assert.equal(uploads.filter(Boolean).length,9);
+});
