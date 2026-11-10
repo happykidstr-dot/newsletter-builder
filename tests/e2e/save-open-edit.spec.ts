@@ -55,7 +55,7 @@ test('a saved published newsletter can be edited and updated at its original URL
   await page.getByTestId('saved-newsletter-item').getByRole('button',{name:/Edit/}).click();
   await title.fill('Yayımlanan Bülten – Güncel');
   await page.getByRole('button',{name:'Yayını güncelle'}).click();
-  expect(calls).toHaveLength(2);
+  await expect.poll(()=>calls.length).toBe(2);
   expect(calls[1].slug).toBe(slug);
   expect(calls[1].editToken).toBe(token);
   await expect(page.getByRole('textbox',{name:'Yayımlanmış bülten adresi'})).toHaveValue(new RegExp(slug));

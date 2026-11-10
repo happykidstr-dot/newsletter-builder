@@ -68,7 +68,7 @@ test('edited newsletter updates the SAME public URL with its private edit token'
   await page.getByRole('button',{name:'Paylaşım penceresini kapat'}).click();
   await title.fill('Değiştirilmiş Bülten');
   await page.getByRole('button',{name:'Yayını güncelle'}).click();
-  expect(posted).toHaveLength(2);
+  await expect.poll(()=>posted.length).toBe(2);
   expect(posted[0].slug).toBeUndefined();
   expect(posted[1].slug).toBe('AQIDBAUGBwgJCgsM');
   expect(posted[1].editToken).toBe('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');

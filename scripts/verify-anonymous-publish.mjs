@@ -36,8 +36,10 @@ try{
   const updated=await post('/api/publish',{...initial,title:'UPDATED acceptance',html:initial.html.replace('Native acceptance','Updated public content'),slug:record.slug,editToken:record.editToken,expectedRevision:1});assert.equal(updated.status,200);
   assert.equal((await updated.json()).url,record.url);assert.ok((await (await fetch(record.url)).text()).includes('Updated public content'));
   assert.equal((await post('/api/publish',{...initial,slug:record.slug,editToken:record.editToken,expectedRevision:1})).status,409);
-}finally{
-  assert.equal((await post('/api/unpublish',{slug:record.slug,editToken:record.editToken})).status,200);
+}catch(error){console.error('Acceptance step failed:',error.message);throw error;}finally{
+  const removed=await post('/api/unpublish',{slug:record.slug,editToken:record.editToken});
+  const detail=await removed.clone().json().catch(()=>({}));
+  assert.equal(removed.status,200,'Unpublish: '+(detail.error||'unknown'));
   assert.equal((await fetch(record.url)).status,404);
 }
 console.log('PASS: REAL anonymous image/audio upload, audio ownership/range, publish, independent reader, XSS removal, replay rejection, wrong edit/delete key, same-URL update, stale revision and unpublish.');

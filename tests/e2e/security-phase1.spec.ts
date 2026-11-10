@@ -27,7 +27,7 @@ test('publish can be explicitly revoked only with its secret, preserving the edi
   await page.getByRole('button',{name:'Bülteni yayınla'}).click();
   await page.getByRole('button',{name:'Paylaşım penceresini kapat'}).click();
   await page.getByRole('button',{name:'Bülteni yayından kaldır'}).click();
-  expect(posted).toHaveLength(1);
+  await expect.poll(()=>posted.length).toBe(1);
   expect(posted[0]).toEqual({slug,editToken:token});
   await expect(page.getByPlaceholder('Bülten başlığı...')).toHaveValue('Yayından Kaldırma Denemesi');
   await expect(page.getByRole('button',{name:'Bülteni yayınla'})).toBeVisible();

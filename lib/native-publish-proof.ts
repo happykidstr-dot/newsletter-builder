@@ -56,7 +56,7 @@ export async function verifyNativePublishProof(req:Request):Promise<Response|nul
     if(!timingSafeEqual(Buffer.from(sig),Buffer.from(expected)))return denial('Doğrulama geçersiz.');
     const value=JSON.parse(Buffer.from(payload,'base64url').toString('utf8'));
     if(value.v!==1||value.origin!==origin||value.ip!==ipHash(req)||value.path!==new URL(req.url).pathname||value.bits!==BITS||
-       typeof value.expires!=='number'||value.expires<Date.now()||value.expires>Date.now()+ttl||! /^[a-f0-9]{32}$/.test(value.nonce))
+       typeof value.expires!=='number'||value.expires<Date.now()||value.expires>Date.now()+ttl+5000||! /^[a-f0-9]{32}$/.test(value.nonce))
       return denial('Doğrulama süresi dolmuş veya farklı bir işleme ait.');
     const hash=createHash('sha256').update(ticket+'.'+counter).digest();
     if(hash[0]!==0||hash[1]!==0||hash[2]>=64)return denial('Doğrulama hesaplaması geçersiz.');
