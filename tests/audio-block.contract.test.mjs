@@ -13,7 +13,7 @@ test('only one Ses Ekle block covers dozens of audio formats',()=>{
     assert.match(uploader,new RegExp("'"+ext+"'"),ext);
   }
 });
-test('audio chunks require a verified publisher and remain private until finalised',()=>{
+test('audio chunks require Turnstile and a per-file secret and remain private until finalised',()=>{
   const audio=read('lib/newsletter-audio.ts');
   const netlify=read('netlify/functions/newsletter-audio.ts');
   const next=read('app/api/audio/route.ts');
@@ -24,8 +24,10 @@ test('audio chunks require a verified publisher and remain private until finalis
   assert.match(audio,/checkMediaUploadQuota/);
   assert.match(audio,/Content-Range/);
   assert.match(audio,/Accept-Ranges/);
-  assert.match(netlify,/verifyNetlifyPublisher\(req\)/);
-  assert.match(next,/requireAuthorizedPublisher\(\)/);
+  assert.match(netlify,/verifyAnonymousWrite\(req\)/);
+  assert.match(netlify,/anonymousAudioOwner\(req\)/);
+  assert.match(next,/verifyAnonymousWrite\(req\)/);
+  assert.match(next,/anonymousAudioOwner\(req\)/);
 });
 test('published HTML uses audio-safe CSP and PDF keeps listening links',()=>{
   const render=read('lib/newsletter-render.ts');

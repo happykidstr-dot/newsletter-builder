@@ -1,5 +1,5 @@
 'use client';
-import {publisherAuthorizationHeaders} from './supabase/client';
+import {anonymousWriteHeaders} from './anonymous-turnstile';
 
 /** The UI has one audio icon; file selection covers the major audio families. */
 const extensions=[
@@ -27,7 +27,7 @@ async function encodePart(blob:Blob):Promise<string>{
 }
 async function postAudio(value:unknown,headers:Record<string,string>):Promise<Record<string,unknown>>{
   const response=await fetch('/api/audio',{
-    method:'POST',headers:{'Content-Type':'application/json',...headers},
+    method:'POST',headers:{'Content-Type':'application/json',...headers,...(await anonymousWriteHeaders())},
     body:JSON.stringify(value),
   });
   const result=await response.json().catch(()=>({}));
@@ -40,7 +40,9 @@ export async function uploadAudioFile(
 ):Promise<{url:string;name:string;playback:boolean}>{
   if(file.size<1)throw new Error('Boş ses dosyası yüklenemez.');
   if(file.size>MAX_BYTES)throw new Error('En fazla 60 MB boyutunda ses dosyası yükleyebilirsiniz.');
-  const headers=await publisherAuthorizationHeaders();
+  const secret=crypto.getRandomValues(new Uint8Array(32));
+  const uploadKey=btoa(String.fromCharCode(...secret)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const headers={'X-Audio-Upload-Key':uploadKey};
   const started=await postAudio({action:'start',name:file.name,mime:file.type||'audio/unknown',size:file.size},headers);
   const id=started.id;
   if(typeof id!=='string'||!/^[A-Za-z0-9_-]{22}$/.test(id))

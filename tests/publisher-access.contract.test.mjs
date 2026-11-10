@@ -29,8 +29,7 @@ test('all billable and owner-only API routes require the publisher allowlist',()
     'app/api/ai-generate/route.ts','app/api/chat/route.ts',
     'app/api/send-email/route.ts','app/api/parse-file/route.ts',
     'app/api/db/analytics/route.ts','app/api/db/newsletters/route.ts',
-    'app/api/db/mailing-lists/route.ts','app/api/media/route.ts',
-    'app/api/publish/route.ts','app/api/unpublish/route.ts',
+    'app/api/db/mailing-lists/route.ts',
   ]){
     assert.match(read(path),/requireAuthorizedPublisher\(\)/,path);
   }
@@ -49,14 +48,13 @@ test('Netlify function routes also independently reject anonymous and nonallowli
   assert.match(functionAuth,/status:403/);
   assert.match(publication,/const decision=await verifyNetlifyPublisher\(req\);/);
   assert.match(publication,/if\(decision\.error\)return reply/);
-  assert.match(media,/const publisher=await verifyNetlifyPublisher\(req\)/);
-  assert.match(media,/if\(publisher\.error\)return json/);
+  assert.match(media,/verifyAnonymousWrite\(req\)/);
   assert.doesNotMatch(publication,/publisherAuthEnabled\(\)&&!owner/);
   assert.doesNotMatch(publication,/let verifiedPublisher:string\|undefined/);
 });
 test('media upload browser forwards Supabase token and anonymous readers remain public',()=>{
   const media=read('lib/publish-newsletter-media.ts');
-  assert.match(media,/publisherAuthorizationHeaders\(\)/);
+  assert.match(media,/anonymousWriteHeaders\(\)/);
   assert.match(read('netlify/functions/newsletter-media.ts'),/req\.method==='GET'/);
   assert.match(read('netlify/functions/newsletter-publication.ts'),/req\.method==='GET'/);
   assert.match(read('app/api/account/privacy/route.ts'),/requireSignedInUser\(\)/);

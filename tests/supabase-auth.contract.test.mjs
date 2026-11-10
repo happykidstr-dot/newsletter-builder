@@ -60,7 +60,7 @@ test('Netlify publication independently verifies Supabase bearer tokens and pres
   assert.match(native,/matchesEditToken\(body\.editToken,previous\?\.editTokenHash\)/);
   assert.match(native,/existing\.ownerUserId!==decision\.userId/);
   assert.match(client,/publisherAuthorizationHeaders/);
-  assert.match(page,/\.\.\.\(await publisherAuthorizationHeaders\(\)\)/);
-  assert.match(api,/requireAuthorizedPublisher\(\)/);
+  assert.match(page,/\.\.\.\(await anonymousWriteHeaders\(\)\)/);
+  assert.match(api,/verifyAnonymousWrite\(req\)/);
   assert.doesNotMatch(native,/@clerk\/|CLERK_/);
 });

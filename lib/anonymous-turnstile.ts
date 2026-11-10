@@ -20,8 +20,9 @@ export async function anonymousWriteHeaders():Promise<Record<string,string>>{
   const sitekey=process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   if(!sitekey)throw new Error('Yayınlama güvenlik ayarları henüz tamamlanmadı.');
   await loadScript();
-  const api=window.turnstile;
-  if(!api)throw new Error('Güvenlik doğrulaması kullanılamıyor.');
+  const loadedApi=window.turnstile;
+  if(!loadedApi)throw new Error('Güvenlik doğrulaması kullanılamıyor.');
+  const api:TurnstileApi=loadedApi;
   const container=document.createElement('div');
   container.style.cssText='position:fixed;bottom:12px;right:12px;z-index:2147483647';
   document.body.appendChild(container);

@@ -1,19 +1,19 @@
-import {NextRequest,NextResponse} from 'next/server';
+import {publicOriginForRequest} from './publication-origin';
 
 export function anonymousPublishingEnabled():boolean {
   return process.env.ENABLE_ANONYMOUS_PUBLISHING==='true';
 }
 
 /** Turnstile verification is mandatory for every anonymous write. Fail closed. */
-export async function verifyAnonymousWrite(req:NextRequest):Promise<NextResponse|null> {
+export async function verifyAnonymousWrite(req:Request):Promise<Response|null> {
   if(!anonymousPublishingEnabled())
-    return NextResponse.json({error:'Anonim yayınlama henüz etkinleştirilmedi.'},{status:503});
+    return Response.json({error:'Anonim yayınlama henüz etkinleştirilmedi.'},{status:503});
   const secret=process.env.TURNSTILE_SECRET_KEY;
   if(!secret)
-    return NextResponse.json({error:'Yayınlama güvenlik doğrulaması henüz yapılandırılmadı.'},{status:503});
+    return Response.json({error:'Yayınlama güvenlik doğrulaması henüz yapılandırılmadı.'},{status:503});
   const token=req.headers.get('x-turnstile-token')||'';
   if(!/^[A-Za-z0-9._-]{20,2048}$/.test(token))
-    return NextResponse.json({error:'Yayınlamak için güvenlik doğrulamasını tamamlayın.'},{status:403});
+    return Response.json({error:'Yayınlamak için güvenlik doğrulamasını tamamlayın.'},{status:403});
   const ip=req.headers.get('x-nf-client-connection-ip')||undefined;
   try{
     const form=new URLSearchParams({secret,response:token});
@@ -23,11 +23,11 @@ export async function verifyAnonymousWrite(req:NextRequest):Promise<NextResponse
     });
     if(!response.ok)throw new Error('Turnstile unavailable');
     const result=await response.json() as {success?:boolean,hostname?:string,action?:string};
-    const hostname=new URL(req.url).hostname;
+    const hostname=new URL(publicOriginForRequest(req)).hostname;
     if(!result.success||result.hostname!==hostname)
-      return NextResponse.json({error:'Güvenlik doğrulaması başarısız oldu. Yeniden deneyin.'},{status:403});
+      return Response.json({error:'Güvenlik doğrulaması başarısız oldu. Yeniden deneyin.'},{status:403});
     return null;
   }catch{
-    return NextResponse.json({error:'Güvenlik doğrulama servisine ulaşılamıyor.'},{status:503});
+    return Response.json({error:'Güvenlik doğrulama servisine ulaşılamıyor.'},{status:503});
   }
 }
