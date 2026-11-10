@@ -14,6 +14,7 @@ for(const [name,width,height] of [['desktop',1366,900],['tablet',820,1180],['mob
     await expect(page.getByText('Denetim HTML içeriği',{exact:true})).toBeVisible();
     expect(await page.evaluate(()=>Boolean((window as any).htmlInjected))).toBe(false);
     await page.getByRole('button',{name:'💾 Kaydet',exact:true}).click();
+    await expect(page.getByText('Bülten bu cihazda kaydedildi.',{exact:false})).toBeVisible();
     await page.reload();
     await expect(page.getByText('Denetim HTML içeriği',{exact:true})).toBeVisible();
     await page.getByTestId('advanced-tools-toggle').click();

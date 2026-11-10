@@ -5,7 +5,7 @@ async function downloadNewsletter(page:import('@playwright/test').Page):Promise<
   await page.getByTestId('advanced-tools-toggle').click();
   const [download]=await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button',{name:/HTML/}).click(),
+    page.getByRole('button',{name:/⬇️ HTML/}).click(),
   ]);
   const saved=await download.path();
   if(!saved)throw new Error('HTML download path unavailable');

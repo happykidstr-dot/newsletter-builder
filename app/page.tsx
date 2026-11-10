@@ -932,6 +932,15 @@ function BultenReadEditor() {
   const handleSave=async ():Promise<boolean>=>{
     const entry=savedEntry();
     if(!await persistSavedLocally(entry))return false;
+    // Manual Save must commit the active draft before acknowledging success;
+    // otherwise closing the tab during the autosave debounce reopens old content.
+    try{
+      await saveLocalDraft({...entry,activeNewsletterId:entry.id});
+      window.localStorage.removeItem(DRAFT_KEY);
+    }catch{
+      setDraftStorageError('Bülten arşive kaydedildi ancak aktif taslak kaydedilemedi. Ayrılmadan önce Aç menüsünden kaydı kontrol edin.');
+      return false;
+    }
     setSaveSuccess(true);window.setTimeout(()=>setSaveSuccess(false),2200);
     if(process.env.NEXT_PUBLIC_REQUIRE_EDITOR_LOGIN!=='true'){
       setCloudSaveStatus('Bülten bu cihazda kaydedildi. HTML veya PDF yedeğini de indirebilirsiniz.');
