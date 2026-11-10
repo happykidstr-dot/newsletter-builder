@@ -3,7 +3,7 @@ import {allowedSiteOrigin} from '../../lib/publication-origin';
 import {servePublicMedia,storePublicMedia} from '../../lib/public-newsletter-media';
 import {verifyAnonymousWrite} from '../../lib/anonymous-publish-guard';
 
-export const config:Config={path:['/api/media','/media/:asset']};
+export const config:Config={path:['/api/media','/media/:asset'],rateLimit:{windowLimit:300,windowSize:60,aggregateBy:['ip','domain']}};
 
 const MAX_JSON_BYTES=3_600_000;
 const json=(value:unknown,status:number)=>Response.json(value,{

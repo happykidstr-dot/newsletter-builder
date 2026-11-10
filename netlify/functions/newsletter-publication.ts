@@ -10,6 +10,7 @@ import {verifyAnonymousWrite} from '../../lib/anonymous-publish-guard';
 
 export const config:Config = {
   path:['/api/publish','/api/unpublish','/b/:slug'],
+  rateLimit:{windowLimit:300,windowSize:60,aggregateBy:['ip','domain']},
 };
 
 const MAX_BYTES=5_700_000;

@@ -1,28 +1,19 @@
 import assert from 'node:assert/strict';
-import {createHash} from 'node:crypto';
+import {createHash,randomBytes} from 'node:crypto';
 const BASE=process.env.PREVIEW_URL?.replace(/\/$/,'');
 if(!BASE)throw Error('PREVIEW_URL required');
 // Real deployment acceptance. No auth, CAPTCHA mocks, private cookies or keys.
 async function proof(path){
-  const r=await fetch(BASE+'/api/publish-challenge',{method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},body:JSON.stringify({path}),signal:AbortSignal.timeout(20000)});
+  const clientKey=randomBytes(32).toString('base64url');
+  const r=await fetch(BASE+'/api/publish-challenge',{method:'POST',headers:{Origin:BASE,'Content-Type':'application/json'},body:JSON.stringify({path,clientKey}),signal:AbortSignal.timeout(20000)});
   const j=await r.json();assert.equal(r.status,200,'Native challenge unavailable: '+(j.error||r.status));assert.equal(j.bits,18);
   for(let i=0;i<20_000_000;i++){
     const h=createHash('sha256').update(j.ticket+'.'+i).digest();
-    if(h[0]===0&&h[1]===0&&h[2]<64)return {'X-Bulten-Proof':j.ticket,'X-Bulten-Work':String(i)};
+    if(h[0]===0&&h[1]===0&&h[2]<64)return {'X-Bulten-Proof':j.ticket,'X-Bulten-Work':String(i),'X-Bulten-Client-Key':clientKey};
   }
   throw Error('Work budget exhausted');
 }
-async function post(path,body,headers){
-  // A runner/mobile network may change egress IP between requests. Reissue once;
-  // never retry explicit/replay proofs or hide ownership/revision failures.
-  for(let attempt=0;attempt<2;attempt++){
-    const response=await fetch(BASE+path,{method:'POST',headers:{Origin:BASE,'Content-Type':'application/json',...(headers||await proof(path))},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
-    if(headers||attempt===1||response.status!==403)return response;
-    const detail=await response.clone().json().catch(()=>({}));
-    if(detail.code!=='proof_network_changed')return response;
-    console.log('Network changed during proof exchange; reissuing this operation once.');
-  }
-}
+async function post(path,body,headers){return fetch(BASE+path,{method:'POST',headers:{Origin:BASE,'Content-Type':'application/json',...(headers||await proof(path))},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});}
 const tinyPng='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL2VQAAAABJRU5ErkJggg==';
 const image=await post('/api/media',{mime:'image/png',base64:tinyPng});assert.equal(image.status,201,'Image upload failed');const photo=await image.json();
 assert.equal((await fetch(photo.url)).status,200);

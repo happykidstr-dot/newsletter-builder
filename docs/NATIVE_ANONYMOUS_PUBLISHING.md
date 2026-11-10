@@ -6,7 +6,10 @@ The source and browser never receive this signing key.
 
 The editor requests a signed ticket for one operation (publish, update/revoke,
 image upload, or audio chunk). Tickets expire after two minutes and bind the
-site origin, trusted Netlify client IP hash and operation path. The browser
+site origin, a random per-operation client key hash and operation path. The
+client key stays in memory and is required again for the write; changing mobile
+network addresses does not invalidate the proof. Trusted Netlify IP hashes are
+used for quotas only. The browser
 computes an 18-bit SHA-256 work proof in yielding batches. Conditional Blobs
 writes consume a valid ticket once, including concurrent replay attempts.
 
@@ -19,7 +22,8 @@ Current default budgets: 12 publish/update attempts per IP per hour, 200 site
 publish/update attempts per day; 240 tickets per IP per hour and 5,000 tickets
 per site per day; media 180 requests / 360 MiB per IP per hour and 512 MiB per
 site per day. The ticket Function additionally has a platform IP/domain limit
-of 120 requests per minute. Budget exhaustion returns 429 without accepting a
+of 120 requests per minute. Publication/reader, image and audio Functions each
+have a 300-request/minute IP/domain platform limit, including invalid proofs. Budget exhaustion returns 429 without accepting a
 write. These budgets may be increased after observing real usage. Shared-NAT
 users share an IP budget.
 
@@ -34,7 +38,7 @@ Production and Deploy Preview stores remain isolated. The daily scheduled
 cleanup removes consumed-ticket and quota records older than two days while
 preserving the signing key. Public publication/media retention is unchanged.
 
-Validation: local behavior tests cover signed tickets, expiry, IP/path binding,
+Validation: local behavior tests cover signed tickets, expiry, client/path binding,
 wrong signatures, replay races and quotas. `verify-anonymous-publish.mjs` performs
 real Preview image/audio upload, wrong audio owner, publication, independent
 reader access, XSS removal, replay denial, incorrect edit/delete keys, same-URL

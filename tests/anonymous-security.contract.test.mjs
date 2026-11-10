@@ -130,7 +130,7 @@ test('conditional quota reservations do not overspend under concurrent requests'
   assert.equal(uploads.filter(Boolean).length,9);
 });
 
-test('native proof is signed, origin/IP/action bound, expiring and atomically single-use',async()=>{
+test('native proof is signed, origin/client/action bound, expiring and atomically single-use',async()=>{
   const env={...process.env};const values=new Map();let allowed=true;
   const store={get:async key=>values.get(key)||null,setJSON:async(key,data,opts)=>{
     if(opts?.onlyIfNew&&values.has(key))return {modified:false};values.set(key,data);return {modified:true};
@@ -140,19 +140,19 @@ test('native proof is signed, origin/IP/action bound, expiring and atomically si
   try{
     process.env.URL=origin;process.env.SITE_NAME='bultenoku';
     const {issuePublishProof,verifyNativePublishProof}=load('lib/native-publish-proof.ts',{'./newsletter-publication-store':{abuseStore:()=>store,reserveQuota:async()=>allowed}});
-    const make=async()=>{const r=await issuePublishProof(request('/api/publish-challenge',{path:'/api/publish'}));assert.equal(r.status,200);const j=await r.json();return {ticket:j.ticket,work:solve(j.ticket)};};
+    const make=async()=>{const r=await issuePublishProof(request('/api/publish-challenge',{path:'/api/publish',clientKey:'C'.repeat(43)}));assert.equal(r.status,200);const j=await r.json();return {ticket:j.ticket,work:solve(j.ticket)};};
     assert.equal((await issuePublishProof(request('/api/publish-challenge',{path:'/api/chat'}))).status,400);
     const {ticket,work}=await make();
     assert.ok(!ticket.includes(values.get('signing-key-v1').secret));
-    const headers={'x-bulten-proof':ticket,'x-bulten-work':work};
+    const headers={'x-bulten-proof':ticket,'x-bulten-work':work,'x-bulten-client-key':'C'.repeat(43)};
     assert.equal((await verifyNativePublishProof(request('/api/unpublish',{},headers))).status,403);
-    assert.equal((await verifyNativePublishProof(request('/api/publish',{}, {...headers,'x-nf-client-connection-ip':'different-ip'}))).status,403);
+    assert.equal((await verifyNativePublishProof(request('/api/publish',{}, {...headers,'x-bulten-client-key':'D'.repeat(43)}))).status,403);
     assert.equal((await verifyNativePublishProof(request('/api/publish',{}, {...headers,'x-bulten-proof':ticket.slice(0,-1)+(ticket.endsWith('A')?'B':'A')}))).status,403);
-    const race=await Promise.all([verifyNativePublishProof(request('/api/publish',{},headers)),verifyNativePublishProof(request('/api/publish',{},headers))]);
+    const race=await Promise.all([verifyNativePublishProof(request('/api/publish',{},headers)),verifyNativePublishProof(request('/api/publish',{}, {...headers,'x-nf-client-connection-ip':'roaming-ip'}))]);
     assert.equal(race.filter(x=>x===null).length,1);assert.equal(race.filter(x=>x?.status===403).length,1);
     const expired=await make(),now=Date.now;
-    try{Date.now=()=>now()+120001;assert.equal((await verifyNativePublishProof(request('/api/publish',{}, {'x-bulten-proof':expired.ticket,'x-bulten-work':expired.work}))).status,403);}finally{Date.now=now;}
-    allowed=false;assert.equal((await issuePublishProof(request('/api/publish-challenge',{path:'/api/publish'}))).status,429);
+    try{Date.now=()=>now()+120001;assert.equal((await verifyNativePublishProof(request('/api/publish',{}, {'x-bulten-proof':expired.ticket,'x-bulten-work':expired.work,'x-bulten-client-key':'C'.repeat(43)}))).status,403);}finally{Date.now=now;}
+    allowed=false;assert.equal((await issuePublishProof(request('/api/publish-challenge',{path:'/api/publish',clientKey:'C'.repeat(43)}))).status,429);
     assert.equal((await verifyNativePublishProof(request('/api/publish',{}))).status,403);
   }finally{for(const k of Object.keys(process.env))if(!(k in env))delete process.env[k];Object.assign(process.env,env);}
 });

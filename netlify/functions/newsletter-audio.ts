@@ -4,7 +4,7 @@ import {verifyAnonymousWrite} from '../../lib/anonymous-publish-guard';
 import {anonymousAudioOwner} from '../../lib/anonymous-audio-owner';
 import {servePublicAudio,storeAudioRequest} from '../../lib/newsletter-audio';
 
-export const config:Config={path:['/api/audio','/audio/:asset']};
+export const config:Config={path:['/api/audio','/audio/:asset'],rateLimit:{windowLimit:300,windowSize:60,aggregateBy:['ip','domain']}};
 const json=(value:unknown,status:number)=>Response.json(value,{
   status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'},
 });
