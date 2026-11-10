@@ -1609,7 +1609,7 @@ ${text}`;
     setShareBusy(true);setShareError('');setShareProgress('Yayın kaldırılıyor…');
     try{
       const res=await fetch('/api/unpublish',{
-        method:'POST',headers:{'Content-Type':'application/json',...(await anonymousWriteHeaders())},
+        method:'POST',headers:{'Content-Type':'application/json',...(await anonymousWriteHeaders('/api/unpublish'))},
         body:JSON.stringify({slug:publication.slug,editToken:publication.editToken}),
       });
       const result=await res.json().catch(()=>({}));

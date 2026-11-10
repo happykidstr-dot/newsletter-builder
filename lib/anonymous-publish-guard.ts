@@ -1,13 +1,15 @@
+import {verifyNativePublishProof} from './native-publish-proof';
 import {publicOriginForRequest} from './publication-origin';
 
 export function anonymousPublishingEnabled():boolean {
-  return process.env.ENABLE_ANONYMOUS_PUBLISHING==='true';
+  return process.env.ENABLE_ANONYMOUS_PUBLISHING!=='false';
 }
 
 /** Turnstile verification is mandatory for every anonymous write. Fail closed. */
 export async function verifyAnonymousWrite(req:Request):Promise<Response|null> {
   if(!anonymousPublishingEnabled())
     return Response.json({error:'Anonim yayınlama henüz etkinleştirilmedi.'},{status:503});
+  if(process.env.PUBLISH_VERIFICATION_PROVIDER!=='turnstile')return verifyNativePublishProof(req);
   const secret=process.env.TURNSTILE_SECRET_KEY;
   if(!secret)
     return Response.json({error:'Yayınlama güvenlik doğrulaması henüz yapılandırılmadı.'},{status:503});

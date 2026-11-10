@@ -26,8 +26,6 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
       - name: Production build
-        env:
-          NEXT_PUBLIC_TURNSTILE_SITE_KEY: E2E_UI_TEST_KEY_NOT_FOR_DEPLOYMENT
         run: npm run build
       - name: Install Chromium
         run: npx playwright install --with-deps chromium

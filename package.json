@@ -24,7 +24,8 @@
     "@netlify/blobs": "11.1.7",
     "sanitize-html": "2.18.1",
     "pdfmake": "0.3.13",
-    "@supabase/ssr": "0.12.7"
+    "@supabase/ssr": "0.12.7",
+    "@noble/hashes": "1.8.0"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.21",

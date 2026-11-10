@@ -25,6 +25,10 @@ export function mediaStore(hostname?:string) {
     : getDeployStore({name:MEDIA_STORE_NAME,consistency:'strong'});
 }
 
+export function abuseStore(hostname?:string){
+  return isProduction(hostname)?getStore({name:'bulten-abuse-v1',consistency:'strong'}):getDeployStore({name:'bulten-abuse-v1',consistency:'strong'});
+}
+
 function mediaQuotaStore(hostname?:string) {
   return isProduction(hostname)
     ? getStore({name:MEDIA_RATE_STORE_NAME,consistency:'strong'})
@@ -32,7 +36,7 @@ function mediaQuotaStore(hostname?:string) {
 }
 
 /** Conditional writes prevent concurrent requests from spending the same quota. */
-async function reserveQuota(store:ReturnType<typeof getStore>,key:string,bytes:number,maxCount:number,maxBytes:number):Promise<boolean>{
+export async function reserveQuota(store:ReturnType<typeof getStore>,key:string,bytes:number,maxCount:number,maxBytes:number):Promise<boolean>{
   for(let attempt=0;attempt<16;attempt++){
     const current=await store.getWithMetadata(key,{type:'json'});
     const state=current?.data as {count:number,bytes?:number}|undefined;
@@ -53,7 +57,8 @@ export async function checkMediaUploadQuota(ip:string,bytes:number,hostname?:str
   const hour=Math.floor(Date.now()/3_600_000);
   const hash=createHash('sha256').update(ip).digest('hex').slice(0,24);
   const key='media-'+hour+'-'+hash;
-  return reserveQuota(mediaQuotaStore(hostname),key,bytes,180,360*1024*1024);
+  if(!await reserveQuota(mediaQuotaStore(hostname),key,bytes,180,360*1024*1024))return false;
+  return reserveQuota(abuseStore(hostname),'media-global-'+Math.floor(Date.now()/86_400_000),bytes,1000,512*1024*1024);
 }
 
 function rateStore(hostname?:string) {
@@ -82,5 +87,6 @@ export async function checkPublishQuota(ip: string, hostname?:string): Promise<b
   const hour = Math.floor(Date.now()/(60*60*1000));
   const hash = createHash('sha256').update(ip).digest('hex').slice(0,24);
   const key = hour+'-'+hash;
-  return reserveQuota(rateStore(hostname),key,0,12,0);
+  if(!await reserveQuota(rateStore(hostname),key,0,12,0))return false;
+  return reserveQuota(abuseStore(hostname),'publish-global-'+Math.floor(Date.now()/86_400_000),0,200,0);
 }

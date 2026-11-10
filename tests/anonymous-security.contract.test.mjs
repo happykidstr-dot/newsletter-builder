@@ -35,7 +35,7 @@ test('anonymous native routes fail closed, enforce ownership, sanitize HTML and 
     '../../lib/security/netlify-publisher':{verifyNetlifyPublisher:async()=>({error:'Unauthorized',status:403})},
   };
   try{
-    process.env.URL=origin;process.env.SITE_NAME='bultenoku';
+    process.env.URL=origin;process.env.SITE_NAME='bultenoku';process.env.PUBLISH_VERIFICATION_PROVIDER='turnstile';
     process.env.ENABLE_ANONYMOUS_PUBLISHING='false';delete process.env.TURNSTILE_SECRET_KEY;
     globalThis.fetch=async()=>{cloudCalls++;return Response.json({success:true,hostname:'bultenoku.netlify.app'});};
     const handler=load('netlify/functions/newsletter-publication.ts',mocks).default;
@@ -85,7 +85,7 @@ test('anonymous audio uploads require a challenge and a private per-file key on 
   const values=new Map();
   const store={get:async key=>values.get(key)||null,setJSON:async(k,v)=>values.set(k,v),set:async(k,v)=>values.set(k,v)};
   try{
-    process.env.URL=origin;process.env.SITE_NAME='bultenoku';process.env.ENABLE_ANONYMOUS_PUBLISHING='true';process.env.TURNSTILE_SECRET_KEY='test-only';
+    process.env.URL=origin;process.env.SITE_NAME='bultenoku';process.env.PUBLISH_VERIFICATION_PROVIDER='turnstile';process.env.ENABLE_ANONYMOUS_PUBLISHING='true';process.env.TURNSTILE_SECRET_KEY='test-only';
     globalThis.fetch=async()=>Response.json({success:true,hostname:'bultenoku.netlify.app'});
     const route=load('netlify/functions/newsletter-audio.ts',{'./newsletter-publication-store':{mediaStore:()=>store,checkMediaUploadQuota:async()=>true}}).default;
     const context={params:{}};
@@ -128,4 +128,31 @@ test('conditional quota reservations do not overspend under concurrent requests'
   assert.equal(await checkPublishQuota('quota-test'),false);
   const uploads=await Promise.all(Array.from({length:20},()=>checkMediaUploadQuota('media-quota',40*1024*1024)));
   assert.equal(uploads.filter(Boolean).length,9);
+});
+
+test('native proof is signed, origin/IP/action bound, expiring and atomically single-use',async()=>{
+  const env={...process.env};const values=new Map();let allowed=true;
+  const store={get:async key=>values.get(key)||null,setJSON:async(key,data,opts)=>{
+    if(opts?.onlyIfNew&&values.has(key))return {modified:false};values.set(key,data);return {modified:true};
+  }};
+  const {createHash}=nativeRequire('node:crypto');
+  function solve(ticket){for(let i=0;;i++){const h=createHash('sha256').update(ticket+'.'+i).digest();if(h[0]===0&&h[1]===0&&h[2]<64)return String(i);}}
+  try{
+    process.env.URL=origin;process.env.SITE_NAME='bultenoku';
+    const {issuePublishProof,verifyNativePublishProof}=load('lib/native-publish-proof.ts',{'./newsletter-publication-store':{abuseStore:()=>store,reserveQuota:async()=>allowed}});
+    const make=async()=>{const r=await issuePublishProof(request('/api/publish-challenge',{path:'/api/publish'}));assert.equal(r.status,200);const j=await r.json();return {ticket:j.ticket,work:solve(j.ticket)};};
+    assert.equal((await issuePublishProof(request('/api/publish-challenge',{path:'/api/chat'}))).status,400);
+    const {ticket,work}=await make();
+    assert.ok(!ticket.includes(values.get('signing-key-v1').secret));
+    const headers={'x-bulten-proof':ticket,'x-bulten-work':work};
+    assert.equal((await verifyNativePublishProof(request('/api/unpublish',{},headers))).status,403);
+    assert.equal((await verifyNativePublishProof(request('/api/publish',{}, {...headers,'x-nf-client-connection-ip':'different-ip'}))).status,403);
+    assert.equal((await verifyNativePublishProof(request('/api/publish',{}, {...headers,'x-bulten-proof':ticket.slice(0,-1)+(ticket.endsWith('A')?'B':'A')}))).status,403);
+    const race=await Promise.all([verifyNativePublishProof(request('/api/publish',{},headers)),verifyNativePublishProof(request('/api/publish',{},headers))]);
+    assert.equal(race.filter(x=>x===null).length,1);assert.equal(race.filter(x=>x?.status===403).length,1);
+    const expired=await make(),now=Date.now;
+    try{Date.now=()=>now()+120001;assert.equal((await verifyNativePublishProof(request('/api/publish',{}, {'x-bulten-proof':expired.ticket,'x-bulten-work':expired.work}))).status,403);}finally{Date.now=now;}
+    allowed=false;assert.equal((await issuePublishProof(request('/api/publish-challenge',{path:'/api/publish'}))).status,429);
+    assert.equal((await verifyNativePublishProof(request('/api/publish',{}))).status,403);
+  }finally{for(const k of Object.keys(process.env))if(!(k in env))delete process.env[k];Object.assign(process.env,env);}
 });

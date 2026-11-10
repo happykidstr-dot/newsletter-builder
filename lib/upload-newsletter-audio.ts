@@ -27,7 +27,7 @@ async function encodePart(blob:Blob):Promise<string>{
 }
 async function postAudio(value:unknown,headers:Record<string,string>):Promise<Record<string,unknown>>{
   const response=await fetch('/api/audio',{
-    method:'POST',headers:{'Content-Type':'application/json',...headers,...(await anonymousWriteHeaders())},
+    method:'POST',headers:{'Content-Type':'application/json',...headers,...(await anonymousWriteHeaders('/api/audio'))},
     body:JSON.stringify(value),
   });
   const result=await response.json().catch(()=>({}));

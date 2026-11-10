@@ -52,9 +52,9 @@ test('Netlify function routes also independently reject anonymous and nonallowli
   assert.doesNotMatch(publication,/publisherAuthEnabled\(\)&&!owner/);
   assert.doesNotMatch(publication,/let verifiedPublisher:string\|undefined/);
 });
-test('media upload browser forwards Supabase token and anonymous readers remain public',()=>{
+test('media upload browser includes a per-operation proof and anonymous readers remain public',()=>{
   const media=read('lib/publish-newsletter-media.ts');
-  assert.match(media,/anonymousWriteHeaders\(\)/);
+  assert.match(media,/anonymousWriteHeaders\('\/api\/media'\)/);
   assert.match(read('netlify/functions/newsletter-media.ts'),/req\.method==='GET'/);
   assert.match(read('netlify/functions/newsletter-publication.ts'),/req\.method==='GET'/);
   assert.match(read('app/api/account/privacy/route.ts'),/requireSignedInUser\(\)/);

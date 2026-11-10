@@ -1,3 +1,4 @@
+import {nativeWriteHeaders} from './native-publish-work';
 /* Request a fresh, single-use Turnstile challenge for every public write. */
 type TurnstileApi={
  render:(container:HTMLElement,options:Record<string,unknown>)=>string;
@@ -16,7 +17,8 @@ function loadScript():Promise<void>{
   });
   return scriptPromise;
 }
-export async function anonymousWriteHeaders():Promise<Record<string,string>>{
+export async function anonymousWriteHeaders(path='/api/publish'):Promise<Record<string,string>>{
+  if(process.env.NEXT_PUBLIC_PUBLISH_VERIFICATION_PROVIDER!=='turnstile')return nativeWriteHeaders(path);
   const sitekey=process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   if(!sitekey)throw new Error('Yayınlama güvenlik ayarları henüz tamamlanmadı.');
   await loadScript();
